@@ -21,6 +21,16 @@ python ${FORGE_HOME}/scripts/security_audit.py <repo> [--allow 前缀1,前缀2] 
 
 ### SEC-2 明文密钥
 
+**文件名判据（2026-11-15 新增，来源：外部深审 A464 第 3 条 / A472 第 4 条）**
+- 一票否决（名字本身即泄露）：`id_rsa` / `id_dsa` / `id_ecdsa` / `id_ed25519`（前缀匹配，`id_rsa.bak` 也算）、
+  `.netrc` / `_netrc` / `private_key`，以及扩展名 `.pfx` / `.p12` / `.kdbx` / `.ppk`。
+- 按内容判：`.npmrc` / `.pypirc` 只在含 `_auth` / `_authToken` / `password` / `token` 时计，报告只出标记名不出值。
+- 只算真盲区、不阻断：`.pem`（常是公钥证书）、`.key`（Next.js 本地化文件）、`.jks` / `.keystore`（调试库）、
+  `.pypirc` 无凭据时。理由：一票否决项的误报代价比漏报大。
+- 已知边界：把文件改名成 `foo.bin` 不覆盖；内容里没有明文头的加密容器不覆盖。判据与 `security_audit.py` 的
+  `SECRET_FILE_HARD` / `SECRET_KEY_PREFIXES` / `AUTH_GATED_NAMES` 三处常量一致，改一处要同步改另两处。
+
+
 要求：仓库内不得出现任何可用凭据（token、API key、私钥、password 形态赋值）。
 机器查：GitHub / OpenAI / AWS / Slack token 形态；`PRIVATE KEY` 块；URL 内嵌凭据（`scheme://user:pass@`）；明文赋值按**标识符拆词**判定 —— 键名按 `_` `.` `-` 与驼峰切词后命中 password / passwd / pwd / secret / token / credential / api_key / access_key / refresh_token 等，或整名含 password·secret·credential 这类高区分度子串（占位值已过滤）。
 值是**代码引用**时不算密钥，这是有意的排除面：属性路径（`args.password`）、全大写常量（`max_tokens=MAX_TOKENS`）、类型标注（`Optional[str]`）、纯数字（`token_count = 1234567890`）、普通 URL 值、与键同名的自引用（`self.password = password`）、函数调用右值。

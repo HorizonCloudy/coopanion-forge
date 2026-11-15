@@ -213,9 +213,37 @@ def check_targets(data, root, targets):
     return results
 
 
+def _rm_tree(path):
+    """删临时目录。Windows 上 git 把对象文件写成只读，unlink 报 WinError 5，必须先 chmod 再重试那个操作。
+
+    两个容易记错的点：
+    - `onerror` 自 Python 3.12 起**弃用**（文档写将在 3.14 换成 `onexc`）。本机 3.15.2 实测它仍被接受、
+      也不告警，所以参数名不是我第一版失败的原因。
+    - 第一版真正错在：处理函数只 `chmod`，**没有重试那个失败的操作**，所以 rmtree 仍然删不掉。
+      现在两个分支都先 chmod 再调 `func(p)`。
+    """
+    def _retry(func, p, _exc):
+        try:
+            os.chmod(p, 0o700)
+        except OSError:
+            pass
+        try:
+            func(p)
+        except OSError:
+            pass
+
+    try:
+        shutil.rmtree(path, onexc=_retry)
+    except TypeError:                       # Python 3.11 及更早只有 onerror
+        shutil.rmtree(path, onerror=lambda f, p, e: _retry(f, p, None))
+    except OSError:
+        pass
+
+
 def _self_test():
     ok = True
     root = tempfile.mkdtemp(prefix="forge-gate-")
+    _tmp = [root]
 
     def base(**kw):
         d = {"schema": SCHEMA_ID, "task": "t", "platform": "cortico@0.2.15",
@@ -330,6 +358,7 @@ def _self_test():
 
         def _mkrepo(files, commit):
             repo = tempfile.mkdtemp(prefix="forge-gate-git-")
+            _tmp.append(repo)
             for name in files:
                 with open(os.path.join(repo, name), "w") as f:
                     f.write("x = 1\n")
@@ -364,6 +393,12 @@ def _self_test():
         except Exception as e:
             ok = False
             print("SELF-TEST FAIL(git): 调用异常", type(e).__name__, e)
+    for _d in _tmp:
+        _rm_tree(_d)
+    left = [d for d in _tmp if os.path.exists(d)]
+    if left:
+        # 不判失败：防软或独占句柄会临时锁住 git 对象文件，那是环境噪声不是门禁缺陷。
+        print("SELF-TEST WARN: 自检临时目录没清掉（可手动删）:", left)
     print("SELF-TEST:", "PASS" if ok else "FAIL")
     return 0 if ok else 1
 

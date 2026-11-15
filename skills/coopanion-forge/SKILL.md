@@ -114,7 +114,8 @@ TDD、极简工程、安全门禁和运行时验证把交付物钉死在"真的�
 
 - 各工作流的阶段表、验收清单、失败处理见 `references/workflows.md`。
 - 派工前先判任务规模（`references/task-size-routing.md`）：小改动只派 lead + dev + tdd，
-  architect / simplifier / reviewer 按需。契约门禁与安全门禁不随规模豁免。
+  architect / simplifier / reviewer 按需。小改动一旦要写代码，先由 market-research 跑 1a 快速档
+  （3 条检索串，回 `Reused / Change / Risk` 三行）。契约门禁、1a 与安全门禁不随规模豁免。
 
 ## 5. 按任务查（progressive disclosure）
 

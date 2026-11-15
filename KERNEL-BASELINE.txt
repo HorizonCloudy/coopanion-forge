@@ -1,7 +1,7 @@
 coopanion-forge 内核基线
 upstream repo=C:/Users/54301/plugin-forge-publish
-ref sha=bd9c9d8
-full=bd9c9d8afe91f88022981e0eea80fe08d98ebdde
+ref sha=5282d40
+full=5282d402f8bfe8286d85794d0091084adbdb06b5
 synced by tools/sync_kernel.py --apply
 平台改写清单 platform/deltas.json；整件覆盖 platform/overrides/；移植件 scripts/profile_drift.py（上游原文落在仓库外的 -kernel-incoming/）
 

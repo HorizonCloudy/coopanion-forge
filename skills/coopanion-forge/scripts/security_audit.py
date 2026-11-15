@@ -24,7 +24,7 @@
 设计参照：清单形状检查与「盲区不得当作放行」两点取自 jusspound-netizen/dsh-plugin-scanner
 （bb8dc7cd，2026-11-14；该仓库无 LICENSE 文件，本文件为独立实现，未复制其代码）。
 """
-import sys, os, re, json, argparse, tempfile
+import sys, os, re, json, argparse, tempfile, shutil
 
 SKIP_DIRS = {".git", "node_modules", "__pycache__", ".venv", "venv", "dist",
              "build", ".pytest_cache", ".mypy_cache", ".tox"}
@@ -174,8 +174,16 @@ SECRET_FILE_NAMES = {".netrc", "_netrc", ".npmrc", ".pypirc",
                      "id_rsa", "id_dsa", "id_ecdsa", "id_ed25519"}
 # 名字本身就等于泄露的那一类：不看内容也计 SEC-2（一票否决）。故意不含 .pem 与 .key——
 # 前者常是公钥证书，后者在 Next.js 里是本地化文件，按名字阻断会误伤；它们留在盲区账里。
-SECRET_FILE_HARD = {".pfx", ".p12", ".kdbx", ".ppk", ".jks", ".keystore"}
-SECRET_FILE_HARD_NAMES = SECRET_FILE_NAMES | {"private_key", "server.key"}
+# 收窄后的名单（外部审 A472 第 4 条）：一票否决只留给名字本身即泄露的形态。
+# 旧版把 .npmrc / .jks / .keystore / server.key 也算进来，与「误报代价比漏报大」相违：
+# .npmrc 常常只写 registry=，Android 示例仓库常带调试 keystore，Next.js 的本地化文件就叫 *.key。
+SECRET_FILE_HARD = {".pfx", ".p12", ".kdbx", ".ppk"}
+SECRET_FILE_HARD_NAMES = {".netrc", "_netrc", "private_key"}
+# 前缀匹配：id_rsa.bak、id_ed25519.old 这类改名也要命中。
+SECRET_KEY_PREFIXES = ("id_rsa", "id_dsa", "id_ecdsa", "id_ed25519")
+# 这两个配置文件按内容判：只有真的写了凭据才计 SEC-2，报告里只出标记名、不出值。
+AUTH_GATED_NAMES = {".npmrc", ".pypirc"}
+AUTH_MARKER_RE = re.compile(r"(_auth\s*=|_authToken\s*=|password\s*=|token\s*=)")
 
 
 def secret_name_hits(root, allow):
@@ -189,15 +197,35 @@ def secret_name_hits(root, allow):
         for fn in sorted(fns):
             low = fn.lower()
             ext = os.path.splitext(low)[1]
-            if ext not in SECRET_FILE_HARD and low not in SECRET_FILE_HARD_NAMES:
+            if (ext not in SECRET_FILE_HARD and low not in SECRET_FILE_HARD_NAMES
+                    and not low.startswith(SECRET_KEY_PREFIXES) and low not in AUTH_GATED_NAMES):
                 continue
             rel = os.path.relpath(os.path.join(dp, fn), root).replace("\\", "/")
+            full = os.path.join(dp, fn)
             if any(rel == a or rel.startswith(a + "/") for a in allow):
                 continue
-            out.append({"file": rel, "line": 1,
-                        "note": "私钥材料文件入库（按文件名判定，未读内容）",
-                        "snippet": fn})
+            hard = (ext in SECRET_FILE_HARD or low in SECRET_FILE_HARD_NAMES
+                    or low.startswith(SECRET_KEY_PREFIXES))
+            if not hard and low in AUTH_GATED_NAMES:
+                hard = bool(auth_marker(full))
+            if not hard:
+                continue
+            note = "私钥材料文件入库（按文件名判定，未读内容）"
+            if low in AUTH_GATED_NAMES:
+                note = "凭据配置文件含明文凭据（只报标记名，不报值）：" + auth_marker(full)
+            out.append({"file": rel, "line": 1, "note": note, "snippet": fn})
     return out
+
+
+def auth_marker(full):
+    """读凭据配置文件，返回命中的标记名；读不到或没有标记就返回空串。只回标记，不回值。"""
+    try:
+        with open(full, "rb") as f:
+            head = f.read(4096).decode("utf-8", "replace")
+    except OSError:
+        return ""
+    m = AUTH_MARKER_RE.search(head)
+    return m.group(1).split("=")[0].strip() if m else ""
 
 
 def blind_kind(entry):
@@ -471,17 +499,53 @@ def _self_test():
     if ".pem" in CODE_EXTS | CONFIG_EXTS | DOC_EXTS:
         helper_bad.append(".pem 不该进可读池：里面的私钥会被抄进报告")
     # 端到端：真造一个目录跑 iter_files / scan，而不是只喂字面量给 blind_kind。
+    # 夹具里的密钥形状一律拆写（见 :400 那条规则）——这个文件会被自己扫，
+    # 完整的 "-----BEGIN … PRIVATE KEY-----" 或 "password = …" 字面量会让自己被一票否决。
     e2e = tempfile.mkdtemp(prefix="forge-audit-e2e-")
+    def _w(name, text):
+        with open(os.path.join(e2e, name), "w", encoding="utf-8") as fh:
+            fh.write(text)
+    _w("id_ed25519.bak", "renamed key material\n")
+    _w("app.jks", "binary-ish\n")
+    _w(".npmrc", "registry=https://registry.npmjs.org\n")
+    _w(".pypirc", "[distutils]" + chr(10) + "pass" + "word = hunter2" + chr(10))
     with open(os.path.join(e2e, "srv.pem"), "w", encoding="utf-8") as f:
-        f.write("-----BEGIN RSA PRIVATE KEY-----\nMIIB\n")
+        f.write("-----BEGIN " + "RSA PRIVATE KEY-----" + chr(10) + "MIIB" + chr(10))
     with open(os.path.join(e2e, "id_rsa"), "w", encoding="utf-8") as f:
-        f.write("-----BEGIN OPENSSH PRIVATE KEY-----\n\n")
-    _sc, _fd, _sk, _un, _ad = scan(e2e, False, [])
+        f.write("-----BEGIN " + "OPENSSH PRIVATE KEY-----" + chr(10))
+    try:
+        _sc, _fd, _sk, _un, _ad = scan(e2e, False, [])
+    finally:
+        shutil.rmtree(e2e, ignore_errors=True)   # 自检不留一堆带私钥的临时目录
+    if os.path.exists(e2e):
+        helper_bad.append("自检临时目录没清掉：" + e2e)
+    sec2 = {h["file"] for h in _fd["SEC-2"]}
+    if "id_ed25519.bak" not in sec2:
+        helper_bad.append("改名后的 id_ed25519.bak 没被前缀匹配命中")
+    if ".pypirc" not in sec2:
+        helper_bad.append(".pypirc 写了 password 却没计 SEC-2")
+    if ".npmrc" in sec2:
+        helper_bad.append("只含 registry= 的 .npmrc 被误计成 SEC-2（一票否决项不该误报）")
+    if "app.jks" in sec2:
+        helper_bad.append(".jks 已退回盲区，不该再计 SEC-2")
     if blind_kind("srv.pem（密钥材料文件 .pem，内容不读）") == "excluded" \
             or not any("密钥材料" in s for s in _sk):
         helper_bad.append("iter_files 没把 .pem 记成密钥材料盲区：%s" % _sk)
     if not any(h["file"] == "id_rsa" for h in _fd["SEC-2"]):
         helper_bad.append("id_rsa 按文件名没计进 SEC-2，入库私钥仍会被放行")
+    # 自扫护栏：把本文件复制进临时目录扫一遍。夹具里若留了未拆写的密钥字面量，
+    # 本文件会被自己一票否决（A472 第 1 条就是这么被抓的，当时只有手工扫才发现）。
+    own = tempfile.mkdtemp(prefix="forge-audit-own-")
+    try:
+        shutil.copy(__file__, os.path.join(own, "security_audit.py"))
+        _s2, _f2, _k2, _u2, _a2 = scan(own, False, [])
+        if _f2["SEC-2"]:
+            helper_bad.append("本文件出现会被自己判 SEC-2 的字面量（夹具要拆写）：%s"
+                              % [(x["line"], x["note"]) for x in _f2["SEC-2"]][:4])
+    except OSError as e:
+        helper_bad.append("自扫护栏没跑成：" + type(e).__name__)
+    finally:
+        shutil.rmtree(own, ignore_errors=True)
     if len(manifest_gaps("package.json", '{"name":"x"}')) < 2:
         helper_bad.append("package.json 缺 license/repository 没报出来")
     # Cortico 扩展清单必填：cortico 块 + type=module，与装载器同口径
