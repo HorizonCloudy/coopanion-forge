@@ -58,11 +58,12 @@ N.E.K.O 平台插件不归本团。N.E.K.O 的插件工作走上游 HorizonCloud
 
 ### Codex
 
-把 `skills/coopanion-forge/` 复制到 `~/.codex/skills/coopanion-forge/`。把 `agents/*.md` 复制到 `~/.codex/agents/`。
+推荐跑脚本：`python -I tools/install_hosts.py`（预演），确认后加 `--apply`。
+手工做法：把 `skills/coopanion-forge/` 复制到 `~/.codex/skills/coopanion-forge/`，把 `agents/*.md` 复制到 `~/.codex/agents/`，把 `codex/prompts/coopanion-forge.md` 复制到 `~/.codex/prompts/`。手工复制要自己完成下面三条规则里的事。
 
 ### zcode
 
-把 `agents/*.md` 放进 `~/.zcode/agents/`。把 `skills/coopanion-forge/` 放进 `~/.zcode/skills/coopanion-forge/`。
+`python -I tools/install_hosts.py --hosts '~/.zcode' --apply`，或手工把 `agents/*.md` 放进 `~/.zcode/agents/`、把 `skills/coopanion-forge/` 放进 `~/.zcode/skills/coopanion-forge/`。
 
 ### 复制时要做到的三点
 
@@ -73,6 +74,8 @@ N.E.K.O 平台插件不归本团。N.E.K.O 的插件工作走上游 HorizonCloud
 2. `agents/*.md` 里的 `${FORGE_HOME}` 要换成该宿主的 skill 目录绝对路径。
 3. Claude Code 不认 `displayName`、`profession`、`maxTurns` 这三个 frontmatter 键，
    装到 `~/.claude/agents/` 时要去掉。Codex 与 zcode 保留。
+
+脚本 `tools/install_hosts.py` 默认覆盖 `.codex`、`.claude`、`.zcode`，`--hosts` 可加别的宿主目录。它跑 `--self-test` 是 8 项检查，已在 CI 里。
 
 只复制 git 跟踪的文件。工作区里的 `_draft-p*.md`、`_GATE-PROFILE.md`、`*.bak-anchors`
 与 `__pycache__/` 是本机工作产物，不进宿主。脚本不删宿主里的独有文件，
@@ -118,7 +121,7 @@ agents/                          人设文件；编制唯一来源是 roster.jso
 skills/coopanion-forge/references/  宪法、工作流手册、平台契约 profile-coopanion.md、风格与自检清单
 skills/coopanion-forge/scripts/     check_contract_approval.py（契约门禁）、security_audit.py（安全扫描）
 scripts/                         generate_roster_tables.py（名册表生成）
-tools/                           sync_kernel.py（内核基线同步）
+tools/                           sync_kernel.py（内核基线同步）、install_hosts.py（装到各宿主）
 platform/kernel-deltas/          与上游内核的平台差异清单
 .claude-plugin/                  plugin.json、marketplace.json
 .github/workflows/               sync-check CI：名册漂移、门禁自检
