@@ -53,3 +53,12 @@ Pal-AI-Lab 的四个仓库与官方指南站是**证据源**，本仓不内嵌�
 3. 门禁脚本 `check_contract_approval.py` 只校验记录，验不了签发人身份，也不会自动触发。
    `issued_by` 是自证字符串（见上游 plugin-forge issue #4）。宿主级强制需另配 PreToolUse hook。
 4. 名册与文档表由 `scripts/generate_roster_tables.py` 从 `roster.json` 生成。手改标记区会被 `--check` 判失败。
+5. 移植件 `scripts/profile_drift.py` 的 ack 记在 69cde01（取自该文件头的自述
+   「移植自 plugin-forge 内核 69cde01」）。但本仓副本里已经有 `body_state()`，
+   那是上游 bd9c9d8 才加进去的修法（200 无正文＝文件过大，不算上游 404）。
+   两处对不上：文件头的自述过期，或者 ack 取低了。2026-11-15 起
+   `platform/port-ack.json` 是台账，`tools/sync_kernel.py --check` 因此报 1 条漂移并退 1。
+   旧实现只看「上游相对上次基线动没动」，基线一升就再也看不见这段差距，所以以前报 17/17 一致。
+   这一条不是新坏的，是原来就坏、现在第一次被看见。
+   待办：人工比对本仓副本与上游 5282d40 的语义差，确认后跑
+   `python -I tools/sync_kernel.py --port-done --ref 5282d40`，并把该文件头的自述改成实际对齐的 sha。

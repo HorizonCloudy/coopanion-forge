@@ -86,9 +86,16 @@ python skills/coopanion-forge/scripts/security_audit.py --self-test
 ```
 python -I tools/sync_kernel.py --check
 python -I tools/sync_kernel.py --check --ref <sha>
+python -I tools/sync_kernel.py --self-test
 ```
 
 `--check` 只报漂移，不写文件。`--apply` 搬内核并记录基线 sha。退出码 0 表示一致，1 表示有漂移，2 表示上游 ref 读不到。
+
+移植件（`scripts/profile_drift.py`）不走自动覆盖：`--apply` 只把上游原文放到仓库外的
+`-kernel-incoming/`。本仓副本对到哪个上游 sha，记在 `platform/port-ack.json`。
+上游到了新 sha 而 ack 还是旧值，`--check` 就报「移植件待手搬」并退 1。
+手搬完再跑 `python -I tools/sync_kernel.py --port-done --ref <sha>` 确认。
+没搬就 ack 会被拒：`-kernel-incoming/` 里没有上游原文时不写台账。
 
 ## 目录
 
