@@ -13,9 +13,10 @@ python -I skills/coopanion-forge/scripts/security_audit.py . \
 
 结果（2026-11-15 之前的记录）：SEC-1 至 SEC-4 各 0 处，总分 **100/100**，真盲区 **0**，结论「放行」。
 
-2026-11-15 复跑：SEC-1 0 处、**SEC-2 2 处**、SEC-3 0 处、SEC-4 0 处，总分 **85/100**，结论「修完再放」。两处 SEC-2 全在 `data/cmd_config.json` 第 229-230 行：`password` 与 `pbkdf2_password` 的真实哈希值。这个目录不是本仓写的，是宿主把运行数据落在了工作树里。它没进版本库（`git log --all -- data` 空），但以前也不在 ignore 名单里，`git add -A` 就会提上去。已加进 `.git/info/exclude`（本机私有，不随包发）。扫描器走文件系统，所以只要 `data/` 还在这个工作树里，这一项就还是 85/100。改法是把宿主的 data/logs 挪到仓库外，与本节下面那条「产物类目录一律落在仓库外」的既定口径一致。
+2026-11-15 复跑：SEC-1 0 处、**SEC-2 2 处**、SEC-3 0 处、SEC-4 0 处，总分 **85/100**，结论「修完再放」。两处 SEC-2 全在 `data/cmd_config.json` 第 229-230 行：`password` 与 `pbkdf2_password` 的真实哈希值。这个目录不是本仓写的，是宿主把运行数据落在了工作树里。它没进版本库（`git log --all -- data` 空），但以前也不在 ignore 名单里，`git add -A` 就会提上去。已加进 `.git/info/exclude`（本机私有，不随包发）。
+2026-11-16 闭环：两个目录整体挪到仓库外 `C:/Users/54301/coo-worktree-artifacts-20261116/`（搬走，没删，可挪回）。复跑扫描 SEC-1 至 SEC-4 各 0 处、总分 **100/100**、放行。
 
-同日还按 SKILL.md「文档内不写死宿主路径」那条规则清了发布件里的宿主绝对路径：cortico-notes.md、profile-coopanion.md、profile-botcompat.md 三份换成 <HOST>、<SURVEY>、<ENVS>、<THIS-REPO> 占位符并各加图例；_ASSEMBLE.md、_GATE-PROFILE.md 与 _draft-p1..p4 被 .gitignore 挡住，只在本机存在，同样改了。
+同日还按 SKILL.md「文档内不写死宿主路径」那条规则清了发布件里的宿主绝对路径：已入库的 cortico-notes.md 与 profile-coopanion.md 换成 <HOST>、<SURVEY>、<ENVS>、<THIS-REPO> 占位符并各加图例；profile-botcompat.md 还是未跟踪的半成品，同样改了但没入库；_ASSEMBLE.md、_GATE-PROFILE.md 与 _draft-p1..p4 被 .gitignore 挡住，只在本机存在，同样改了。
 
 ### 豁免清单与依据
 
@@ -57,7 +58,7 @@ Pal-AI-Lab 的四个仓库与官方指南站是**证据源**，本仓不内嵌�
 3. 门禁脚本 `check_contract_approval.py` 只校验记录，验不了签发人身份，也不会自动触发。
    `issued_by` 是自证字符串（见上游 plugin-forge issue #4）。宿主级强制需另配 PreToolUse hook。
 4. 名册与文档表由 `scripts/generate_roster_tables.py` 从 `roster.json` 生成。手改标记区会被 `--check` 判失败。
-5. `data/` 与 `logs/` 是宿主运行数据，落在工作树里，违反本节「产物类目录一律落在仓库外」的口径。`data/cmd_config.json` 里有真实口令哈希。已用 `.git/info/exclude` 挡住误提交，但文件还在盘上，扫描分数因此停在 85/100。要回到 100 得把它们挪出仓库目录。
+5. 已闭环（2026-11-16）：宿主运行数据 `data/`、`logs/` 曾落在工作树里，`data/cmd_config.json` 带真实口令哈希。现已挪到仓库外 `C:/Users/54301/coo-worktree-artifacts-20261116/`，扫描回到 100/100。`.git/info/exclude` 里那两行留着，防止以后再落回来时被打进版本库。
 6. 移植件 `scripts/profile_drift.py` 的 ack 现为 ac9af4d（2026-11-15 手搬完上游 d98fd1e 的两处修法后 `--port-done` 确认）。当时的起点是 69cde01（取自该文件头自述
    「移植自 plugin-forge 内核 69cde01」）。但本仓副本里已经有 `body_state()`，
    那是上游 bd9c9d8 才加进去的修法（200 无正文＝文件过大，不算上游 404）。
