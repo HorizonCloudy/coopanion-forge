@@ -1,12 +1,13 @@
 # profile：Cortico / Coopanion
+> 路径占位符（本机才有具体值，公开仓库的访客请自行替换）：`<HOST>` = 宿主安装目录下的 Coopanion 根；`<SURVEY>` = 本地调查产物根；`<ENVS>` = 本地运行产物根；`<THIS-REPO>` = 本仓克隆。SKILL.md 定过「文档内不写死宿主路径」。
 
-> **两种出处的差别**：形如 `文件:行`（如 `src/extensions/manifest.ts:129`）是**可复核锚**，
+> **两种出处的差别**：形如 `文件:行`（写成 `某目录/某文件.ts:129` 这种形状）是**可复核锚**，
 > 指上游公开仓库里的位置，⓪ 陈旧门禁逐条核它。形如 `(07-templates §7)` 的是**调研档案标记**，
 > 指本团 2026-11-15 的一次性取证记录，不随本仓库分发，也不能当成复核凭据。两者不可互相顶替：
 > 只带档案标记、没有文件行号或官方文档 URL 的结论，一律按 `[未核验]` 对待。
 
 > 核验日期：2026-11-15；核验方式 = 四仓快照 + 本机宿主内置副本 + 索引仓全量现算。
-> 证据只读 `C:/Users/54301/tmp/coo-survey/reports/`。出处写成（文件 §节）。行号紧跟路径。
+> 证据只读 `<SURVEY>/reports/`。出处写成（文件 §节）。行号紧跟路径。
 
 ## 先跑这个
 
@@ -626,7 +627,7 @@ CORTICO_COMPANION_DATA=<空目录> pnpm run dev   # 宿主开发模式，干净�
 
 ### 7.2 真实存在的路由（宿主 `<cortico>/src/web/server.ts`，2506 行，行号 = 注册行）
 
-宿主路径缩写：`<cortico>` = E:/Users/54301/AppData/Local/Programs/Coopanion/resources/app/build/cortico（宿主内置只读副本）。(09-webui-routes §1)(21-local-runtime §8)
+宿主路径缩写：`<cortico>` = <HOST>/resources/app/build/cortico（宿主内置只读副本）。(09-webui-routes §1)(21-local-runtime §8)
 
 | 路由 | 行号 | 回执 |
 |---|---|---|
@@ -667,7 +668,7 @@ const state: ExtensionInfo['state'] = spec === undefined ? 'removed'
   : r.loaded ? 'loaded' : r.idle ? 'idle' : 'failed';
 ```
 
-（src/extensions.ts:848-850，逐字）(10-market-install §7)。
+（src/extensions.ts:848-850，`state` 那三行赋值，逐字）(10-market-install §7)。
 3. `loaded: true` 只在 import 成功且 id 登记成功才置位。bot 在 src/extensions.ts:376，world/provider 在 src/extensions.ts:426。(10-market-install §7)
 4. 判定标准一句话：`GET /api/extensions` 里该包 `state` 为 `"loaded"` 才算加载成功；bot 未激活时 `idle` 不算失败。(10-market-install §7)
 5. 新装与卸载都要重启进程才生效。install/uninstall 回执都带 `restartRequired: true`。(10-market-install §7)
@@ -807,7 +808,7 @@ curl -s http://127.0.0.1:17788/api/extensions
 
 ### 10.2 figure.json 字段与错误码
 
-- 一手源 `packages/cortico-world-desktop-pet/src/packs.ts`，449 行。`readManifest` 返回错误字符串 = 整包拒载（loaded=false）；软问题进 `skipped` 清单、包照载。错误码消息键共 41 个：33 硬拒 + 7 软丢弃 + 1 目录级（`idTaken`，由 scanPacks 产生）。(12-figure-manifest §1、§3、§6)
+- 一手源 `packages/cortico-world-desktop-pet/src/packs.ts`：定义 `readManifest` 在 :297，返回错误字符串就走整包拒载 `loaded: false` 在 :391，软问题进 `skipped` 清单、包照载在 :394。读于 Coopanion main 8829fd4f，2026-11-15。旧记的那一行落在一个孤立的右花括号上，已作废。错误码消息键共 41 个 = 33 硬拒 + 7 软丢弃 + 1 目录级 `idTaken`，由 scanPacks 产生 `[未核验]`。2026-11-15 只在本文件数到 11 个 `t.*` 键与 15 处 `return t.`；消息表 `PackText = PetText['packs']` 在别的文件里，这次没打开，所以 41 是旧值沿用，不当已核。(12-figure-manifest §1、§3、§6)
 - 必填（错一个值 = 整包拒载）：figure.json 存在（`noManifest`）、JSON 合法（`badJson`）、`manifest`/`api` 须整数、`id` 过 `ID`（`badId`；`id==='coo'` 且非内置 = 错）、`name`/`about` 各至少一个非空 trim 串（`noName`/`noAbout`）、`entry`/`export`（`badEntry`）、`vocab` 实为必填数组（`vocabNotArray`）。(12-figure-manifest §3)
 - 正则逐字：`ID = /^[a-z0-9][a-z0-9-]{0,31}$/`；`OPTION_ID = /^[a-z0-9]{1,24}$/`（轴选项禁 `-`，因 `skin.scheme` 用 `-` 连选项 id）；`SOUND_NAME = /^[a-z][a-zA-Z0-9-]{0,31}$/`；`PARAM_ID = /^[a-z][a-zA-Z0-9]{0,23}$/`；`HEX = /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i`；`NAME_BREAK = /[,，、\s【】<>＜＞]/`；vocab 名 ≤32（`INLINE_TAG_MAX`）。(12-figure-manifest §2、§5)(14-figure-dress-skin §4)
 - 路径守卫 `inside()`：空串、以 `/` 开头、含 `..` 段、协议前缀 `^[a-z]+:/i`、含 `<>`、双引号或控制字符（`\x00-\x1f`），都拒。冒号不在字符类 `[<>"\x00-\x1f]` 里，只被协议前缀拦。(12-figure-manifest §2)
@@ -857,7 +858,7 @@ curl -s http://127.0.0.1:17788/api/extensions
 - 无 npm、无市场：market catalog 的 kinds 只有 world/bot/provider 三类，没有 figure 种类。安装 = 目录复制进 `<dataDir>/figures/<id>/`，不写 npm 依赖表。(21-local-runtime §9)(15-figure-import §4、§6)
 - 官方作者流程：写完对照文档检查每个字段和路径，打成 zip，在 Coopanion 设置窗口「装扮」页导入。也接受文件夹直选或拖拽。(19-guide-site §make-figure)(15-figure-import §1)
 - Steam 渠道另有一条 root：工坊物品根目录直接放 figure.json，一层一个包。Steam 版不内置 whale，改由工坊发布，包 id 保持 `whale`。(15-figure-import §10)
-- 本机安装根 `E:/Users/54301/AppData/Local/Programs/Coopanion/data/home/companion/data/figures/` 含 holo-whale（v1.0.0，37 词，1 轴 3 项，无 presets，素材 97 文件 / 3107054 B）与 whale-all（v2.1.0，37 词 id 同 holo-whale，2 轴 9+12 项，9 presets 全 deepseek-* 形式，素材 631 文件 / 25723070 B）。已装扫描只枚举直接子目录。(21-local-runtime §5.1、§5.2)(15-figure-import §6)
+- 本机安装根 `<HOST>/data/home/companion/data/figures/` 含 holo-whale（v1.0.0，37 词，1 轴 3 项，无 presets，素材 97 文件 / 3107054 B）与 whale-all（v2.1.0，37 词 id 同 holo-whale，2 轴 9+12 项，9 presets 全 deepseek-* 形式，素材 631 文件 / 25723070 B）。已装扫描只枚举直接子目录。(21-local-runtime §5.1、§5.2)(15-figure-import §6)
 - 口径说明：13 号报告 find maxdepth 3 为空、写「本机没有已安装形象包」；21 号报告在更深路径列出 2 包。前者深度不够漏搜，本稿以 21 的文件级实证为准。(13-figure-runtime 取不到-4)(21-local-runtime §5)
 - 本机 config 实据：`skin.figure = "whale-all"`、`scheme = "qwen-knit"`（轴组合串，不是 preset id）。四包 vocab 37 个 id 一致。装包来源查不到：core.log 关键词 grep 0 行命中，「外部导入或人工落盘」是推测。(21-local-runtime §6、§9)(20-pet-tool-catalog §5) [未核验]
 - 内置 coo 与 whale 在宿主只读目录 `resources/app/node_modules/cortico-world-desktop-pet/web/coo/` 与 `web/whale/`，包版本 0.2.0。(14-figure-dress-skin §5)(16-coopanion-app §2)
@@ -871,7 +872,7 @@ curl -s http://127.0.0.1:17788/api/extensions
 
 ## ⓪ 陈旧门禁（必填，用本 profile 前必跑）
 
-每条探针锚定一个「破坏性变更会删/改的文件、符号或端点」，不用标题搜索类模糊信号。锚在 → 对应章节有效；锚消失 → 按上游新 main 重核后才准用，重核不了标 [未核验]。P1–P9 全部命令已于 2026-11-15 逐条重跑，输出与记录值一致。宿主副本前缀：`H=E:/Users/54301/AppData/Local/Programs/Coopanion/resources/app/build/cortico`。
+每条探针锚定一个「破坏性变更会删/改的文件、符号或端点」，不用标题搜索类模糊信号。锚在 → 对应章节有效；锚消失 → 按上游新 main 重核后才准用，重核不了标 [未核验]。P1–P9 全部命令已于 2026-11-15 逐条重跑，输出与记录值一致。宿主副本前缀 `H` 是占位符，指向宿主安装目录下的 `resources/app/build/cortico`，跑前替换成你本机的位置。
 
 - **P1 契约档位（决定第 2、7、9A 节）**：`sed -n '23,27p' "$H/src/extensions/manifest.ts"` 应为 `{ world: 6, provider: 6, bot: 7 }`。锚 src/extensions/manifest.ts:23（EXTENSION_API_VERSIONS）。实测通过 2026-11-15。(06-gate-scripts §5) 上游对偶：该文件 GitHub main blob sha = `7ab5a6f06dd81ff8233b71a4f5ecd53b4fc5a441`，与快照 `git hash-object` 一致，即本机副本与上游 main 无漂移。(转引 _PROFILE-DRAFT §⓪ P1)
 - **P2 describe 缺省名与硬失败文案（决定 7.1、9A3）**：`grep -n "DEFAULT_DESCRIBE_FILE = \|has no cortico.describe" "$H/src/extensions/describe-export.ts"` 应命中 src/extensions/describe-export.ts:19 与 src/extensions/describe-export.ts:157。第二条消失 → 「坏路径在 check 里等同缺席、缺席是硬失败」需重核。实测通过 2026-11-15。(转引 _PROFILE-DRAFT §⓪ P2)
@@ -881,7 +882,7 @@ curl -s http://127.0.0.1:17788/api/extensions
 - **P6 上一版过渡层（决定 9A2 的失效预告）**：`ls "$H/src/extensions/previous-contract.ts"`。文件在 → api 5/5/6 仍是「warning + check 拒」；文件消失 = 过渡层已删 → api 5/5/6 变直接拒载，9A2 重写。实测通过 2026-11-15。(06-gate-scripts §5)
 - **P7 上游四仓 HEAD（整体新鲜度）**：`gh api repos/Pal-AI-Lab/<仓>/commits/main --jq '.sha + " " + .commit.committer.date'` 逐仓。读于 2026-11-15：Cortico `83623831133a01679db5b5459eea7d11be590988`（2026-11-12T20:02:14Z，快照锚点未动）；Coopanion `8829fd4fd0916f2c65f824daa63e503eff042b8a`（2026-11-14T02:53:32Z，未动）；Cortina `244b2d05d380d7ae93d980ec143a432aff51b00a`（2026-10-22T05:06:03Z，未动）；cortico-extensions 已到 `3e02384adfb28808962511be98c2cde3c3d933dc`（2026-11-15T05:33:55Z），比第 8 节快照新一次同步。sha 变 → 对应章节重核；探针无结果（网络或仓名变）→ 直接标 [未核验]。(转引 _PROFILE-DRAFT §⓪ P7)
 - **P8 Release 通道（宿主是否换新内置内核）**：`gh api repos/Pal-AI-Lab/Cortico/releases/latest` 读得 v0.2.15（2026-11-12T20:02:18Z）；Coopanion 读得 v0.2.20（2026-11-12T20:41:57Z）。2026-11-15 重跑仍为这两值。出现更新的 Coopanion release → 第 7 节端口与内置裁剪清单、契约档位一并重核。(转引 _PROFILE-DRAFT §⓪ P8)
-- **P9 快照哈希复核（第 8 节全部分母）**：重跑 `python -I C:/Users/54301/tmp/coo-survey/tools/c01_api_drift.py C:/Users/54301/tmp/coo-survey/snapshot/cortico-extensions` 与 `python -I C:/Users/54301/tmp/coo-survey/tools/c06_publish_hygiene.py C:/Users/54301/tmp/coo-survey/snapshot/cortico-extensions`。应得 catalog 353、describe 313、changelog 284、assets 141、comments 104 五项。2026-11-15 重跑，实测记录即这五项逐项一致（_PROFILE-DRAFT §⓪ P9）。changelog 69、icon 140/213、os 100/253 是 c06 报告值，本探针未复算。(c06-publish-hygiene §1、§2、§4) 数字变 = 快照与引用时点分叉，第 8 节按新快照重算。(转引 _PROFILE-DRAFT §⓪ P9)
+- **P9 快照哈希复核（第 8 节全部分母）**：重跑 `python -I <SURVEY>/tools/c01_api_drift.py <SURVEY>/snapshot/cortico-extensions` 与 `python -I <SURVEY>/tools/c06_publish_hygiene.py <SURVEY>/snapshot/cortico-extensions`。应得 catalog 353、describe 313、changelog 284、assets 141、comments 104 五项。2026-11-15 重跑，实测记录即这五项逐项一致（_PROFILE-DRAFT §⓪ P9）。changelog 69、icon 140/213、os 100/253 是 c06 报告值，本探针未复算。(c06-publish-hygiene §1、§2、§4) 数字变 = 快照与引用时点分叉，第 8 节按新快照重算。(转引 _PROFILE-DRAFT §⓪ P9)
 
 ## 证据不足与 [未核验] 汇总
 

@@ -7,6 +7,10 @@
 skills/coopanion-forge/references/profile-coopanion.md；自检补路由与 PATH_RE 用例。
 其余逻辑与输出格式逐字保留。
 
+2026-11-15 二次手搬上游 d98fd1e 的三处修法：collect 删掉「整行取词」这级兜底并把无符号
+的锚点标 weak；enclosing 补 TS/JS 的顶层定义形状；报告把 weak 单列成「核不了」，
+不再算进「对得上」。上游新增的 404 / 限流 / 正文过大分账（body_state）本仓早已带上。
+
 用途
   profile-coopanion.md 的锚点是「路径 + 紧跟该路径的行号」。行号会随上游漂移，而这份
   profile 是团队的契约来源。本脚本把锚抽出来，对两个上游仓的当前 main 逐条核对：记录的
@@ -203,7 +207,13 @@ def window_nums(seg):
 
 
 def collect(text):
-    """每个路径只看它自己之后、下一个路径之前的那段文字。"""
+    """每个路径只看它自己之后、下一个路径之前的那段文字。
+
+    2026-11-15 手搬上游 d98fd1e：删掉第三级兜底（整行取词）。整行里有路径本身，
+    `src/.../manifest.ts:129` 会抽出 `manifest`，而上游正文里到处写着 manifest。
+    那种锚点自己命中自己，代码搬走了也报「对得上」。段内与反引号里都没有符号时
+    标 weak，交给 check 单独报「核不了」。
+    """
     anchors = []
     for no, line in enumerate(text.split(NL), 1):
         line = EVID.sub(" ", line)
@@ -217,20 +227,23 @@ def collect(text):
             if not nums:
                 continue
             stop = STOPWORDS | EXTRA_STOP
-            toks = [x for sp in CODE_SPAN.findall(line) for x in IDENT_RE.findall(sp)
-                    if x.lower() not in stop and not re.fullmatch(r"[0-9a-fA-F]{7,}", x)]
+            # 路径自己的片段不算 token：`packages/cortico-world-desktop-pet/src/packs.ts`
+            # 会抽出 cortico / world / desktop，这些字在上游正文里到处都有，等于自己核对
+            # 自己。上游 profile 没这级兜底，本仓加了 CODE_SPAN 才暴露这个问题。
+            inpath = set(IDENT_RE.findall(m.group(1)))
+            keep = lambda xs: [x for x in xs
+                               if x.lower() not in stop and x not in inpath
+                               and not re.fullmatch(r"[0-9a-fA-F]{7,}", x)]
+            toks = keep([x for sp in CODE_SPAN.findall(line) for x in IDENT_RE.findall(sp)])
             if not toks:
-                toks = [x for x in IDENT_RE.findall(seg)
-                        if x.lower() not in stop and not re.fullmatch(r"[0-9a-fA-F]{7,}", x)]
-            if not toks:
-                toks = [x for x in IDENT_RE.findall(line)
-                        if x.lower() not in stop and not re.fullmatch(r"[0-9a-fA-F]{7,}", x)]
+                toks = keep(IDENT_RE.findall(seg))
             anchors.append({"line": no, "path": m.group(1), "nums": nums[:10],
                             "tokens": list(dict.fromkeys(toks))[:6],
+                            "weak": not toks,
                             "text": line.strip()[:120]})
     seen, uniq = set(), []
     for an in anchors:
-        k = (an["path"], tuple(an["nums"]))
+        k = (an["path"], tuple(an["nums"]), an["weak"])
         if k not in seen:
             seen.add(k)
             uniq.append(an)
@@ -238,11 +251,20 @@ def collect(text):
 
 
 def enclosing(lines, token, n):
-    """记录行是否落在该标识符的定义域内。装饰器行不含函数名、区间落在函数体内，都属正常。"""
+    """记录行是否落在该标识符的定义域内。装饰器行不含函数名、区间落在函数体内，都属正常。
+
+    上游旧版只认 Python 的 def/class 与 Field/Literal。本平台的 profile 锚点大量落在
+    TS 文件上，那种写法看不见 TS 的定义边界：函数改名或搬走仍报「对得上」。
+    """
     starts = [i for i, ln in enumerate(lines, 1) if token in ln]
     if not starts:
         return False
-    top = re.compile(r"^(?:async\s+)?(?:def|class)\s+\w|^\w.*=\s*(?:Field|Literal)\b")
+    top = re.compile(r"^(?:async\s+)?(?:def|class)\s+\w|^\w.*=\s*(?:Field|Literal)\b"
+                     r"|^(?:export\s+)?(?:default\s+)?(?:async\s+)?"
+                     r"(?:function|class|interface|type|enum|namespace|module|abstract\s+class)\s+\w"
+                     r"|^(?:export\s+)?(?:const|let|var)\s+\w"
+                     r"|^\w[\w$]*\s*\(.*\)\s*\{\s*$"
+                     r"|^\w[\w$]*\s*(?:\([^)]*\))?\s*[:=]\s*(?:async\s*)?\(")
     for s in starts:
         if s > n:
             continue
@@ -257,15 +279,17 @@ def enclosing(lines, token, n):
 
 
 def check(anchors, heads):
-    """逐条核对锚点。状态四种：ok 对得上，drift 行号漂了，gone 上游 404（真结论），
-    unreachable 取不到（限流、断网或该仓 sha 取不到，不是结论）。把 gone 与 unreachable
-    混在一起，一次限流就会被读成「上游把文件删了」。heads 是 {仓名: (sha, 是否缓存)}。"""
+    """逐条核对锚点。状态五种：ok 对得上，drift 行号漂了，gone 上游 404（真结论），
+    unreachable 取不到（限流、断网或该仓 sha 取不到，不是结论），weak 这句话没有符号可
+    比对（探针管不了，也不算核过）。把 gone 与 unreachable 混在一起，一次限流就会被读成
+    「上游把文件删了」。把 weak 算成 ok，就回到旧版的假绿。heads 是 {仓名: (sha, 是否缓存)}。"""
     file_cache, rows = {}, []
     for an in anchors:
         path = an["path"]
         if not an["tokens"]:
-            rows.append(dict(an, status="skipped",
-                             detail="句内没有可核对的标识符，只核到路径存在与否"))
+            rows.append(dict(an, status="weak",
+                             detail="这句话只有路径与行号，没有可比对的符号。上游怎么改都验不出来，"
+                                    "请在 profile 里补一个符号名（函数、字段或类）"))
             continue
         repo = repo_for(path)
         head = heads[repo][0]
@@ -310,7 +334,13 @@ def check(anchors, heads):
 
 def self_test():
     """钉住两处真出过错的形状：状态分类，以及从一句话里抓行号。再钉住本平台新增的
-    前缀路由与 PATH_RE：裸文件名不算锚、URL 不算锚、packages/ 与 web/ 归 Coopanion。"""
+    前缀路由与 PATH_RE：裸文件名不算锚、URL 不算锚、packages/ 与 web/ 归 Coopanion。
+    2026-11-15 又钉两处假绿：整行兜底让路径片段自己命中自己，enclosing 看不见 TS 边界。
+    """
+    def anch(text):
+        got = collect(text)
+        return got[0] if got else {}
+
     cases = [
         (classify(404), "missing"), (classify(403), "limited"), (classify(429), "limited"),
         (classify(500), "net"), (classify(301), "net"),
@@ -329,6 +359,21 @@ def self_test():
         (PATH_RE.findall("`bin/cortico.mjs`、`src/launcher.ts` 子进程"), ["src/launcher.ts"]),
         (PATH_RE.findall("packages/cortico-world-desktop-pet/web/coo/index.js"),
          ["packages/cortico-world-desktop-pet/web/coo/index.js"]),
+        # 2026-11-15 手搬上游 d98fd1e：无符号的锚点必须标 weak。旧版退回整行取词，
+        # 路径片段自己命中自己，代码搬走仍报「对得上」。
+        (anch("见 src/web/server.ts:129 那一处。").get("weak"), True),
+        # 只有路径片段可抽的一句话：路径自己不算 token，否则等于自己核对自己
+        (anch("见 `packages/cortico-world-desktop-pet/src/packs.ts`:449 那处。").get("weak"), True),
+        (anch("见 `packages/cortico-world-desktop-pet/src/packs.ts`:449 那处。").get("tokens"), []),
+        (anch("`src/x/packs.ts`:449 里 readManifest 返回错误字符串").get("weak"), False),
+        (anch("见 src/web/server.ts:129 那一处。").get("tokens"), []),
+        (anch("src/web/server.ts:129 里是 loadManifest 函数").get("weak"), False),
+        # enclosing 要认 TS 的顶层定义：下一个定义关掉作用域时，记录行不算在域内
+        (enclosing(["function handler() {", "  return 1", "}",
+                    "export const WORLD = {", "  k: 1"], "handler", 5), False),
+        (enclosing(["def handler():", "    return 1", "def other():", "    pass"],
+                   "handler", 4), False),
+        (enclosing(["def handler():", "    x = 1", "    return x"], "handler", 3), True),
     ]
     bad = [(i, got, want) for i, (got, want) in enumerate(cases) if got != want]
     for i, got, want in bad:
@@ -375,12 +420,16 @@ def main():
 
     rows = check(anchors, heads)
     unreachable = [r for r in rows if r["status"] == "unreachable"]
+    weak = [r for r in rows if r["status"] == "weak"]
     drift = [r for r in rows if r["status"] in ("drift", "gone")]
+    ok = len(rows) - len(drift) - len(unreachable) - len(weak)
     if a.json:
         print(json.dumps({"upstream": {r: heads[r][0] for r in referenced},
                           "head_from_cache": {r: heads[r][1] for r in referenced},
-                          "anchors": len(rows), "ok": len(rows) - len(drift) - len(unreachable),
-                          "unreachable": len(unreachable), "drift": drift},
+                          "anchors": len(rows), "ok": ok, "weak": len(weak),
+                          "unreachable": len(unreachable), "drift": drift,
+                          "weak_rows": [{"line": r["line"], "path": r["path"],
+                                         "nums": r["nums"]} for r in weak]},
                          ensure_ascii=False, indent=1))
     else:
         for repo in referenced:
@@ -390,15 +439,18 @@ def main():
             print("上游 %s，当前 main = %s%s" % (repo, head[:9],
                   "（取自 %d 小时内的缓存，--fresh 可强制重取）" % (HEAD_TTL // 3600)
                   if from_cache else ""))
-        print("锚点核对 %d 条：对得上 %d，漂移 %d，取不到 %d"
-              % (len(rows), len(rows) - len(drift) - len(unreachable), len(drift), len(unreachable)))
-        for r in (drift + unreachable)[:30]:
+        print("锚点核对 %d 条：对得上 %d，漂移 %d，核不了 %d，取不到 %d"
+              % (len(rows), ok, len(drift), len(weak), len(unreachable)))
+        for r in (drift + unreachable + weak)[:30]:
             print("  [%s] profile 第 %d 行  %s  记录号 %s\n        %s"
                   % (r["status"], r["line"], r["path"], "/".join(map(str, r["nums"][:6])), r["detail"]))
-        if len(drift) + len(unreachable) > 30:
-            print("  ...其余 %d 条用 --json 查看" % (len(drift) + len(unreachable) - 30))
+        if len(drift) + len(unreachable) + len(weak) > 30:
+            print("  ...其余 %d 条用 --json 查看" % (len(drift) + len(unreachable) + len(weak) - 30))
         if unreachable:
             print("结论：%d 条锚点本次无法判定（取不到上游，不算漂移）。" % len(unreachable))
+        elif weak:
+            print("结论：%d 条锚点没有可比对的符号，只有路径与行号，这几条不算核过。"
+                  "把符号名补进 profile 那句里，探针才管得住它。" % len(weak))
         else:
             print("结论：" + ("全部锚点在当前 main 上仍对得上。" if not drift else
                             "行号已漂。按 detail 更新行号，或把锚点降成「只写标识符 + 读于 <sha>」。"))
