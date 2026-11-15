@@ -64,6 +64,20 @@ N.E.K.O 平台插件不归本团。N.E.K.O 的插件工作走上游 HorizonCloud
 
 把 `agents/*.md` 放进 `~/.zcode/agents/`。把 `skills/coopanion-forge/` 放进 `~/.zcode/skills/coopanion-forge/`。
 
+### 复制时要做到的三点
+
+手工复制会漏掉这三点，装出来的副本看着在、跑起来报错：
+
+1. `skills/` 下的文件按字节复制，不要做文本往返。`${FORGE_HOME}` 是 SKILL.md 自己解释的
+   运行时占位符，必须留在原文里。
+2. `agents/*.md` 里的 `${FORGE_HOME}` 要换成该宿主的 skill 目录绝对路径。
+3. Claude Code 不认 `displayName`、`profession`、`maxTurns` 这三个 frontmatter 键，
+   装到 `~/.claude/agents/` 时要去掉。Codex 与 zcode 保留。
+
+只复制 git 跟踪的文件。工作区里的 `_draft-p*.md`、`_GATE-PROFILE.md`、`*.bak-anchors`
+与 `__pycache__/` 是本机工作产物，不进宿主。脚本不删宿主里的独有文件，
+例如 `~/.codex/skills/coopanion-forge/references/user-prefs.md` 会原样留着。
+
 ## 内核来源
 
 本仓通用内核逐字来自 HorizonCloudy/plugin-forge。基线 sha 与对应版本只看 `KERNEL-BASELINE.txt`，本文不钉具体值（这里曾钉 69cde01 / v2.7.0，与台账不同步）。同步工具是 `tools/sync_kernel.py`。本仓不改上游一个字。平台改写的文件单独维护，差异清单见 `platform/kernel-deltas/`。
