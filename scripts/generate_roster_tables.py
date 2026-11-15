@@ -57,6 +57,9 @@ COUNT_CLAIMS = [
     (r"调度 (\d+) 位专家", "n_experts"),
     (r"(\d+) 人编制", "n_total"),
     (r"(\d+) 个人设", "n_total"),
+    # 2026-11-15 补：README 与 SKILL 里的「共 14 人」以前不在模式表里，
+    # 人数改了 --write 与 --check 都不碰它，实测留在旧值还能退 0。
+    (r"共 (\d+) 人", "n_total"),
 ]
 COUNT_FILES = ["README.md", "skills/coopanion-forge/SKILL.md",
                "agents/coopanion-forge-lead.md", ".claude-plugin/plugin.json"]
@@ -107,13 +110,19 @@ def validate_against_agents_dir(members):
         if not name or name.group(1) != m["agent_id"]:
             problems.append(f'{m["file"]}: frontmatter name 与 roster 不一致')
         disp = re.findall(r'"([^"]*)"', fm.split("displayName:")[1].split("profession:")[0]) if "displayName:" in fm else []
-        if len(disp) >= 2:
+        if "displayName:" not in fm:
+            problems.append(f'{m["file"]}: frontmatter 没有 displayName，名号无法核对（静默跳过曾让 roster 改了名也报 OK）')
+        elif len(disp) < 2:
+            problems.append(f'{m["file"]}: displayName 不是 en/zh 两项的形状，得到 {disp}，无法核对')
+        else:
             if disp[0] != m["name_en"]:
                 problems.append(f'{m["file"]}: displayName.en "{disp[0]}" != roster "{m["name_en"]}"')
             if disp[1] != m["name_zh"]:
                 problems.append(f'{m["file"]}: displayName.zh "{disp[1]}" != roster "{m["name_zh"]}"')
         mt = re.search(r"maxTurns:\s*(\d+)", fm)
-        if mt and int(mt.group(1)) != m["max_turns"]:
+        if not mt:
+            problems.append(f'{m["file"]}: frontmatter 没有 maxTurns，轮数无法核对')
+        elif int(mt.group(1)) != m["max_turns"]:
             problems.append(f'{m["file"]}: maxTurns {mt.group(1)} != roster {m["max_turns"]}')
     return problems
 
@@ -175,6 +184,9 @@ def _self_test():
         ("1 主理人 + 1 专家，调度 1 位专家，1 人编制，1 个人设",
          "1 主理人 + 13 专家，调度 13 位专家，14 人编制，14 个人设", 4),
         ("1 主理人 + 13 专家", "1 主理人 + 13 专家", 0),
+        # 「共 N 人」这一写法以前不在模式表里：人数改了它不动，--check 还退 0
+        ("编制是 1 主理人 + 13 专家，共 12 人。",
+         "编制是 1 主理人 + 13 专家，共 14 人。", 1),
     ]
     for src, want, want_hits in cases:
         got, hits = apply_counts(src, vals)

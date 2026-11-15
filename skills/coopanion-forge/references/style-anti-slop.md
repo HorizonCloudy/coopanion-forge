@@ -59,6 +59,9 @@
 
 ## 核验工具
 
-- 英文：`python scripts/ste-lint.py [--strict] [--shape] <文件>`（分数报告，flavored ≤2.5/100w，strict ≤1.5/100w）。
-- 中文：按上面清单逐条自查；`check_structure.py` 思路（保护代码块/链接/标题/表格/编号步骤不被改写）可复用。
+- 英文：`python "$HOME/.claude/skills/asd-ste100/scripts/ste-lint.py" [--strict] [--shape] <文件>`。
+  这个脚本不在本仓库里，是外部 asd-ste100 kit 的一部分。装了才跑，没跑成不算过关。
+  分数报告口径：flavored ≤2.5/100w，strict ≤1.5/100w。
+- 中文：按上面清单逐条自查。kit 里的 `check_structure.py` 思路（保护代码块、链接、标题、
+  表格与编号步骤不被改写）可复用，本机同样没随包发。
 - 不为每条聊天回复起进程；长文交付前必跑。

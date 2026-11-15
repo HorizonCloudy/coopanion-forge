@@ -23,7 +23,7 @@
 ### 1a 先搜后建（rbb）到底要交什么
 
 - 权威本体是上游插件 `reuse_before_build`（作者 1-dcjiang，仓库 1-dcjiang/neko-reuse-before-build，MIT。插件 id 与仓库名不同，别按 id 猜地址）。本团**只引用不内嵌**：v0.3.12 / commit 4a14fbd（2026-11-15 核对）。规则本体带 sha256 正典哈希与机械校验，由该插件自己维护，本团不复读、不另立一套编号。要拿机械校验需先安装该插件：校验器跑在 N.E.K.O 宿主，Claude Code 与 Codex 里 1a 靠执行纪律。
-  本节是执行要点摘要，不是条文复述：三轮见上游 `skills/reuse-before-build/SKILL.md`「Step 1 — Discover」与 `references/zh-guide.md`「第 1 步：发现」，判决表见同一 SKILL.md「Step 2 — Evaluate」。摘要按 v0.3.12 / commit 4a14fbd（2026-11-15 读）核对过；不一致时以上游为准，并回来同步 SKILL.md 铁律 3、agents/coopanion-forge-market-research.md 本职 4、codex/prompts/coopanion-forge.md 第 1a 步。
+  本节是执行要点摘要，不是条文复述：三轮见上游 `skills/reuse-before-build/SKILL.md`「Step 1 — Discover」与 `references/zh-guide.md`「第 1 步：发现」，判决表见同一 SKILL.md「Step 2 — Evaluate」。摘要按 v0.3.12 / commit 4a14fbd（2026-11-15 读）核对过；不一致时以上游为准，并回来同步 SKILL.md 的「先搜后建」那条铁律、agents/coopanion-forge-market-research.md 本职 4、codex/prompts/coopanion-forge.md 第 1a 步。
 - 三轮检索按来源分：轮 1 GitHub 仓库与代码 → 轮 2 包生态与清单（npm / PyPI / crates.io / Maven / Homebrew、awesome-list、框架官方插件目录、Docker Hub）→ 轮 3 人已经提过吗（候选仓库 issue / discussion，Stack Overflow / HN / Reddit / V2EX / 知乎）。关键词扩展（功能词 / 领域词 / 机制词 / 竞品与引用词）是检索前的独立步骤，不算一轮。
 - 每个候选记一行：owner/name ｜ stars ｜ 最近提交日期 ｜ 许可 ｜ 缺什么 ｜ 命中来源（轮次＋检索串）。一条都没命中时，写实际跑过的检索串与覆盖的来源，不写「搜过了」这种无凭据的话。不许编造仓库、星数、提交日期或许可。
 - 断网或读不到仓库时**不豁免，改成交清单**：交一份可复制的检索串清单（每轮 2-3 条）＋「未核验」标记，让用户选择联网重跑或自己贴候选仓库。1a 不可跳，但它可以以「未核验」形态交付。上游 SKILL.md「Step 1 — Discover」末句同此。

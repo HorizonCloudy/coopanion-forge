@@ -11,7 +11,9 @@ python -I skills/coopanion-forge/scripts/security_audit.py . \
   --allow skills/coopanion-forge/scripts/security_audit.py,scripts/profile_drift.py,tools/sync_kernel.py,platform/deltas.json
 ```
 
-结果：SEC-1 至 SEC-4 各 0 处，总分 **100/100**，真盲区 **0**，结论「放行」。
+结果（2026-11-15 之前的记录）：SEC-1 至 SEC-4 各 0 处，总分 **100/100**，真盲区 **0**，结论「放行」。
+
+2026-11-15 复跑：SEC-1 0 处、**SEC-2 2 处**、SEC-3 0 处、SEC-4 0 处，总分 **85/100**，结论「修完再放」。两处 SEC-2 全在 `data/cmd_config.json` 第 229-230 行：`password` 与 `pbkdf2_password` 的真实哈希值。这个目录不是本仓写的，是宿主把运行数据落在了工作树里。它没进版本库（`git log --all -- data` 空），但以前也不在 ignore 名单里，`git add -A` 就会提上去。已加进 `.git/info/exclude`（本机私有，不随包发）。扫描器走文件系统，所以只要 `data/` 还在这个工作树里，这一项就还是 85/100。改法是把宿主的 data/logs 挪到仓库外，与本节下面那条「产物类目录一律落在仓库外」的既定口径一致。
 
 ### 豁免清单与依据
 
@@ -30,8 +32,8 @@ python -I skills/coopanion-forge/scripts/security_audit.py . \
 
 | 对象 | 版本 / sha | 许可 | 接入方式 |
 |---|---|---|---|
-| HorizonCloudy/plugin-forge | `bd9c9d8afe91f88022981e0eea80fe08d98ebdde`（v2.7.0） | MIT（沿用上游 `LICENSE`） | 内核逐字搬 + 平台改写台账 `platform/deltas.json`。本仓不改上游一个字。 |
-| `reuse_before_build`（1-dcjiang/neko-reuse-before-build） | v0.3.12 / commit `4a14fbd`（2026-11-15 核对） | MIT（仓库自带 LICENSE；GitHub 的 licenseInfo 返回空，属分类器没识别） | **引用式**：只在 SKILL.md 铁律 4 与 `references/workflows.md` 的 1a 节指向它。规则本体与正典哈希由上游自持，本仓不复述条文、不另立编号。 |
+| HorizonCloudy/plugin-forge | 基线 sha 只看 `KERNEL-BASELINE.txt`（本行曾钉 bd9c9d8 并标 v2.7.0，实际那是 v2.7.2，且早已过期） | MIT（沿用上游 `LICENSE`） | 内核逐字搬 + 平台改写台账 `platform/deltas.json`。本仓不改上游一个字。 |
+| `reuse_before_build`（1-dcjiang/neko-reuse-before-build） | v0.3.12 / commit `4a14fbd`（2026-11-15 核对） | MIT（仓库自带 LICENSE；GitHub 的 licenseInfo 返回空，属分类器没识别） | **引用式**：只在 SKILL.md 的「先搜后建」那条铁律与 `references/workflows.md` 的 1a 节指向它。规则本体与正典哈希由上游自持，本仓不复述条文、不另立编号。 |
 | jusspound-netizen/dsh-plugin-scanner | `bb8dc7cd`，2026-11-14 | 该仓库无 LICENSE 文件 | 只作设计参照（清单形状检查、盲区不得当作放行）。`security_audit.py` 是上游的独立实现，本仓未复制其代码。 |
 
 Pal-AI-Lab 的四个仓库与官方指南站是**证据源**，本仓不内嵌任何其源码或文本；profile 与档案里只引用文件路径、行号与不超过 80 字的摘录。
@@ -53,12 +55,12 @@ Pal-AI-Lab 的四个仓库与官方指南站是**证据源**，本仓不内嵌�
 3. 门禁脚本 `check_contract_approval.py` 只校验记录，验不了签发人身份，也不会自动触发。
    `issued_by` 是自证字符串（见上游 plugin-forge issue #4）。宿主级强制需另配 PreToolUse hook。
 4. 名册与文档表由 `scripts/generate_roster_tables.py` 从 `roster.json` 生成。手改标记区会被 `--check` 判失败。
-5. 移植件 `scripts/profile_drift.py` 的 ack 记在 69cde01（取自该文件头的自述
+5. `data/` 与 `logs/` 是宿主运行数据，落在工作树里，违反本节「产物类目录一律落在仓库外」的口径。`data/cmd_config.json` 里有真实口令哈希。已用 `.git/info/exclude` 挡住误提交，但文件还在盘上，扫描分数因此停在 85/100。要回到 100 得把它们挪出仓库目录。
+6. 移植件 `scripts/profile_drift.py` 的 ack 现为 ac9af4d（2026-11-15 手搬完上游 d98fd1e 的两处修法后 `--port-done` 确认）。当时的起点是 69cde01（取自该文件头自述
    「移植自 plugin-forge 内核 69cde01」）。但本仓副本里已经有 `body_state()`，
    那是上游 bd9c9d8 才加进去的修法（200 无正文＝文件过大，不算上游 404）。
    两处对不上：文件头的自述过期，或者 ack 取低了。2026-11-15 起
    `platform/port-ack.json` 是台账，`tools/sync_kernel.py --check` 因此报 1 条漂移并退 1。
    旧实现只看「上游相对上次基线动没动」，基线一升就再也看不见这段差距，所以以前报 17/17 一致。
    这一条不是新坏的，是原来就坏、现在第一次被看见。
-   待办：人工比对本仓副本与上游 5282d40 的语义差，确认后跑
-   `python -I tools/sync_kernel.py --port-done --ref 5282d40`，并把该文件头的自述改成实际对齐的 sha。
+   已完成：比对过 69cde01..ac9af4d 之间该文件的两笔上游改动（bd9c9d8 的 body_state 本仓早已带上，d98fd1e 的 weak 标记与 TS 定义形状这次搬进来），并加了路径片段不入 token 的本仓修法。

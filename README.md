@@ -66,7 +66,7 @@ N.E.K.O 平台插件不归本团。N.E.K.O 的插件工作走上游 HorizonCloud
 
 ## 内核来源
 
-本仓通用内核逐字来自 HorizonCloudy/plugin-forge。基线 sha 为 69cde01，对应上游 v2.7.0；完整记录见 `KERNEL-BASELINE.txt`。同步工具是 `tools/sync_kernel.py`。本仓不改上游一个字。平台改写的文件单独维护，差异清单见 `platform/kernel-deltas/`。
+本仓通用内核逐字来自 HorizonCloudy/plugin-forge。基线 sha 与对应版本只看 `KERNEL-BASELINE.txt`，本文不钉具体值（这里曾钉 69cde01 / v2.7.0，与台账不同步）。同步工具是 `tools/sync_kernel.py`。本仓不改上游一个字。平台改写的文件单独维护，差异清单见 `platform/kernel-deltas/`。
 
 ## 自检命令
 

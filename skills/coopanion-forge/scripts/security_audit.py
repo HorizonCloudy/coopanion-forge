@@ -3,7 +3,7 @@
 """coopanion-forge · 安全审计扫描器（零第三方依赖，Python 3.8+）
 
 用法
-  python security_audit.py <repo路径> [--allow 相对路径前缀,...] [--include-docs]
+  python security_audit.py <repo路径> [--allow 相对路径前缀,...] [--allow 另一个] [--include-docs]
                            [--json] [--quiet] [--fail-unclear] [--strict-placeholder]
 
 四项计分检查 + 一项不计分提示（细则与评分规则见 references/security-checklist.md）
@@ -91,7 +91,12 @@ SEC3 = [
     (r"(?:curl|wget)[^'\"]*\|\s*(?:ba)?sh", "管道给 shell"),
     (r"Invoke-Expression|\biex\s", "PowerShell 动态执行"),
     (r"pickle\.loads?\s*\(", "pickle 反序列化"),
-    (r"yaml\.load\s*\((?:(?!Loader|safe).)*\)", "unsafe yaml.load"),
+    (r"(?<![\w.])marshal\.loads?\s*\(", "marshal 反序列化（与 pickle 同级风险）"),
+    (r"(?<![\w.])yaml\.load\s*\((?:(?!Loader|safe).)*\)", "unsafe yaml.load"),
+    # 2026-11-15 补：这三条形状以前整批漏，实测喂进临时仓库报 SEC-3 0 处、100/100、放行
+    (r"(?<![\w.])yaml\.unsafe_load\s*\(", "yaml.unsafe_load 全量反序列化"),
+    (r"(?<![\w.])os\.popen\s*\(", "os.popen 起 shell"),
+    (r"(?<![\w.])subprocess\.get(output|statusoutput)\s*\(", "subprocess.getoutput 走 shell 取回显"),
 ]
 SEC4 = [
     (r"urlopen\s*\(|urlretrieve\s*\(|urllib\.request", "urllib 网络取回"),
@@ -452,6 +457,15 @@ def _self_test():
         ("SEC-2", "MY" + "_" + "SECRET=" + V, True),
         ("SEC-2", "pass" + "phrase_length = \"" + V + "\"", True),   # 拆词后 passphrase 算密钥名
         ("SEC-3", "subprocess.run(cmd, " + "shell=True)", True),
+        # 2026-11-15 补：这五种形状以前漏，仓库里真 unsafe 的代码会被打满分放行
+        ("SEC-3", "out = os." + "popen(cmd).read()", True),
+        ("SEC-3", "out = subprocess." + "getoutput(cmd)", True),
+        ("SEC-3", "rc, out = subprocess." + "getstatusoutput(cmd)", True),
+        ("SEC-3", "obj = marshal." + "loads(blob)", True),
+        ("SEC-3", "data = yaml." + "unsafe_load(text)", True),
+        # 反例：显式 safe_load 与显式 Popen 列表调用不算
+        ("SEC-3", "data = yaml." + "safe_load(text)", False),
+        ("SEC-3", "subprocess." + "Popen([cmd, arg])", False),
         ("SEC-3", "comment mentions shell=True only", True),
         ("SEC-3", "we do not shell=" + "\" out here", False),
         ("SEC-4", "curl -sS https://x.sh | " + "sh", True),
@@ -596,7 +610,9 @@ def main():
     _utf8()
     ap = argparse.ArgumentParser(description="四项安全检查，输出 0–100 分与门禁结论")
     ap.add_argument("repo", nargs="?", default=".", help="目标仓库路径")
-    ap.add_argument("--allow", default="", help="豁免的相对路径前缀，逗号分隔（依据须记入 AUDIT.md）")
+    ap.add_argument("--allow", action="append", default=[],
+                    help="豁免的相对路径前缀。可重复传，也可逗号分隔（依据须记入 AUDIT.md）。"
+                         "旧版是单值，重复传只认最后一个，会静默少豁免并报假阻断")
     ap.add_argument("--include-docs", action="store_true", help="把 md/html/txt 也纳入扫描")
     ap.add_argument("--json", action="store_true", help="机器可读输出")
     ap.add_argument("--quiet", action="store_true", help="只输出结论行")
@@ -614,7 +630,7 @@ def main():
     if not os.path.isdir(root):
         print("用法错误: 不是目录:", root)
         return 2
-    allow = [a.strip() for a in args.allow.split(",") if a.strip()]
+    allow = [x.strip() for chunk in args.allow for x in chunk.split(",") if x.strip()]
     scanned, findings, skips, unclear, adv = scan(root, args.include_docs, allow)
     s, total, verdict, code = score(findings, scanned)
     unread = [s for s in skips if blind_kind(s) == "unread"]

@@ -35,7 +35,12 @@ CODE_EXTS = {".py", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".vue", ".svel
              ".rs", ".go", ".java", ".kt", ".kts", ".scala", ".swift", ".c", ".h",
              ".cc", ".cpp", ".cxx", ".hpp", ".cs", ".rb", ".php", ".lua", ".pl",
              ".ex", ".exs", ".erl", ".dart", ".sh", ".bash", ".zsh", ".fish",
-             ".ps1", ".psm1", ".bat", ".cmd", ".sql", ".ipynb"}
+             ".ps1", ".psm1", ".bat", ".cmd", ".sql", ".ipynb",
+             # 2026-11-15 补：宿主真执行的形态以前不在名单里
+             ".html", ".htm", ".yml", ".yaml", ".m", ".jl"}
+# 无扩展名的脚本（bin/build、tools/run）按两条旁证判：所在目录，或文件第一行的 shebang。
+# 不写「无扩展名一律算代码」：README、LICENSE、NOTES 都会被误钉成受保护文件。
+CODE_DIR_HINTS = ("scripts/", "bin/", "tools/", ".github/workflows/")
 MANIFEST_NAMES = {"plugin.toml", "plugin.json", "manifest.json", "package.json",
                   "cargo.toml", "go.mod", "pom.xml", "build.gradle",
                   "pyproject.toml", "requirements.txt"}
@@ -48,10 +53,28 @@ def _utf8_stdout():
         pass
 
 
+def _has_shebang(path):
+    """无扩展名文件的第一行是不是 #!。文件还不存在时返回 False，交给目录旁证判。"""
+    try:
+        with open(path, "rb") as f:
+            return f.readline(200).startswith(b"#!")
+    except OSError:
+        return False
+
+
 def is_protected(path):
-    name = os.path.basename(path.replace("\\", "/")).lower()
+    """要不要过契约门禁。以前只看扩展名，ui/panel.html 与 .github/workflows/*.yml
+    这类宿主真执行、真持密钥的文件全被判成「非代码」，不经准奏就能写。"""
+    relp = path.replace("\\", "/").lower()
+    name = os.path.basename(relp)
     ext = os.path.splitext(name)[1]
-    return ext in CODE_EXTS or name in MANIFEST_NAMES
+    if ext in CODE_EXTS or name in MANIFEST_NAMES:
+        return True
+    if ext:
+        return False
+    if any(h in relp for h in CODE_DIR_HINTS):
+        return True
+    return _has_shebang(path)
 
 
 def compile_glob(pat):
@@ -177,14 +200,16 @@ def check_targets(data, root, targets):
         except ValueError:
             # 跨盘符没有公共祖先：按根外处理，不能抛异常把整轮判定打掉
             rel = "../" + p.replace("\\", "/")
+        if rel == ".." or rel.startswith("../"):
+            # 根外检查必须在 is_protected 之前。旧顺序让根外的 .html 走「非代码」分支放行，
+            # 等于「往项目外面写宿主会执行的文件」不要准奏。
+            results.append((rel, False, "路径在项目根之外（非代码文件也要准奏）"))
+            continue
         if not is_protected(p):
             results.append((rel, True, "非代码文件，不入门禁"))
             continue
         if data is None:
             results.append((rel, False, "无有效准奏记录"))
-            continue
-        if rel == ".." or rel.startswith("../"):
-            results.append((rel, False, "路径在项目根之外"))
             continue
         if data.get("decision") != "approved":
             results.append((rel, False, "decision=%r，只有 approved 放行（封驳不许写码）"
@@ -263,7 +288,39 @@ def _self_test():
         (base(expires_at="2020-01-01"), [J("src", "a.py")], False),
         (base(issued_by="coopanion-forge-dev"), [J("src", "a.py")], False),
         (base(), [J("docs", "readme.md")], True),
+        # 2026-11-15：宿主执行的 HTML 与持密钥的 CI YAML 必须在名单里，scope 没覆盖就拒
+        (base(), [J("ui", "panel.html")], False),
+        (base(), [J(".github", "workflows", "rel.yml")], False),
+        (base(scope=["src/**", "plugin.toml", "ui/**"]), [J("ui", "panel.html")], True),
+        # 根外的非代码文件：旧顺序走「非代码」分支放行，现在要准奏
+        (base(), [J("..", "panel.html")], False),
+        (base(), [J("..", "notes.txt")], False),
     ]
+    # is_protected 的直接期望：不能只跟自己比（上面那条 None 用例是自证的，抓不到名单错）
+    prot = [
+        (J("ui", "panel.html"), True), (J("a", "b.htm"), True),
+        (J(".github", "workflows", "ci.yml"), True), (J("cfg", "x.yaml"), True),
+        (J("src", "Hook.m"), True), (J("src", "main.jl"), True),
+        (J("scripts", "build"), True), (J("bin", "run"), True),
+        (J("README"), False), (J("LICENSE"), False), (J("docs", "notes.txt"), False),
+    ]
+    for path, want in prot:
+        if bool(is_protected(path)) != want:
+            ok = False
+            print("SELF-TEST FAIL(保护面): %s 期望 protected=%s" % (path, want))
+    sheb = J("tools_local", "deploy")
+    os.makedirs(os.path.dirname(sheb), exist_ok=True)
+    with open(sheb, "wb") as f:
+        f.write(b"#!/bin/sh\necho hi\n")
+    if not is_protected(sheb):
+        ok = False
+        print("SELF-TEST FAIL(保护面): 带 shebang 的无扩展名脚本没进保护面")
+    plain = J("tools_local", "notes")
+    with open(plain, "wb") as f:
+        f.write(b"just prose\n")
+    if is_protected(plain):
+        ok = False
+        print("SELF-TEST FAIL(保护面): 无 shebang 的普通文本被误当代码")
     for data, targets, want in cases:
         for rel, allowed, reason in check_targets(data, root, targets):
             if allowed != want:

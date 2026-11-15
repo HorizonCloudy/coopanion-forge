@@ -1,8 +1,9 @@
 # cortico-notes：证据目录
+> 路径占位符（本机才有具体值，公开仓库的访客请自行替换）：`<HOST>` = 宿主安装目录下的 Coopanion 根；`<SURVEY>` = 本地调查产物根；`<ENVS>` = 本地运行产物根；`<THIS-REPO>` = 本仓克隆。SKILL.md 定过「文档内不写死宿主路径」。
 
 日期：2026-11-15。
 产出者：p5-evidence-notes。
-本文件只登证据，不立契约。数字逐字抄自 `C:/Users/54301/tmp/coo-survey/reports/`。旧 `.VOID` 目录未读、未引用。
+本文件只登证据，不立契约。数字逐字抄自 `<SURVEY>/reports/`。旧 `.VOID` 目录未读、未引用。
 
 ## 1 源清单
 
@@ -21,11 +22,11 @@
 
 ## 2 探针表
 
-探针口径与 profile-coopanion.md 的 ⓪ 节一致。每条锚定一个破坏性变更会删改的符号。命令只读，可直接跑。路径根 APP 代指 `E:/Users/54301/AppData/Local/Programs/Coopanion/resources/app`（表内写全）。
+探针口径与 profile-coopanion.md 的 ⓪ 节一致。每条锚定一个破坏性变更会删改的符号。命令只读。路径根 APP 是占位符，跑前先换成你自己的宿主安装目录（Windows 一般在 %LOCALAPPDATA%/Programs/Coopanion/resources/app）。表内写全。
 
 | 探针 | 可复制命令 | 命中含义 | 2026-11-15 实测 | 出处 |
 |---|---|---|---|---|
-| P1 契约档位 | `sed -n '23,27p' "E:/Users/54301/AppData/Local/Programs/Coopanion/resources/app/build/cortico/src/extensions/manifest.ts"` | 档位行被删或改值 | `world: 6` / `provider: 6` / `bot: 7`，通过 | ⓪ P1；16 §4 |
+| P1 契约档位 | `sed -n '23,27p' "<HOST>/resources/app/build/cortico/src/extensions/manifest.ts"` | 档位行被删或改值 | `world: 6` / `provider: 6` / `bot: 7`，通过 | ⓪ P1；16 §4 |
 | P1 上游对偶 | `export GH_PAGER=cat; gh api repos/Pal-AI-Lab/Cortico/contents/src/extensions/manifest.ts?ref=main -q .sha` 与 `git hash-object <快照>/cortico/src/extensions/manifest.ts` | 快照与上游同版 | 两侧同为 `7ab5a6f06dd81ff8233b71a4f5ecd53b4fc5a441` | ⓪ P1 |
 | P2 describe 缺省名 | `grep -n "DEFAULT_DESCRIBE_FILE = \|has no cortico.describe" "E:/.../build/cortico/src/extensions/describe-export.ts"` | 缺省文件名与硬失败文案在位 | `19:` = `'describe.json'`；`157:` push has-no-cortico.describe 失败 | ⓪ P2 |
 | P3 安装事务 pnpm 口径 | `grep -n "LENIENT_BUILDS = \|UNDECIDED_BUILD = " "E:/.../build/cortico/src/extensions.ts"` | 安装用的 pnpm 开关常量 | `498:` LENIENT_BUILDS；`516:` UNDECIDED_BUILD | ⓪ P3 |
@@ -34,7 +35,7 @@
 | P6 上一版过渡层 | `ls "E:/.../build/cortico/src/extensions/previous-contract.ts"` | 旧契约改名过渡层是否还在 | 文件存在（快照同路径 174 行） | ⓪ P6 |
 | P7 上游 HEAD 是否移动 | `export GH_PAGER=cat; for r in Cortico Coopanion cortico-extensions Cortina; do gh api "repos/Pal-AI-Lab/$r/commits/main" -q '.sha+" "+.commit.committer.date'; done` | 四仓新鲜度 | Cortico `8362383…`、Coopanion `8829fd4…`、Cortina `244b2d0…` 未动；cortico-extensions 已移到 `3e02384…` | ⓪ P7；00 §2 |
 | P8 Release 通道 | `export GH_PAGER=cat; gh api repos/Pal-AI-Lab/Cortico/releases/latest -q '.tag_name+" "+.published_at'; gh api repos/Pal-AI-Lab/Coopanion/releases/latest -q '.tag_name+" "+.published_at'` | 宿主是否换新内置内核 | `v0.2.15 2026-11-12T20:02:18Z`；`v0.2.20 2026-11-12T20:41:57Z` | ⓪ P8；16 §7 |
-| P9 快照分母复核 | `python -I C:/Users/54301/tmp/coo-survey/tools/c01_api_drift.py C:/Users/54301/tmp/coo-survey/snapshot/cortico-extensions`；`python -I C:/Users/54301/tmp/coo-survey/tools/c06_publish_hygiene.py <同目录>` | 市场统计输入未分叉 | `353` 包、`313` describe、`284` changelog、`141` assets、`104` comments | ⓪ P9；00 §2 |
+| P9 快照分母复核 | `python -I <SURVEY>/tools/c01_api_drift.py <SURVEY>/snapshot/cortico-extensions`；`python -I <SURVEY>/tools/c06_publish_hygiene.py <同目录>` | 市场统计输入未分叉 | `353` 包、`313` describe、`284` changelog、`141` assets、`104` comments | ⓪ P9；00 §2 |
 
 命令里的省略号 `E:/.../` 是同一路径根的缩写，跑时换成全文。出处「⓪ Pn」指 profile-coopanion.md ⓪ 节第 n 条探针。
 
@@ -67,7 +68,7 @@
 
 ## 4 本机可只读核对的路径
 
-只读，未启动宿主、未改任何文件。DATA 根 = `E:/Users/54301/AppData/Local/Programs/Coopanion/data`。全部出处 21-local-runtime.md。
+只读，未启动宿主、未改任何文件。DATA 根 = `<HOST>/data`。全部出处 21-local-runtime.md。
 
 | 路径 | 能核到什么 | 出处 |
 |---|---|---|
