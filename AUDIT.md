@@ -15,6 +15,8 @@ python -I skills/coopanion-forge/scripts/security_audit.py . \
 
 2026-11-15 复跑：SEC-1 0 处、**SEC-2 2 处**、SEC-3 0 处、SEC-4 0 处，总分 **85/100**，结论「修完再放」。两处 SEC-2 全在 `data/cmd_config.json` 第 229-230 行：`password` 与 `pbkdf2_password` 的真实哈希值。这个目录不是本仓写的，是宿主把运行数据落在了工作树里。它没进版本库（`git log --all -- data` 空），但以前也不在 ignore 名单里，`git add -A` 就会提上去。已加进 `.git/info/exclude`（本机私有，不随包发）。扫描器走文件系统，所以只要 `data/` 还在这个工作树里，这一项就还是 85/100。改法是把宿主的 data/logs 挪到仓库外，与本节下面那条「产物类目录一律落在仓库外」的既定口径一致。
 
+同日还按 SKILL.md「文档内不写死宿主路径」那条规则清了发布件里的宿主绝对路径：cortico-notes.md、profile-coopanion.md、profile-botcompat.md 三份换成 <HOST>、<SURVEY>、<ENVS>、<THIS-REPO> 占位符并各加图例；_ASSEMBLE.md、_GATE-PROFILE.md 与 _draft-p1..p4 被 .gitignore 挡住，只在本机存在，同样改了。
+
 ### 豁免清单与依据
 
 | 文件 | 为什么豁免 |
