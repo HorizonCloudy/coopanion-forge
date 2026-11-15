@@ -53,8 +53,9 @@ Pal-AI-Lab 的四个仓库与官方指南站是**证据源**，本仓不内嵌�
 
 ## 4. 已知残留（不作为放行理由）
 
-1. profile-coopanion.md 现有 **18** 处 `[未核验]`，集中在 provider 能力面实值、`device-code` 是否被运行时消费、
+1. profile-coopanion.md 的 `[未核验]` 数取法是 `grep -c '\[未核验\]' skills/coopanion-forge/references/profile-coopanion.md`，2026-11-16 实跑 **19** 处（本行以前钉死 18，已过期），集中在 provider 能力面实值、`device-code` 是否被运行时消费、
    `audio`/`video` 输入的实际支持。清单见该文件末节与 `../coo-survey/reports/_GAPS.md`。
+   同日更正一条我自己的错：我先前报「packs.ts 只覆盖 24 个键、9 个键没调用点」，那是在 readManifest 的行窗口里数 `return t.` 造成的漏数。2026-11-16 用上游全文件复算，41 个键全有调用点，33 硬拒 + 7 软丢弃 + 1 目录级成立，profile 那句已改回 `[FACT]` 并附方法。核对面 = 浅克隆 `C:/Users/54301/coo-upstream-read/Coopanion` @8829fd4。
 2. 12 项结论必须真跑一次才能判（两道闸的真实输出、WebUI 路由响应、形象包运行时、旧契约过渡层）。
    本次调研按只读纪律未执行任何上游代码，全部标为静态证据。
 3. 门禁脚本 `check_contract_approval.py` 只校验记录，验不了签发人身份，也不会自动触发。
