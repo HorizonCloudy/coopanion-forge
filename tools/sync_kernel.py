@@ -31,7 +31,10 @@ import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
-UP_REPO = os.environ.get("FORGE_UPSTREAM", "C:/Users/54301/plugin-forge-publish")
+# 上游检出位置。这个仓库是公开的，访客不在原作者的机器上，所以代码里不写个人绝对路径。
+# 给法有两种：--upstream <路径>，或环境变量 FORGE_UPSTREAM。都没给时按同级目录名猜一次。
+UP_REPO = os.environ.get("FORGE_UPSTREAM") or os.path.join(
+    os.path.dirname(REPO).replace("\\", "/"), "plugin-forge-publish")
 K = "skills/plugin-forge"
 DEST = "skills/coopanion-forge"
 INC = "%s/%s-kernel-incoming" % (os.path.dirname(REPO).replace("\\", "/"), os.path.basename(REPO))
@@ -49,7 +52,8 @@ FILES = [
     (K + "/references/profile-template.md", DEST + "/references/profile-template.md", "verbatim"),
     (".gitattributes", ".gitattributes", "verbatim"),
     (".gitignore", ".gitignore", "verbatim"),
-    ("LICENSE", "LICENSE", "verbatim"),
+    # LICENSE 走 delta：本包不发 references/neko/，上游那段出处告示要重放成本包的口径。
+    ("LICENSE", "LICENSE", "delta"),
     ("scripts/generate_roster_tables.py", "scripts/generate_roster_tables.py", "verbatim"),
     (K + "/references/constitution.md", DEST + "/references/constitution.md", "delta"),
     (K + "/references/workflows.md", DEST + "/references/workflows.md", "delta"),
@@ -132,6 +136,14 @@ def rel(p):
     return p.replace("\\", "/")
 
 
+def upstream_label():
+    """打印与 KERNEL-BASELINE.txt 里用公开 URL，不写本机的绝对路径。
+    拿不到 remote 才退回本地路径，那种情况只发生在离线的开发机上。"""
+    p = subprocess.run(["git", "-C", UP_REPO, "remote", "get-url", "origin"],
+                       capture_output=True)
+    return p.stdout.decode("utf-8", "replace").strip() or rel(UP_REPO)
+
+
 def read_b(path):
     return open(path, "rb").read() if os.path.isfile(path) else None
 
@@ -190,9 +202,17 @@ def main():
     g.add_argument("--self-test", action="store_true", help="只跑移植件台账的回归自检")
     ap.add_argument("--ref", default="origin/main")
     ap.add_argument("--strict", action="store_true")
+    ap.add_argument("--upstream", default="",
+                    help="上游 plugin-forge 检出路径。没给就读环境变量 FORGE_UPSTREAM")
     a = ap.parse_args()
     if a.self_test:
         return _self_test()
+    if a.upstream:
+        globals()["UP_REPO"] = a.upstream
+    if git("HEAD") is None:
+        print("FAIL: 读不到上游检出 %s。用 --upstream <路径> 指到 plugin-forge 的本地克隆，"
+              "或设环境变量 FORGE_UPSTREAM。" % rel(UP_REPO))
+        return 2
 
     full = git(a.ref)
     if full is None:
@@ -200,7 +220,7 @@ def main():
         return 2
     full = full.decode().strip()
     short = full[:7]
-    print("上游 %s @ %s" % (rel(UP_REPO), short))
+    print("上游 %s @ %s" % (upstream_label(), short))
 
     deltas = load_deltas()
     port_ack = load_port_ack()
@@ -266,7 +286,7 @@ def main():
     if a.apply and not failures and not missing:
         with open(os.path.join(REPO, "KERNEL-BASELINE.txt"), "w", encoding="utf-8", newline="\n") as f:
             f.write("coopanion-forge 内核基线\n")
-            f.write("upstream repo=%s\n" % rel(UP_REPO))
+            f.write("upstream repo=%s\n" % upstream_label())
             f.write("ref sha=%s\n" % short)
             f.write("full=%s\n" % full)
             f.write("synced by tools/sync_kernel.py --apply\n")

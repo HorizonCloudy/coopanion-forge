@@ -1,9 +1,9 @@
 coopanion-forge 内核基线
-upstream repo=C:/Users/54301/plugin-forge-publish
-ref sha=5282d40
-full=5282d402f8bfe8286d85794d0091084adbdb06b5
+upstream repo=https://github.com/HorizonCloudy/plugin-forge
+ref sha=ac9af4d
+full=ac9af4d65cee6bfbddd5803d163e31f27baa61d2
 synced by tools/sync_kernel.py --apply
-平台改写清单 platform/deltas.json；整件覆盖 platform/overrides/；移植件 scripts/profile_drift.py（上游原文落在仓库外的 -kernel-incoming/）
+平台改写清单 platform/deltas.json；整件覆盖 platform/overrides/；移植件对到哪个上游 sha 记在 platform/port-ack.json，上游原文落在仓库外的 -kernel-incoming/
 
 逐类清单：
   verbatim  skills/coopanion-forge/references/delivery-self-check.md
@@ -12,7 +12,7 @@ synced by tools/sync_kernel.py --apply
   verbatim  skills/coopanion-forge/references/profile-template.md
   verbatim  .gitattributes
   verbatim  .gitignore
-  verbatim  LICENSE
+  delta     LICENSE
   verbatim  scripts/generate_roster_tables.py
   delta     skills/coopanion-forge/references/constitution.md
   delta     skills/coopanion-forge/references/workflows.md

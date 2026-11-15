@@ -20,20 +20,20 @@ Third-party attribution:
 - references/style-anti-slop.md condenses rules from asd-ste100 kit (MIT, (c) woosal1337;
   the ASD-STE100 specification itself is copyright ASD / AEEC), humanizer (MIT, (c) blader),
   and Humanizer-zh (MIT, (c) op7418). See AUDIT.md.
-- references/neko/neko-court-*.md borrow the institutional model of cft0808/edict (MIT).
-  No source from it is copied here; see references/neko/neko-court-source-notes.md.
-- references/neko/mattpocock-skills.md and references/neko/doc-writing-playbook.md condense
-  ideas from mattpocock/skills, stop-slop and SimpleEnglish (MIT). They are summaries and
-  links, not copies.
-- references/neko/system.llm is an archived third-party system prompt kept for study. Its
-  provenance and licence are not established (see AUDIT.md). It is not policy for this team.
+- The four notes under references/neko/ in the upstream kernel package carry these
+  attributions: neko-court-*.md borrow the institutional model of cft0808/edict (MIT), and no
+  source from it is copied; mattpocock-skills.md and doc-writing-playbook.md condense ideas
+  from mattpocock/skills, stop-slop and SimpleEnglish (MIT), as summaries and links, not
+  copies; system.llm is an archived third-party system prompt kept for study, whose
+  provenance and licence are not established and which is not policy for any team.
+  This package does not distribute those note files. Read them in the upstream kernel repo.
 - skills/coopanion-forge/references/delivery-self-check.md is a third-party behaviour gate whose
   provenance and licence are not established (see AUDIT.md). It is not enforced as policy
   until that is settled.
 - N.E.K.O is an Apache-2.0 project. This repository cites its routes, contracts and ports as
   verifiable facts and contains none of its source.
 - Process credit and external dependency (referenced, not vendored): 1-dcjiang/neko-reuse-before-build,
-  plugin id `reuse_before_build`, "先搜后建". Workflow A step 1a and SKILL.md 铁律 3 point at it as the
+  plugin id `reuse_before_build`, "先搜后建". Workflow A step 1a and SKILL.md 的「先搜后建」铁律 point at it as the
   authority for search-before-build rules. MIT License, (c) 2026 1-dcjiang. This repository writes its
   own prose and copies no rule text or code from it; it reuses only rbb's verdict vocabulary
   (Join / Extend / Fork / Build) and the deliverable marker `不可复用原因 / Not reusable because:` so that a
