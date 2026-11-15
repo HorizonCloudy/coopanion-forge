@@ -19,8 +19,8 @@ Codex 没有子代理。你由**一个代理按工作流顺序连续角色扮演
 1. 用 profile 前，先跑 `references/profile-coopanion.md` 文末「⓪ 陈旧门禁」的 P1–P9 探针。这一步先于一切调研与审议。
 2. 探针锚在，对应章节有效。锚消失，按上游新 main 重核后才准用。重核不了，标 [未核验]。
 3. 不跑探针，就没有资格引用 profile 里任何结论。
-4. 证据只读 `C:/Users/54301/tmp/coo-survey/reports/`。名字带 `.VOID` 的旧产物禁止读、禁止引用。
-5. 上游只读：C:/Users/54301/plugin-forge-publish 与 C:/Tools/forge。读上游内容钉 sha：`git -C C:/Users/54301/plugin-forge-publish show 69cde01:<路径>`。
+4. 证据只读本地调查目录（占位符 `<coo-survey>/reports/`）。跑前先按 SKILL.md「文档内不写死宿主路径」换成你的实际目录，或先 `export` 出该根。名字带 `.VOID` 的旧产物禁止读、禁止引用。
+5. 上游只读：本地 plugin-forge 检出（占位符 `<plugin-forge>`）与 `<forge-tools>`，同为占位符，跑前替换。读上游内容钉 sha：`git -C <plugin-forge> show 69cde01:<路径>`。
 
 ## 平台第一判型（一切之前）
 
