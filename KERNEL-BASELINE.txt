@@ -1,0 +1,36 @@
+coopanion-forge 内核基线
+upstream repo=C:/Users/54301/plugin-forge-publish
+ref sha=bd9c9d8
+full=bd9c9d8afe91f88022981e0eea80fe08d98ebdde
+synced by tools/sync_kernel.py --apply
+平台改写清单 platform/deltas.json；整件覆盖 platform/overrides/；移植件 scripts/profile_drift.py（上游原文落在仓库外的 -kernel-incoming/）
+
+逐类清单：
+  verbatim  skills/coopanion-forge/references/delivery-self-check.md
+  verbatim  skills/coopanion-forge/references/style-anti-slop.md
+  verbatim  skills/coopanion-forge/references/task-size-routing.md
+  verbatim  skills/coopanion-forge/references/profile-template.md
+  verbatim  .gitattributes
+  verbatim  .gitignore
+  verbatim  LICENSE
+  verbatim  scripts/generate_roster_tables.py
+  delta     skills/coopanion-forge/references/constitution.md
+  delta     skills/coopanion-forge/references/workflows.md
+  delta     skills/coopanion-forge/references/security-checklist.md
+  delta     skills/coopanion-forge/references/contract-approval.schema.json
+  delta     skills/coopanion-forge/scripts/check_contract_approval.py
+  delta     skills/coopanion-forge/scripts/security_audit.py
+  override  skills/coopanion-forge/references/contract-approval.example.json
+  override  .github/workflows/sync-check.yml
+  port      scripts/profile_drift.py
+
+平台件（永不从上游搬）：
+  README.md
+  AUDIT.md
+  roster.json
+  .claude-plugin/plugin.json
+  .claude-plugin/marketplace.json
+  codex/prompts/coopanion-forge.md
+  skills/coopanion-forge/SKILL.md
+  skills/coopanion-forge/references/profile-coopanion.md
+  skills/coopanion-forge/references/cortico-notes.md

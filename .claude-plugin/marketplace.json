@@ -1,0 +1,24 @@
+{
+  "name": "coopanion-forge-suite",
+  "owner": {
+    "name": "云朵",
+    "url": "https://github.com/HorizonCloudy"
+  },
+  "description": "Coopanion / Cortico 扩展制造专家团：一个团队，一个插件。",
+  "plugins": [
+    {
+      "name": "coopanion-forge",
+      "source": "./",
+      "description": "Cortico 与 Coopanion（桌宠 Coo）扩展制造专家团，内置 Cortico 平台 profile。",
+      "category": "engineering",
+      "keywords": [
+        "plugins",
+        "multi-agent",
+        "contract-first",
+        "anti-slop",
+        "cortico",
+        "coopanion"
+      ]
+    }
+  ]
+}

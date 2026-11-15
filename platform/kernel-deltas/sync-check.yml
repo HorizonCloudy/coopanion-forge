@@ -1,0 +1,17 @@
+# 内核改写台账 · sync-check.yml
+
+上游件：`.github/workflows/sync-check.yml`。
+
+保留上游新加的三件事：`profile_drift.py` 进 py_compile、Drift probe self-test 步骤、
+两个非阻塞旗标（`--fail-unclear`、`--strict-placeholder`）与漂移探针的 report-only 步骤。
+
+平台改写：按本仓文件集重写编译清单与豁免表。
+- 本仓有的脚本：`scripts/generate_roster_tables.py`、`scripts/profile_drift.py`、
+  `skills/coopanion-forge/scripts/check_contract_approval.py`、
+  `skills/coopanion-forge/scripts/security_audit.py`、`tools/sync_kernel.py`。
+- 本仓没有：`skills/neko-plugin-sandbox/`（那是 N.E.K.O 的运行时沙箱 skill）与
+  `scripts/session_capability_refresh.py`。所以删掉 Sandbox self-test 步骤与相关 --allow 项。
+- 上游把 --allow 抽成 AUDIT_ALLOW 环境变量，本仓照抄这个写法。
+
+同步方法：上游 CI 步骤结构变化时，逐条搬进来，再把路径换成本仓的；换完本地跑一次
+`python -I skills/coopanion-forge/scripts/security_audit.py . --allow ...`，总分必须 100 才提交。

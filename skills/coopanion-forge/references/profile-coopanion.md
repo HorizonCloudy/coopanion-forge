@@ -1,0 +1,910 @@
+# profile：Cortico / Coopanion
+
+> **两种出处的差别**：形如 `文件:行`（如 `src/extensions/manifest.ts:129`）是**可复核锚**，
+> 指上游公开仓库里的位置，⓪ 陈旧门禁逐条核它。形如 `(07-templates §7)` 的是**调研档案标记**，
+> 指本团 2026-11-15 的一次性取证记录，不随本仓库分发，也不能当成复核凭据。两者不可互相顶替：
+> 只带档案标记、没有文件行号或官方文档 URL 的结论，一律按 `[未核验]` 对待。
+
+> 核验日期：2026-11-15；核验方式 = 四仓快照 + 本机宿主内置副本 + 索引仓全量现算。
+> 证据只读 `C:/Users/54301/tmp/coo-survey/reports/`。出处写成（文件 §节）。行号紧跟路径。
+
+## 先跑这个
+
+用本 profile 前，先跑文末「⓪ 陈旧门禁」的 P1–P9 探针。探针锚消失 → 对应章节按上游新 main 重核后才准用。重核不了 → 标 [未核验]。
+
+## 目录
+
+1-9：身份与安装形态 / Manifest 契约 / 入口与生命周期 / 能力面 / 错误约定 / 硬性限制速查 / 沙箱与验证命令 / 生态与市场 / 高频封驳原因。
+10 形象包。⓪ 陈旧门禁（文末；先跑）。证据不足与 [未核验] 汇总。
+
+## 1. 身份与安装形态
+
+### 1.1 两个对象：Cortico 与 Coopanion
+
+- Cortico 是引擎与框架。上游仓库 Pal-AI-Lab/Cortico，快照版本 0.2.15。(01-cortico-core §1)
+- Cortico 根 仓库根的 package.json 是 private。它自己不发 npm。(01-cortico-core §7)
+- npm 上的 `cortico` 包由 `publish:package` 现场生成另一份清单。它发布未编译的 TS 源码。(01-cortico-core §7)
+- Coopanion 是 Electron 桌面应用产品。本机安装版本 0.2.20，许可证 AGPL-3.0-or-later。(16-coopanion-app §1)
+- Coopanion 的 docs/DEVELOPMENT.md 逐字写「Cortico 是内核,Coopanion 是用它做的一个产品」。(16-coopanion-app §5)
+- Coopanion 内置一份 Cortico 源码副本 `build/cortico/`。那份 package.json 只剩 name、private、type 三字段。(01-cortico-core §7)(16-coopanion-app §4)
+- 内置副本没有独立版本号。框架读它算内建扩展版本时得到 null。(00-SNAPSHOT §3.3)
+- Coopanion 的 node_modules 里没有 `cortico` 目录。它以自带源码消费框架，不走 npm 安装。(01-cortico-core §7)
+- 宿主副本的 src/extensions/manifest.ts 与 src/extensions/previous-contract.ts 与快照 diff 零输出。两边契约代码同一。(02-ext-manifest §9)
+- 本机宿主内置框架副本与 GitHub main 已核对一致，api 锚四路一致。(权威事实；⓪ P1)
+- Coopanion 的对话人格在 `core/persona.ts` 与 `core/seed/persona/`。它不是上游示例 bot cormini。(16-coopanion-app §2)
+- 写扩展时对象是 Cortico 契约。Coopanion 只是它的一个宿主实例。(16-coopanion-app §5)
+
+### 1.2 扩展是什么东西
+
+- 扩展是 npm 包。它给一份部署补一个 World、provider 或 bot。(01-cortico-core §3)
+- kind 只有三种：world、provider、bot。没有第四类。(02-ext-manifest §3)
+- 契约锚 world 6、provider 6、bot 7。(02-ext-manifest §6)
+- 三种安装来源：npm 包、本机目录绝对路径、随宿主或框架内置。(02-ext-manifest §2)(07-templates §12.1)(16-coopanion-app §4)
+- 市场从带 `cortico-world` / `cortico-provider` / `cortico-bot` 关键字的 npm 包里搜。(02-ext-manifest §2)
+- 关键字缺失只给 warning。本地安装不受影响。(02-ext-manifest §4 步14)
+- 安装落点是数据目录下的 `extensions/`。它本身是一个 pnpm workspace。(16-coopanion-app §4)(10-market-install §6)
+- Coopanion 用 `CORTICO_EXTENSIONS_DIR` 把它指到 `data/extensions`。重装应用不丢扩展，程序目录保持只读。(16-coopanion-app §4)
+- 内置桌宠扩展 `cortico-world-desktop-pet@0.2.0` 随 `resources/app/node_modules/` 分发。(16-coopanion-app §2)(02-ext-manifest §9)
+- 形象包不是第四类 Cortico 扩展。figure.json 的 manifest 2 / api 2，装在数据目录 `figures/<id>/`，由桌宠 World 扫描加载，不过扩展两道闸，不受 TAGS.md 管辖。内置形象包只有 coo 与 whale 两个。(权威事实；16-coopanion-app §3)(15-figure-import §6)
+
+### 1.3 运行模型
+
+- 扩展在宿主 Node 进程内运行。源码里没有子进程隔离，也没有沙箱。(16-coopanion-app §2)
+- 扩展侧的文件、网络、目录权限限制没有任何记载。「没有沙箱」是对已读源码结构的陈述，不是取证结论。(16-coopanion-app §2) [未核验]
+- 上游进程拓扑三层：start 入口 → `bin/cortico.mjs` 监管者 → `src/launcher.ts` 子进程。(01-cortico-core §4)
+- Coopanion 进程拓扑：Electron 壳 → `fork('core/boot.ts')` → 桌宠窗口 PET_HOST 子进程。(16-coopanion-app §2)
+- Coopanion 不走 bin 监管进程模型。Electron 直接消费 launcher 与 bot 源码。(01-cortico-core §7)
+- 扩展 import 框架写成 `cortico/<src 下的路径>`。`runtime.ts` 的模块钩子把它解析到运行的那份框架。(02-ext-manifest §2)
+- 包内 devDependencies 的 `cortico` 只给编辑器、typecheck 与 vitest 用。它不参与运行时。(07-templates §12.1)
+- 运行时不读 describe.json。装载器 import 入口并执行代码，自描述取 Definition 静态字段。(11-describe-artifact §3)(权威事实)
+- 读 describe.json 的是索引仓 Action 与控制台市场。它们不执行扩展代码。(11-describe-artifact §3)(权威事实)
+
+### 1.4 安装事务
+
+- 安装没有自研拷贝层。它就是在 `extensions/` 工作区跑 `pnpm add --config.strict-dep-builds=false`。`exclusive()` 同时只允许一个变更事务，活动事务占位时新请求抛 409 busy，关机中抛 503 shuttingDown。(10-market-install §6)(权威事实)
+- 被 pnpm 跳过构建的直接依赖，安装器自动写 `allowBuilds: true` 并 `pnpm rebuild`。其余写待定值，回执列包名。(10-market-install §6)(权威事实)
+- Cortico 源码里没有回滚代码。全树 grep `rollback` 只命中一条注释。(10-market-install §6)
+- 失败留半成品，排障看 pnpm 输出。(10-market-install §6)(权威事实)
+
+### 1.5 已安装不等于已加载
+
+- 「已装」的唯一口径是 `extensions/package.json` 的 dependencies。(10-market-install §4)
+- 加载只在进程启动时发生一次。`record.loaded` 初始为 false，import 成功且 id 登记成功才置 true。(10-market-install §7)
+- `list()` 把磁盘现状对照启动加载结果，得出五态：removed、pending-restart、loaded、idle、failed。(10-market-install §7)
+- 启动后新装的包报 pending-restart。manifest 声明照报，浏览器产物状态等下次加载才确定。(10-market-install §7)
+- install 与 uninstall 的 HTTP 回执都带 `restartRequired: true`。日志写「扩展已安装(重启后加载)」。(10-market-install §7)
+- 加载失败有六种原因：目录无 package.json、manifest 不合格、import 抛错、默认导出形状不符 kind、id 被内建或先加载者占用、bot 不是 activeBot（记 idle）。(10-market-install §7)
+- 加载之后才谈启用。World 激活走 `POST /api/worlds/activation`，写回 `worlds.<id>.enabled`，不重启进程。(10-market-install §7)(03-world-contract §9)
+- 未激活的 World 不在当前 core 里。卸载已启用的包被 409 inUse 挡住。(10-market-install §7)(03-world-contract §9)
+
+## 2. Manifest 契约
+
+### 2.1 文件名与解析入口
+
+- manifest 就是扩展包自己的 `package.json`。扩展声明放在它的 `cortico` 块里。(02-ext-manifest §3)
+- 解析函数 `parseExtensionManifest(pkg, language = 'zh')`。装载器与 `check:extension` 共用它。(02-ext-manifest §3)(02-ext-manifest §8)
+- 它不访问文件系统。它只吃已经读进来的 JSON。(02-ext-manifest §3)
+- 返回类型两分支：`{ ok: true, manifest, warnings }` 或 `{ ok: false, reasons, warnings }`。失败结果也带已产生的警告。(02-ext-manifest §3)
+- 门禁侧固定用英文：`parseExtensionManifest(pkg, 'en')`。`check:extension` 输出只有英文。(02-ext-manifest §8)(02-ext-manifest §2)
+- 三个消费点对同一结果用法不同：装载器（警告逐条 log，`!ok` 不装载）、发布门禁（reasons 逐条 fail）、装前检查路由 `POST /api/extensions/check`（只读 manifest，不导入包代码）。(02-ext-manifest §8)(02-ext-manifest §2)
+
+### 2.2 cortico 块逐字段表
+
+「后果」列的拒绝 = `ok: false`，包不装载。警告 = 包照常加载。(02-ext-manifest §8)
+
+| 字段 | 类型 | 必填 | 校验分支 | 后果 | 错误文案（逐字） | 出处 |
+|---|---|---|---|---|---|---|
+| `kind` | `'world' \| 'provider' \| 'bot'` | 必填 | 非字符串或不在 `EXTENSION_KINDS` | 拒绝 | `cortico.kind 必须是 ${kinds.join(' 或 ')},现在是 ${got}。` | src/extensions/manifest.ts:129-133 / src/extensions/strings.ts:19 (02-ext-manifest §4 步5) |
+| `api` | 正整数 number | 必填 | 非正整数、过旧、过新 → 拒绝。等于上一版 → 警告并改名 | 见左 | `扩展按 ${kind} 契约 v${api} 编写,本框架的 ${kind} 契约是 v${expected}:扩展需要升级。` / `扩展要求 ${kind} 契约 v${api},本框架的 ${kind} 契约只到 v${expected}:框架需要升级。` | src/extensions/manifest.ts:135-147 / src/extensions/strings.ts:20-27 (02-ext-manifest §4 步6-9) |
+| `displayName` | string，trim 后非空 | 可选 | 写了但为空。非字符串也算空 | 警告并忽略 | `cortico.displayName 必须是非空字符串,已忽略。` | src/extensions/manifest.ts:122-123 / src/extensions/strings.ts:17 (02-ext-manifest §4 步3) |
+| `icon` | 安全相对路径，扩展名 `.png`/`.webp`/`.svg`（显式转小写比较） | 可选 | 路径不合格或扩展名不在 `ICON_TYPES` | 警告并忽略 | `cortico.icon 必须是包内相对路径,指向 ${types},现在是 ${got};已忽略。` | src/extensions/manifest.ts:124-127 / src/extensions/strings.ts:18 (02-ext-manifest §4 步4) |
+| `webUiClient` | 安全相对路径，正则 `/\.m?js$/`（大小写敏感） | 可选 | 路径不合格或扩展名不符 → 拒绝 | 拒绝 | `cortico.webUiClient 必须是包内相对路径(不含 ..、不以 / 开头、只用 /),现在是 ${got}。` / `cortico.webUiClient 必须指向预构建好的 .js / .mjs;浏览器不跑 TypeScript。` | src/extensions/manifest.ts:149-156 / src/extensions/strings.ts:28-29 (02-ext-manifest §4 步10) |
+| `webUiStyle` | 安全相对路径，`/\.css$/`，须与 client 同给 | 可选（从属） | 无 client → 拒绝，此闸在路径检查之前。路径不合格或非 css → 拒绝 | 拒绝 | `cortico.webUiStyle 要与 webUiClient 一起给:样式随面板 bundle 注入。` / `cortico.webUiStyle 必须指向 .css。`（stylePath 逐字文案 reports 未摘录） | src/extensions/manifest.ts:157-166 / src/extensions/strings.ts:30-32 (02-ext-manifest §4 步11) |
+| `describe` | 安全相对路径，`endsWith('.json')`（大小写敏感，与 icon 不同） | 可选 | 两条任一不成立 → 丢弃该字段 | 警告并忽略 | `cortico.describe 必须是包内相对路径,指向 .json,现在是 ${got};已忽略。` | src/extensions/manifest.ts:168-169 / src/extensions/strings.ts:34 (02-ext-manifest §4 步12) |
+| `tags` | 字符串数组 | 可选 | 非字符串数组 | 警告 | 文案键 tagsBad（src/extensions/strings.ts:35，正文未摘录） | src/extensions/manifest.ts:170 (02-ext-manifest §4 步13) |
+| `locales` | `{ zh?, en? }`，每项只含字符串 `displayName` 与 `description` | 可选 | 不满足 `isLocales`。合法则进产物给本机显示名 | 警告 | 文案键 localesBad（src/extensions/strings.ts:36，正文未摘录） | src/extensions/manifest.ts:171、98-104 (02-ext-manifest §4 步13) |
+| `screenshots` | 字符串数组 | 可选 | 非字符串数组 | 警告 | 文案键 screenshotsBad（src/extensions/strings.ts:37，正文未摘录） | src/extensions/manifest.ts:172 (02-ext-manifest §4 步13) |
+| `consoleClient`（旧名） | 同 webUiClient | 仅上一版契约生效 | `renamePreviousManifestFields` 改名。当前契约下完全不读、不报错、不警告 | 见左 | 无文案 | src/extensions/previous-contract.ts:41-48 (02-ext-manifest §5、§6) |
+| `consoleStyle`（旧名） | 同 webUiStyle | 仅上一版契约生效 | 同上 | 同上 | 无文案 | src/extensions/previous-contract.ts:41-48 (02-ext-manifest §5) |
+
+- 分界规律（FACT，报告由上表归纳）：影响能否安全装载的走拒绝，只影响展示与市场元数据的走警告。manifest 相关文案键共 19 个，拒绝 11、警告 8。(02-ext-manifest §8、§10)
+
+`cortico` 块外的同函数校验：
+
+| 字段 | 类型 | 必填 | 校验分支 | 后果 | 错误文案（逐字） | 出处 |
+|---|---|---|---|---|---|---|
+| `type`（根级） | 字面量 `"module"` | 必填 | `pkg.type !== 'module'`。不 return，继续收集其余 reasons | 拒绝 | `package.json 需要 "type": "module"，以保持扩展与框架的 ESM 模块实例一致。` | src/extensions/manifest.ts:112-114 / strings.ts:15 (02-ext-manifest §4 步1) |
+| `cortico`（块本身） | object | 必填 | 缺失、非对象或数组 | 拒绝并立即 return，全函数唯一的提前返回 | `package.json 缺少 cortico 块(至少要 kind 与 api)。` | src/extensions/manifest.ts:116-120 / strings.ts:16 (02-ext-manifest §4 步2) |
+| `keywords`（根级） | 字符串数组 | 市场必填、装载可选 | 仅 kind 合法时查。缺本类关键字 | 警告 | `keywords 里没有 "${keyword}":发布到 npm 后 WebUI 的搜索找不到它(本地安装不受影响)。` | src/extensions/manifest.ts:174-179 / strings.ts:33 (02-ext-manifest §4 步14) |
+
+- `ExtensionPackageJson` 还列出 name、version、main、exports、dependencies 等字段类型。`parseExtensionManifest` 一个都不检查。name 与 version 缺失由 `check:extension` 与装载器另行处理。(02-ext-manifest §5、§8)
+- 关键字与 kind 的对应表唯一来源是 `EXTENSION_KEYWORDS`（src/extensions/manifest.ts:30-34）。包名前缀 `cortico-<kind>-` 只是惯例，校验器不看包名。(02-ext-manifest §7)
+- 包内相对路径的统一闸 `isSafeRelativeFile`：非字符串或空串、含反斜杠、以 `/` 开头、带盘符、任一段是 `..` 或空段，五种都拒。(02-ext-manifest §3)(10-market-install §5)
+- 包内路径的第二层闸 `extensionPackageFile`：resolve 后必须以包目录加分隔符为前缀，且文件存在。(10-market-install §5)
+- 装载期（解析之后）另有三种拒绝，不经 manifest：入口文件缺失、默认导出形状不符 kind、World 或 provider id 撞名。(02-ext-manifest §8)
+
+### 2.3 id 命名规则
+
+- `cortico` 块里没有 id 字段。id 写在代码的 Definition 上：`WorldDefinition.id`、`ProviderModule.id`、`BotDefinition.id`。(03-world-contract §2)(04-provider-contract §2)(05-bot-contract)
+- provider 的 `id` 必须等于内建目录名。扩展包里则是包声明的 id。(04-provider-contract §2)
+- World 实例 id 必须等于定义 id。不等时该 World 进 missing，理由 instanceIdMismatch。(05-bot-contract id 与 bots/ 目录撞名规则节，src/world.ts:244-254)
+- 字符集闸门在 `check:extension`：只用小写字母、数字、连字符，首尾是字母或数字。判据是 `pageIdFor('persona', id)` 的结果能被 `parsePageId` 解析。(05-bot-contract)
+- 撞名规则一：World 与 provider 的 id 撞内建 → 拒载。扩展之间重名 → 保留先加载项。两个 kind 用独立命名空间。(03-world-contract §4)(04-provider-contract §8)
+- 撞名规则二：bot 包的 id 撞仓内 `bots/<目录名>` → `importBotDefinition` 抛错。理由是 WebUI 面板产物按 `persona:<id>` 找，同 key 的仓内页优先。(05-bot-contract)
+- 门禁口径差：`check:extension` 对 bot 撞名只打印提示，不算 failure。对 world 与 provider 撞内建直接 fail。(05-bot-contract)
+- 配置键空间以 id 为唯一键：部署配置只写 `worlds.<id>` 段，环境模板覆盖路径是 `<部署>/worlds/<id>/ENV_PROMPT.md`。(03-world-contract §8、§5)
+
+### 2.4 发布后可否改 id
+
+- 包名是索引仓的登记键。扩展一律按 npm 包名登记，`world-owners.json` 记 world id → 包名。(02-ext-manifest §7、§9)
+- 改 id 必须连带改：包名、代码里的 `id`、`EXAMPLE`/`Example`/`example_` 前缀令牌、事件 type 的 `<id>.` 段、配置键 `worlds.<id>.*`、promptDoc key。模板 README 逐条列出这些改名位。(07-templates §11、§13)
+- 已发布的 npm 包不能原地改名。改名等于发新包。旧包与新包在索引仓是两条目。官方改名或迁移流程本身 [未核验]。(02-ext-manifest §7)
+- 改 id 后旧部署的 `worlds.<旧id>` 段与 `worlds/<旧id>/ENV_PROMPT.md` 不再被读到。缺的键由 `defaults()` 与 `declares` 在装配期补回。(03-world-contract §6、§8)
+- 官方对「替换包」的通道是发 issue：在 `Pal-AI-Lab/cortico-extensions` 用 `check:extension` 打印的纯文本格式提申请。(07-templates §12.2 项7)
+
+### 2.5 版本与契约兼容区间
+
+- 没有区间语法。`api` 是一个整数，必须等于自己这一类的契约版本：world 6、provider 6、bot 7。(02-ext-manifest §6、§2)
+- 版本不符的扩展不能加载，页面显示「需要升级」。上一版契约是唯一例外。(02-ext-manifest §2)
+- 兼容只有两档：当前 `{ world: 6, provider: 6, bot: 7 }` 与写死的上一版 `{ world: 5, provider: 5, bot: 6 }`。(02-ext-manifest §6)
+- 上一版写死而不由当前版减一推出。注释理由：契约再加一时这里不会跟着指向新的上一版。(02-ext-manifest §6)
+- 不变式：上一版 == 当前版 − 1，对 3/3 类成立。`previous-contract.test.ts:31` 守住它，契约再加一时该测试变红。(02-ext-manifest §6、§10)
+- 比上一版更旧的值走 apiTooOld 拒绝。`'5'` 这种字符串先被非正整数闸拒掉，两闸不冲突。(02-ext-manifest §6、§4 步6)
+- 递增纪律：`WorldDefinition` 的不兼容变更只加 world。`ProviderModule` 只加 provider。`BotDefinition`（连同 `BotParts`、`Persona`、`LoadedConfig`）只加 bot。`WebUiPanelContext` 与其余共用接口变更时三类一起加一。同一次发布里的多处变更合计加一。(02-ext-manifest §3、§2)
+- 扩展 API 与 WebUI 协议分别版本化。契约版本与框架包版本是两套数：api 6/6/7 对 framework 0.2.15。(02-ext-manifest §2、§6)(01-cortico-core §7)
+- 运行时要求另写：`engines.node ">=22"`，`packageManager "pnpm@11.28.6"`，启动器硬校验 MIN_NODE_MAJOR = 22。(01-cortico-core §5)
+- 三份模板同样写 `engines.node ">=22"`、`packageManager pnpm@11.28.6`、devDependencies 钉 `cortico: ^0.2.15`。(07-templates §5)
+
+### 2.6 上一版过渡层的真实后果
+
+- 上一版（api 5/5/6）能过渡加载，但 `pnpm check:extension` 判失败，不是告警。(权威事实；02-ext-manifest §8、06-gate-scripts §5)
+- 装载器给上一版包一条 `previousContract` 警告，文案带 UPGRADING_URL。随后 `renamePreviousManifestFields(m)` 改 manifest 旧字段名。(02-ext-manifest §4 步7、§6)
+- 改名只发生在上一版契约分支。新旧都写时取新名，旧名剥离后不再出现在产物里。(02-ext-manifest §6)
+- 当前契约的包若仍写 `consoleClient`：解析器不读它、不报错、不警告，产物里没有 `webUiClient`。面板不发，包照常加载。(02-ext-manifest §6)
+- 过渡层还接旧接口名：`console()`、`BotParts.console`、改过名的 `cortico/` 模块路径、面板脚本直接请求的 `/api/console/providers/...`。(02-ext-manifest §2)
+- 适配函数 `adaptWorldDefinition`、`adaptProviderModule`、`adaptBotDefinition` 由 src/extensions.ts 触发。(02-ext-manifest §6)
+- 市场与扩展详情给一条 warning。门禁只 import `isPreviousContract` 与 `UPGRADING_URL`，不调用改名函数。(02-ext-manifest §2、§8)
+- 删除时点：Cortico 下一个大版本删除过渡层。删除方式写在模块头注释里：连同调用点、各语言 `previousContract` 文案与文档段落一起删。(02-ext-manifest §6)
+
+### 2.7 describe 字段与 files 判定
+
+- `cortico.describe` 指向包内 `.json`。缺省路径 `describe.json`。(11-describe-artifact §1)
+- `pnpm describe:extension <包目录>` 生成它。若 `cortico.describe` 未设置，脚本把该键写回 package.json。(11-describe-artifact §1)
+- `files` 不含 describe 文件时，脚本只 console.log 提示，不改退出码。本地过、线上缺是判定链的真实缺口。(11-describe-artifact §4)
+- 索引仓 scan 从 npm tarball 取该文件。文件缺失或超过 `MAX_DESCRIBE = 1024 * 1024` 时记 skipped，包条目里就没有 describe。(11-describe-artifact §4)
+- 三份模板的 `cortico.describe` 都写 `describe.json`，`files` 都含 `describe.json`。(11-describe-artifact §4)(07-templates §5)
+- `checkDescribe` 的七种 failure：生成抛错、定义没写 describe、实例工具名未声明、package.json 没有 `cortico.describe`、指的文件不在、不是合法 JSON、与重新生成的内容不一致。(11-describe-artifact §5)
+- `checkDescribe` 的两种 warning：Persona 没有 `ownToolNames()`、默认配置下 `tools()` 的 description 或 parameters 与声明不同。(11-describe-artifact §5)
+
+## 3. 入口与生命周期
+
+### 3.1 入口文件怎么定位
+
+- 装载器算入口：`const rel = pick(pkg.exports) ?? pkg.module ?? pkg.main ?? 'index.js';`。`pick` 读 `exports` 的 `.`、`import`、`default`。(07-templates §6.1)
+- 三份模板都不写 `exports`，落到 `main`。world 与 provider 是 `./src/index.ts`，bot 是顶层 `./index.ts`。(07-templates §6.1、§5)
+- `main` 指向未编译的 `.ts` 能跑，因为宿主经 tsx 直载。上游 fork 子进程时 `execArgv` 带 `['--import','tsx']`，Coopanion 的 `core/boot.ts` 同样带 `--import tsx`。(01-cortico-core §4)(16-coopanion-app §2)
+
+### 3.2 三类入口的默认导出形状
+
+| kind | 入口文件 | 默认导出 | 定义位置 | 出处 |
+|---|---|---|---|---|
+| world | `src/index.ts` | `WorldDefinition`（转导出 `templates/extension/world/src/definition.ts` 的 `EXAMPLE`） | 拆到 `templates/extension/world/src/definition.ts` 组装 config、world、describe | 07-templates §6 |
+| provider | `src/index.ts` | `ProviderModule` | 模块对象就地写在 `templates/extension/provider/src/index.ts`，`templates/extension/provider/src/native.ts` 只放 HTTP 客户端类 | 07-templates §6 |
+| bot | `templates/extension/bot/index.ts` | `BotDefinition` | `templates/extension/bot/index.ts` 内联定义，`persona/persona.ts` 放 Persona 实现 | 07-templates §6 |
+
+- 装载器按 `cortico.kind === 'world'` 认类别，不看导出对象自己写的字段。三个形状守卫：`isWorldDefinition`、`isProviderModule`、`isBotDefinition`。(07-templates §6、§6.2)
+- bot 形状只查三件事：`id` 是非空字符串、`defaults` 是函数、`build` 是函数。提示表 `SHAPE_NEEDS.bot = 'id / defaults() / build()'`。(05-bot-contract)
+- provider 形状闸查四件事：`id` 非空串、`title` 是 string、`reasoningTiers` 与 `serviceTiers` 是数组、`create` 是函数。(04-provider-contract §8)
+- 形状对不上 kind → `extensionShapeMismatch`，该包不装载。(10-market-install §7)
+
+### 3.3 World 定义层钩子（WorldDefinition）
+
+| 成员 | 必填 | 签名 | 语义 | 出处 |
+|---|---|---|---|---|
+| `id` | 必填 | `string` | 装配层用它找槽位，Core 用它归属工具与事件 | 03-world-contract §2 |
+| `label` | 必填 | `string` | WebUI 名先取 `webUi(language).label`，没有才取它 | 03-world-contract §2 |
+| `defaults()` | 必填 | `() => S` | 每次返回新对象。`enabled=false`，由 bot 声明或部署配置启用 | 03-world-contract §2、§6 |
+| `preflight?` | 可选 | `(ctx: WorldContext<S>) => void` | 激活前置检查。抛错 = 不能激活，错误信息原样给操作者 | 03-world-contract §2、§9 |
+| `configOptions?` | 可选 | `(kind: string, language: Language) => Array<{ value, label }>` | 未知 kind 返回空数组，框架继续查其他 World | 03-world-contract §2 |
+| `create(ctx)` | 必填 | `(ctx: WorldContext<S>) => World` | 抛错时该 World 移入 missing，不影响其他构造 | 03-world-contract §2 |
+| `describe?` | 可选 | `WorldDescribe` | 工具与会推出的事件，给人和市场看，不进提示词 | 03-world-contract §2 |
+
+- `WorldSection` 只有一个必填键 `enabled: boolean`。(03-world-contract §2)
+- `WorldContext` 共 12 个成员 = 8 个 readonly 属性 + 4 个方法（`secret`、`storeSecret`、`persist`、`restart`）。(03-world-contract §2)
+- 界面语言不在 `WorldContext` 里。它是每次请求传入的参数。(03-world-contract §2)
+
+### 3.4 World 实例契约与同步性
+
+- 实例契约 `World` 共 12 个成员：必填 5、可选 7。(03-world-contract §2)
+- 必填五项：`id`、`envPromptVars()`、`tools()`、`start(host)`、`stop()`。(03-world-contract §2)
+- `start(host: WorldHost): Promise<void>` 与 `stop(): Promise<void>` 强制 async。(03-world-contract §2)
+- `tools(): ToolDef[]` 同步返回。(03-world-contract §2)
+- `envPromptVars(): Record<string, string> | null | Promise<...>` 同步与 async 都合法。返回 `null` 表示省略整段。(03-world-contract §2、§5)
+- 可选四项钩子 `onHandoffEnded?`、`onTurnEnded?`、`onEventsSettled?(events, outcome)`、`onRunPhase?(phase)` 返回 void。钩子抛错只记 warn。(03-world-contract §2、§3)
+- 可选 `webUi?(language?: Language): WorldWebUiDecl` 同步。返回面 10 个字段全部可选，必填 0/10。导航状态灯上限 `MODULE_LAMP_MAX = 7`。(03-world-contract §7)
+- 可选 `outputTap?(): OutputTap | undefined` 与 `shutdownVerification?(language: Language): readonly ShutdownExternalCheck[]`（上报外部检查项）。(03-world-contract §2)
+- 隐藏的 World 不接收那三个钩子。实现是逐调用点各过 `worlds.visible()`，没有集中式守门函数。(03-world-contract §3、§10)
+
+### 3.5 World 启停动作语义
+
+- 三个动作 `activate`、`deactivate`、`restart` 都返回 `Promise<string>`，回执按 `language` 给，省略 = 中文。(03-world-contract §9)
+- 同一 World 的激活、停用、重启、对账按调用顺序逐个执行。前一个失败不影响后一个。(03-world-contract §9)
+- `activate` 先 `persist({enabled:true})` 落盘再 mount。mount 抛错则回滚 enabled、重建实例、原样 rethrow。(03-world-contract §9)
+- 已挂载时 `activate` 直接返回「已启用」，不算失败。预建实例走 `activate` 抛错。(03-world-contract §9)
+- `restart` 不改 `enabled`。未激活时抛「${label} 未激活,没有可重启的实例」。(03-world-contract §9)
+- `ctx.restart()` 走 `sync()`。对账路径的语言硬编码 `'zh'`，回执不外传给 WebUI。(03-world-contract §9)
+- 启动期 `start()` 抛错：移出挂载表，日志「World 启动失败,已跳过」，`enabled` 不动。(03-world-contract §9)
+- 运行中 `tools()` 或 `envPromptVars()` 抛错：Core `failWorld()` 作废 host 租约、移出、限时 `stop()`，装配层换新实例。(03-world-contract §5、§9)
+- 生命周期事件共 6 个 kind 取值：`mounted`、`unmounted`、`restarted`、`visibility`、`start-failed`、`failed`。启动期初始挂载不通知 `onWorldLifecycle`。(03-world-contract §9)
+
+### 3.6 三条入口通道互不可混用
+
+| 通道 | 声明处 | 谁触发 | 失败口径 | 出处 |
+|---|---|---|---|---|
+| 对话工具入口 | 实例 `tools(): ToolDef[]`，声明表另放 `<PREFIX>_TOOL_DECLS` | 模型按名字调用，Core 按名字归属与隐藏 | 撞名拒绝挂载 | 03-world-contract §4 |
+| 事件入口 | `WorldHost.pushEvent` / `pushDeferred` / `pushCandidate?` | World 主动推，主循环在轮次边界收 | deferred 与 candidate 不持久化、不参与重启补投 | 03-world-contract §3 |
+| 环境描述入口 | `envPromptVars()` 填 `promptDocs` 里 `role='envPrompt'` 的模板 | 每轮组 system 前缀 | 抛错的 World 走 `onWorldFailed` 卸载 | 03-world-contract §5 |
+
+- 工具名在一个 bot 内全局唯一。前缀惯例是 `<短名>_` 起头，正则 `TOOL_PREFIX = /^[a-z0-9]+_/`。(03-world-contract §4)
+- 不合前缀只给 warning。撞 Core 保留帧或已挂载 World 是硬拒。保留帧名共 1 个：`external_event_frame`。(03-world-contract §4)
+- 事件 type 的命名规则与工具不同：仓内全部是 `<worldId>.<名>` 点分式。(03-world-contract §4)
+- 合批投递时刻 = `min(firstAt + maxBatchAgeMs, max(firstAt + minBatchAgeMs, lastAt + quietGapMs))`，`pendingEventCount() >= maxBatchSize` 时立即投递。四个缺省值见 6.1 表。(03-world-contract §3)
+- Persona 的工具不在 Persona 上，在每个 `SessionDecl.tools()` 里。World 工具在前、自有在后的顺序影响前缀缓存命中。(05-bot-contract)(07-templates §4)
+- bot 与 Persona 侧没有 `pushEvent` 入口。Persona 用 `core.injectInternal` 投内部事件。(07-templates §4)
+
+### 3.7 Provider 入口与生命周期
+
+- `ProviderModule` 必填五项：`id`、`title`、`reasoningTiers`、`serviceTiers`、`create`。其余 17 项可选，共 22 个字段。(04-provider-contract §2)
+- `create(name: string, entry: LLMProviderEntry, host: ProviderHost): ProviderInstance;` 同步返回。(04-provider-contract §2)
+- `reasoningTiers` 空表 = 开放：`reasoningEffort` 收任意非空串，`effortSuggestions` 供候选。(04-provider-contract §2、§5)
+- 实例必填 `client: BaseProvider`，其 `respond(request, options?)` 返回 `Promise<Generation>`。(04-provider-contract §2)
+- 实例可选：`handlesRefusedImages?`、`listModels?`、`control?`、`compatibilityKey?()`、`start?()`、`stop?()`、`contextWindow?(model)`。(04-provider-contract §2)
+- `start?()` 与 `stop?()` 的同步性、签名与调用时机，reports 未记载。(04-provider-contract §2) [未核验]
+- `host` 提供 `stateDir`（`<部署根>/providers/<端点名>/`，归实例独占）、`secret(name)`、`readBlob(handle)`、`keepThinking()`、`log` 等。密钥优先级：预览覆盖值 > 进程环境 > 端点 `.env`。(04-provider-contract §2、§7)
+- provider 必须在 `createBot` 解析端点配置前注册。(04-provider-contract §8)(01-cortico-core §4)
+- 撞 id 两道闸：装载期记 `providerIdTaken` 跳过并 warn，注册期 `registerProviderModules` 直接抛错。(04-provider-contract §8)
+- 实例缓存键含端点 `.env` 的 sha256。密钥在实例创建时定格，密钥文件变更后下一次解析重建。(04-provider-contract §7)
+- 卸载持端点表写锁 `providers/.write-lock` 确认无实例引用，有就回 409。撤下只作用于本进程。(04-provider-contract §1)
+- HTTP 与 SSE、重试、计量、流装配全在框架 `providers/transport/`。扩展包只答「请求体长什么样、请求头带什么」。重试间隔 1s / 4s / 10s。(07-templates §3)(04-provider-contract §1)
+
+### 3.8 Bot 入口与生命周期
+
+- `BotDefinition` 必填三项：`id`、`defaults()`、`build(loaded, worlds)`。`memoryName`、`worlds`、`declares`、`describe` 可选。(05-bot-contract)
+- `build()` 同步返回 `BotParts`：`persona` 必填，`worlds?`、`llm?`、`webUi?`、`onStart?`、`onStop?` 可选。(05-bot-contract)
+- `worlds` 与 Core 共用数组，激活和停用会就地更新。Persona 应在使用时读取。(05-bot-contract)
+- `parts.worlds` 是预建实例，替换同 id 的定义实例做初始挂载。重启复用该实例，停用后不能通过 `activate` 重新挂载。(05-bot-contract)(03-world-contract §8)
+- `createBot()` 顺序：算提示词覆盖目录 → 定默认语言 → `WorldAssembly` → `build()` → `Core` → 绑定挂载钩子 → 收配置组 → provider 设置页与端点编辑 → `WebApp`。(05-bot-contract)
+- `start()` 顺序：单实例锁 → WebUI → 启动 active provider → `onStart` → `core.start()`。(05-bot-contract)
+- `onStart(ctx: BotStartContext)` 收 `{ core, loaded, port }`。`port` 不起 WebUI 时为 null。它在 provider 启动后、`core.start()` 前调用。(05-bot-contract)
+- Persona 必填五项：`systemSegments(ctx)`、`memoryDir`、`blobs`、`attach(core)`、`declareSessions()`。(05-bot-contract)
+- `attach` 必须先于 `declareSessions`，因为后者会把工具 handler 绑到 `CoreApi`。Core 构造按此顺序调用。(05-bot-contract)
+- `declareSessions()` 必须恰有一个 `receivesEvents` 且 `persistent` 的声明。否则 Core 构造抛「Persona必须恰好声明一个接收事件投递的常驻session,当前${main.length}个」。(05-bot-contract)
+- Persona 可选钩子 13 项：`onOpening`、`onDelivery`、`onBatchEnd`、`onTurnEnded`、`onIdle`、`onStallsRecovered`、`onWorldLifecycle`、`sessionHead`、`onHandoff`、`promptVarValues`、`ownToolNames`、`cognition`、`webUi`。(05-bot-contract)
+- `onDelivery` 返回的 Promise，Core 等它完成再投递，不设期限。(05-bot-contract)
+- `memoryDir` 必须是绝对路径字符串。Core 不读它，`check:extension` 只校验它是字符串。(05-bot-contract)
+- `sessionHead()` 每次请求置于 system 前缀之后、持久历史之前，不写入 session，交接时不进保留内容。(05-bot-contract)
+- `rounds` 的 soft 追加提示、hard 结束循环。soft 大于或等于 hard 时都提前到 hard 的前一轮。到达 hard 时未消费事件退回总线，`trigger: 'flush'`。(05-bot-contract)
+- `declares` 每项是 World id 字符串或 `{ id, label, reason? }`。对象声明里 `label` 是必填 string。(05-bot-contract)
+
+### 3.9 配置热改与重启边界
+
+- `ctx.cfg` 是部署配置 `worlds.<id>` 段的共享引用。WebUI 改配置时原地写入，World 现读即生效。(03-world-contract §6)
+- 构造时存进字段、或用来建连和起进程的值，要等实例重新构造才生效。这类项标 `x-hot: false`，设置页显示「重启 World 生效」或「重启生效」。未标的项按立即生效显示。(03-world-contract §6)
+- 实测分布：声明的 `worlds.<键>` 配置项 91 个，标 `'x-hot': true` 的 76 个（83.5%），标 `'x-hot': false` 的 15 个（16.5%），未标 0 个。(03-world-contract §6)
+- `ctx.persist(patch)` 先改内存活对象，再把同一 patch 深合并进 `<部署根>/config.json`。数组整体替换，`undefined` 键跳过。(03-world-contract §8)
+- 部署侧合并次序：`defaults()` ← 包内 `worlds` 覆盖 ← 端点表 ← 部署 `config.json`。部署文件不能覆盖共享端点表。(03-world-contract §6)
+- 定义型 World 的内存暂态在停用、重启、对账重启时全部归零，磁盘态不受影响。(03-world-contract §8)
+
+### 3.10 进程级启停预算
+
+- 启动前置、监管重启条件、关机信号、七段预算与宽限值，逐值见 6.1 表。(01-cortico-core §4)
+- 启动前置：缺 `node_modules` 时 `pnpm install`；WebUI 产物不新鲜时 `pnpm build:web`。新鲜度判定要清单与 `styles.css` 存在、清单引用文件逐个在、每个源文件 sha256 与现状相符。(01-cortico-core §4)
+- 受监管启动默认暂停：`CORTICO_START_PAUSED` 缺省 `'1'`；`CORTICO_OPEN_BROWSER` 首轮默认开浏览器，重启轮置 `'0'`。关机触发信号：`SIGINT`、`SIGTERM`、`SIGHUP`（窗口被关闭）、`SIGBREAK`，另加 `uncaughtException`。(01-cortico-core §4)
+- 扩展作者可用的关机额度就是 `extensions: 60_000` 那一项。它排在 `pause` 之后、`worlds` 之前。(01-cortico-core §4)
+- 单个 World 的 `stop()` 限时 `MODULE_STOP_MS = 20_000`。停止失败或超时只记进 `WorldStopFailure`，仍继续卸载。(03-world-contract §9)
+- Ctrl+C 时父进程挂 `hold`，等子进程自己关完。关机报告含 steps 与 externalChecks，后者未验证结束会打 `⚠ [P0]` 与「人工动作」。(01-cortico-core §4)
+- 扩展事务管理器 `close()` 停止接受变更，并等完整活动事务。关机中的变更请求回 503 `shuttingDown`。(10-market-install §6)
+
+## 4. 能力面（审议核心）
+
+### 4.1 工具面
+
+- 工具只在两处声明：World 的 `tools()` 与 Bot 的 `SessionDecl.tools()`。Persona 上没有工具。(03-world-contract §2、05-bot-contract 工具归属)
+- `ToolDef` = `name`/`description`/`parameters` + `tags` + `handler`，另可选 `barrierAfter?`、`streamsOutput?`、`endsTurn?`、`interruptible?`。(03-world-contract §4)
+- 工具名在一个 bot 内全局唯一。模型按名字调用，Core 按名字归属与隐藏。(03-world-contract §1)
+- 撞名是运行时硬门槛：命中保留帧名或被别的 World 占用时，装配层拒绝挂载并报原因。(03-world-contract §4)
+- Core 保留帧名共 1 个：`external_event_frame`。session 工具注册同名被拒。(05-bot-contract sessions、03-world-contract §4)
+- `tags` 为空数组只 warn，不参与任何 tag 过滤；`tags` 非数组是干跑 failure。(03-world-contract §4)
+- 运行期出现未声明进 `describe.tools` 的工具名时，照常生效，每个名字记一条 warn。(03-world-contract §4、05-bot-contract 运行期)
+- 市场实态：303 个带 `describe.tools` 的包里共 2052 个工具名，带合规前缀的 2049 个（99.9%），不合规 3 个：`surface`、`sh`、`stroll`。(03-world-contract §4)
+- 包数口径提醒：分母三个值并存，引用前先统一。「带 `describe.tools` 的包」= 303（03 §4 口径）；「describe 产物在包内的包」= 313（c01-api-drift §6 口径）；「describe 在包内且工具非空」= 313 − 0 工具包 39 = 274（c07-tool-event-surface §1、§3 口径）。三个值出自三份脚本、三个判定条件，未互相核对。[口径未统一]
+- `qq` 前缀在扩展里出现 142 次，而 `qq` 同时是内建 World 的 id。撞名判定因此是运行时硬门槛。(03-world-contract §4)
+
+### 4.2 事件档位
+
+- `TriggerMode` 共 5 档，逐字取值：`preempt`、`interrupt`、`flush`、`debounce`、`piggyback`。中文名依次是抢占、打断、清出、分批、搭车。`promotePending` 只接受 3 档。(03-world-contract §3)
+- 缺省规则：外部事件默认 `debounce`，内部事件默认 `flush`。`deliver: false` 仅落库不投递，默认 true。(03-world-contract §3)
+- `origin` 只有 2 档：`'external' | 'internal'`；事件 tag 只有 2 档：`'snapshot' | 'speak'`；`contextDelivery` 只有 2 档：`'deliver' | 'archive-only'`，缺省 deliver。(03-world-contract §3)
+- 投递生产方式 3 条：`pushEvent`（落库分游标）、`pushDeferred`（投递时渲染，render 返回 null/抛错/超时则不落库不投递）、`pushCandidate`（先归档、投递时 project）。(03-world-contract §3)
+- deferred 与 candidate 两类排队项不持久化，不参与重启补投。(03-world-contract §3)
+- 隐藏的 World：pushEvent 归档为 archive-only，pushDeferred 直接丢弃，pushCandidate 原始事件仍归档、投影作废。(03-world-contract §8)
+- 主循环在一批之内的轮次边界接收新事件：工具全部返回后，或 preempt、interrupt 取消模型轮后。(03-world-contract §3)
+- 仓内 World 没有任何一处把 `preempt` 或 `interrupt` 当字面量传给 `trigger:`（50 处中 0 处）。(03-world-contract §3)
+- 市场实态：952 条声明事件里 539 条（56.6%）不写档位走缺省；显式声明里 flush 223、debounce 135、piggyback 47、preempt 6、interrupt 2。(c04-capability-usage §3)
+- Bot 侧 `eventDelivery` 只有 2 档：`'tool'`（默认，进保留的 external_event_frame 调用/回执对）与 `'user'`（进 user 消息，排在内部文本之后）。(05-bot-contract sessions)
+
+### 4.3 UI 面板与路由
+
+- `webUi?(language?)` 返回 10 个字段，全部可选：`label`、`lamps`、`badges`、`panels`、`invoke`、`stream`、`promptDocs`、`storage`、`links`、`config`。(03-world-contract §7)
+- 每个 World 导航状态灯至多 `MODULE_LAMP_MAX = 7` 个；灯态 4 档：`online`/`loading`/`error`/`offline`。(03-world-contract §7)
+- 面板 id 用 `[a-z0-9-]`，不带 World 前缀；省略 `getMethods` 时本面板只接受 POST。(03-world-contract §7)
+- 面板 RPC 路由 `GET/POST /api/webui/providers/:provider/panels/:panel/:method`，GET 的 args 走 query `?args=` JSON 数组。(09-webui-routes §2.8)
+- `invoke` 返回 `{ $binary: { mime, base64 } }` 时响应为二进制；World 未实现 invoke 时框架返回 503。(03-world-contract §7)
+- `stream` 未实现时拒绝对应的 WebSocket 握手。(03-world-contract §7)
+- WebSocket 通道共 3 类：`/ws/debug`、`/ws/sessions`、`/ws/providers/<page>/panels/<panel>`。(09-webui-routes §1)
+- provider 模块可经 `webUi(host)` 返回 `Partial<WebUiPageContribution>` 加配置页；`POST /api/provider-modules/preview` 可调面板方法。(04-provider-contract §2、09-webui-routes §2.4)
+
+### 4.4 存储与命名空间
+
+- 归属类型逐字：`StorageOwner = 'core' | 'persona' | 'memory' | `world:${string}``。key 唯一性只在同一 owner 命名空间内要求。(08-deploy-env-storage /api/storage 节、03-world-contract §8)
+- core 命名空间共 10 个 key：`events`、`session`、`runlog`、`usage`、`toolcalls`、`state`、`wakes`、`tracker`、`pending`、`media`。(08-deploy-env-storage /api/storage 节)
+- World 的 `ctx.dataDir` 是部署级共享目录，同名文件会互相覆盖。文件名与 storage key 以 World id 开头是文档约定。(03-world-contract §8)
+- 实际偏差存在：`qq` 的存储 key 是 `vision`，不以 id 开头。干跑不查存储 key。(03-world-contract §8)
+- `GET /api/storage` 清单项含 `owner`；`POST /api/storage/clear` 的 key 与 owner 走 query 不走 body。(09-webui-routes §2.2、08-deploy-env-storage /api/storage 节)
+- `core-state.json` 里 World 侧只有 `worldVisibility` 一张表；`clear()` 只清 `persona` 与 `lastTruncateAt`，投递水位与可见性跨重置保留。常驻 session 落盘 `data/session-main.jsonl`，只追加。(03-world-contract §8)(05-bot-contract sessions)
+
+### 4.5 密钥取用
+
+- World 侧接口在 `WorldContext`：`secret(name)` 与 `storeSecret(name, value)`。(03-world-contract §2)
+- 读取优先级（provider 侧逐字）：预览覆盖值 > 进程环境 > 端点 `.env`；`secret(name)` 注释「按名字取密钥:进程环境 > 这个端点的 `.env`。」。(04-provider-contract §7)
+- 密钥文件三层：仓库根 `.env` 只放 `CORTICO_HOME`，密钥写在这里读不到；`<部署>/.env` 放 World 密钥；`<部署根>/providers/<端点名>/.env` 放端点密钥。(08-deploy-env-storage environment-variables 节)
+- `.env` 一行一个 `NAME=value`，值不能含空格；文件值读取到首个空白字符，不解析引号。(08-deploy-env-storage environment-variables 节、04-provider-contract §7)
+- WebUI 写密钥只写不读回。`writeSecretFile` 落盘 mode 0o600。(08-deploy-env-storage environment-variables 节、08-deploy-env-storage 配置写回节)
+- 密钥变更后下一次模型调用生效，不必重启；`.env` 内容 sha256 进实例缓存键。(08-deploy-env-storage 热重载节、04-provider-contract §7)
+- GitHub 令牌存扩展目录 `github-token.json`，mode 0o600。(10-market-install §2)
+
+### 4.6 模型调用
+
+- 模型在端点配置中选择，Persona 不指定模型。provider 模块不预设任何模型名。(04-provider-contract §1)
+- `spec` 字段 6 个：`model`、`thinking`、`reasoningEffort`、`temperature`、`maxTokens`、`contextWindow`；端点没有 `spec` 就不能被设为 active。(04-provider-contract §1、§2 形状)
+- `kind` 保存后不可更改。(04-provider-contract §1)
+- `spec` 同时填 `contextWindow` 与 `maxTokens` 时，`contextWindow` 必须大于 `maxTokens`，否则保存与设为当前都被拒绝。(04-provider-contract §1)
+- `temperature` 范围固定 0..2，与档位无关；`maxTokens`/`contextWindow` 必须正整数。(04-provider-contract §5)
+- reasoning 档位：表非空时 `thinking`+`reasoningEffort` 组合必须精确命中某档；表为空时收任意非空 trim 串，且填 effort 必须 `thinking: true`。(04-provider-contract §5)
+- `entry.serviceTier` 只能是模块 `serviceTiers` 表里的 id；空表意味着任何非空 serviceTier 都被拒。(04-provider-contract §5)
+- 传输重试间隔逐字 1s / 4s / 10s；状态 0、408、429 与 5xx 重试，401/403 先刷新一次凭证。(04-provider-contract §1)
+- token 轴：`hardTokens` 超过时 Core 强制交接，触发 `Persona.onHandoff`；这与轮数上限 `rounds.soft/hard` 是两条轴。(05-bot-contract rounds)
+- cormini 实配 `rounds: { soft: 6, hard: 12 }`；hard 到点强制结束本次唤醒。(05-bot-contract rounds)
+- `estimateTokens` 缺席时 Core 用字符比估算。(04-provider-contract §2、§6)
+- 内建 provider 不带分时段价目，端点的 `pricing` 也不接受 `timeWindows`；按时段计费由 provider 扩展声明。(04-provider-contract §1)
+- World 是否有直接调模型的主机接口：九份证据里没有记载。(03-world-contract §7 WorldHost 面) [未核验]
+
+### 4.7 网络出访
+
+- 跨站写闸门：非 GET/HEAD/OPTIONS 且跨站 → `403`；Host 白名单不过 → `421`。监听与端口默认见 6.6。(09-webui-routes §1)
+- 扩展代码在 bot 进程内运行。证据没有记载限制扩展出访的网络沙箱。(10-market-install §7) [未核验]
+- 市场侧出访目标固定三个域：`raw.githubusercontent.com`、`api.github.com`（含 GraphQL）、配置的 npm registry；索引源可经 `indexBase` 替换。(10-market-install §2、09-webui-routes §2.6)
+- 生态实态：14/353 个包在文本里写死 `127.0.0.1:<端口>`，`localhost:端口` 0 见；9880–9883 被多个语音包共用，无统一分配机制。(c04-capability-usage §5)
+- 形象包帧的 CSP 边界见第 10 章，不在扩展进程内。(13-figure-runtime §5)
+
+### 4.8 明确不支持（封驳依据，逐项给出处）
+
+1. 形象包不是第四类 Cortico 扩展。figure.json 的 manifest 2 / api 2，不过扩展两道闸，不受 TAGS.md 管辖。内置形象包只有 coo 与 whale 两个。(权威事实；12-figure-manifest §6)
+2. 运行时不读 describe.json。读 describe.json 的是索引仓 Action 与控制台市场。(权威事实；11-describe-artifact §3)
+3. 契约锚必须是 world 6 / provider 6 / bot 7。上一版 5/5/6 能过渡加载，但 `check:extension` 判失败，不是告警。(权威事实；06-gate-scripts §5)
+4. 扩展包内没有 describe/check 脚本，只有 `test` 与 `typecheck`。(权威事实；06-gate-scripts §4)
+5. WebUI 没有 PUT/DELETE/PATCH/OPTIONS 路由，卸载只有 `POST /api/extensions/uninstall`。(09-webui-routes §1、§4)
+6. 没有 `/health`、`/api/health`、`/healthz`、`/readyz` 独立健康路由；健康语义由 `GET /api/status` 等 3 条承担。(09-webui-routes §4)
+7. `/api/extensions/check` 只有 POST，没有 GET 变体；它的参数包在 `target` 下，与 install 的顶层字段不同形。(09-webui-routes §3)
+8. `WorldWebUiDecl` 没有 `actionViews` 成员：四个快照、宿主副本与上游 code search 全 0 命中。(03-world-contract §10.1、c04-capability-usage §8)
+9. 没有公开的 `reconcile()` API；对账只有内部 `WorldAssembly.sync(id)`。(03-world-contract §10.2)
+10. Core 没有记忆后端接口。Memory 存在哪、怎么读写由 Persona 决定；Core 不从 Memory 取文本。(05-bot-contract Memory 节)
+11. World 不直接访问 Memory 或调用 Persona 的工具。(03-world-contract §1)
+12. Persona 不指定模型；模型在端点配置里选。(04-provider-contract §1)
+13. 端点 `kind` 保存后不可更改。(04-provider-contract §1)
+14. `baseUrlSuggestions` 只是候选：任何 URL 都接受，不在表内不拒。(04-provider-contract §2、§4)
+15. 内建 provider 与端点 pricing 不接受 `timeWindows` 分时段价目。(04-provider-contract §1)
+16. 扩展 id 撞内建时直接拒载（world/provider 同构，先到先得）；bot 撞仓内 `bots/` 目录名时装载抛错。(03-world-contract §4、04-provider-contract §8、05-bot-contract id 规则)
+17. 安装版本区间不收 `>=` 与 `||`（VERSION_SPEC 不含它们）；路径含 shell 元字符即拒（LOCAL_PATH）。(10-market-install §5)
+18. 安装事务没有自研回滚层。失败留半成品，排障看 pnpm 输出。(权威事实；10-market-install §6 grep 判据)
+19. 搜索不做语义文本匹配：registry 的 `text=` 在 `keywords:` 过滤下只影响排序，筛选交给 WebUI。(10-market-install §4)
+20. 形象包帧内放不了视频、音频元素、远程字体、worker、嵌套 iframe。(13-figure-runtime §5)
+21. 0.2.13 及更早版本不许形象包任何 `fetch`。(13-figure-runtime §11 README 原文)
+22. 内置形象包在帧内连自己的文件都 fetch 不到（connect-src 'none'）。(13-figure-runtime §5)
+23. talk 声音不许带 `repeat`；不在 `.ogg/.mp3/.wav` 的声音文件被静默跳过并记问题。(13-figure-runtime §7、12-figure-manifest §5)
+24. figure.json 未声明字段完全不读，多余字段静默忽略。(12-figure-manifest §6)
+25. `deploy` 文件（config.json）不能覆盖共享端点表。(03-world-contract §6)
+26. 密钥写到仓库根 `.env` 读不到；那里只认 `CORTICO_HOME`。(08-deploy-env-storage environment-variables 节)
+27. WebUI 写密钥后不读回。(08-deploy-env-storage environment-variables 节)
+28. 崩溃与非零退出不自动重启，只打印「未自动重启」；只有 restart 消息或标志文件才重新 fork。(08-deploy-env-storage launcher 节)
+29. `serviceTiers` 四个一手源里没找到一个非空实值样本；`device-code` auth 无任何模块声明；`audio`/`video` input 实值 0/8。类型允许，生态实值取不到。(04-provider-contract §9)
+
+### 4.9 不支持能力的官方降级路径
+
+- 带图请求被 413 拒收、或 400 拒收且 `contextOverflow` 不认：去掉图片重发一次（`ImageFallback`）。扩展 client 自套后置 `handlesRefusedImages: true`。(04-provider-contract §1、§6)
+- 旧宿主（≤0.2.13）拒绝 fetch：官方 readBytes 回落写法见 10.5。(13-figure-runtime §11)
+- ENV_PROMPT 想回退默认：删除部署覆盖文件即回退到代码包或 World 模板层。(08-deploy-env-storage docs/deployment.md 节、03-world-contract §5)
+- `x-hot: false` 的参数：WebUI 标「重启生效」，停用再启用、World 重启或 bot 重启后生效。(03-world-contract §6)
+- 新装扩展要生效：回执 `restartRequired: true`，状态 `pending-restart`，重启进程后加载。(10-market-install §7)
+- 索引源连不上：先退 contents API，再退本进程上次结果、缓存文件 `market-index.json`，读失败回内存旧值带 `stale`。(10-market-install §3)
+- 未登录 GitHub 读讨论：读 Action 写进索引仓的匿名评论快照；投票与发帖才要求登录。(10-market-install §2)
+- provider 未实现 `availability`：只查通用条件（模型、密钥）。(04-provider-contract §1、§2)
+- 被跳过的构建：安装自动把已装扩展直接依赖写 `allowBuilds: true` 再 `pnpm rebuild`；其余列名给批准命令。(10-market-install §6)
+- 端口全被占：顺延 5 个候选；宿主收 `companion:ports-busy` 带 from/to。(08-deploy-env-storage 端口节、安装态节)
+- 第二实例：单实例锁按 `data/` 目录隔离；`--force-second-instance` 可绕过。(08-deploy-env-storage docs/deployment.md 节)
+- Persona 没实现 `ownToolNames()`：工具对账降级为 warning，照常发布。(05-bot-contract 校验、06-gate-scripts §7)
+
+## 5. 错误约定
+
+### 5.1 没有全局 Ok/Err，但每层有带原因的失败类型
+
+- Cortico 没有统一的 `Ok/Err` 信封。成功形状与失败形状按层各定一套。(09-webui-routes §2、03-world-contract §9)
+
+HTTP 层（WebUI）：
+
+- 变更类成功回执惯用 `{ ok: true, result }` 及其变体（`{ ok, result, groups }`、`{ ok, paused, result }`、`{ ok, result, restartRequired: true }`）；GET 类直接回领域对象（`{ worlds }`、`{ parts }`、`{ ...safeStatus(), uptimeSec }`），不套 ok。(09-webui-routes §2)
+- 失败体惯用 `{ error: <码或文案> }`，个别路由加附加字段：prompts 冲突带 `conflict: true`，manifest 彻底失败也回结构空壳带 `error` 字段。(09-webui-routes §2.7、§2.8)
+- `LocalizedError` 自带 HTTP status，各路由包装器尊重它；非 LocalizedError 的抛错按路由各自规则映射，逐码见 5.4 表。(09-webui-routes §2.4、§2.6)
+
+进程内装配层：
+
+- `activate/deactivate/restart` 返回 `Promise<string>`：成功是本地化回执串，失败是抛本地化 `Error`。(03-world-contract §9)
+- 失败理由以闭包保留：`slot.failure = (language) => text(language).startFailed(detail)` 等，文案含 `启动失败: ${detail}`、`读取失败: ${detail}`。(03-world-contract §9)
+- 生命周期事件带 reason 字段：`{ kind: 'start-failed' | 'failed'; id; label; reason }`，共 3 变体 6 个 kind。(03-world-contract §9)
+- Core 生成链失败类型：`GenerationError` 带 `status` 与 `body`，`contextOverflow` 靠它判超限。(04-provider-contract §6)
+
+闸脚本层：
+
+- `check:extension` 三档输出 `✓`/`⚠`/`✗`；`fail` 才计 failures，warning 不影响退出码；`failures>0` 或无参数/无 package.json 时退出码 1。(06-gate-scripts §2)
+- `describe:extension` 全部失败路径走同一个 `exit(message)`：`console.error` + 退出码 1；定义没写 describe 或构造失败即退出码 1。(06-gate-scripts §3)
+
+### 5.2 throw 的允许与后果（哪些位置不许指望 throw）
+
+- 没有「全局禁止 throw」的成文清单；`core/README.md` 的钩子异常处理细则本次未逐行核。(05-bot-contract 取不到 #5) [未核验]
+- 已核到的硬要求：门禁干装载要求 `build()` 在假部署（默认配置、空 Memory、无密钥、`worlds=[]`）不抛错，抛了就是 failure「build() must succeed with this config.」。build/defaults 路径不许对缺密钥、缺 Memory 抛错。(05-bot-contract dry-mount、06-gate-scripts §2)
+- `preflight` 的 throw 是契约行为：「抛错 = 不能激活,错误信息原样给操作者」。(03-world-contract §2)
+- `create()` 抛错不是崩溃路径：该 World 移入 missing，不影响其他构造；mount 抛错时装配层回滚 `enabled:false`、重建实例、原样 rethrow。(03-world-contract §2、§9)
+- `tools()` 或 `envPromptVars()` 抛错 = 该 World 经 `onWorldFailed` 卸载并报 `读取失败`，不拖垮主循环。(03-world-contract §4、§5)
+- `webUi()` 抛错被 catch：label 回落链跳过它；WebUI 声明异常时省略该 World 的模板。这里 throw 只导致降级。(03-world-contract §5、§7)
+- 生命周期钩子 `onWorldLifecycle` 抛错由 src/bot.ts 兜住并记日志；`onRunPhase` 抛错只 `log.warn`。(03-world-contract §3、§9)
+- `stop()` 失败或超时（`MODULE_STOP_MS = 20_000`）仍继续卸载，只记进 `WorldStopFailure`；启动期 `start()` 抛错的 World 被跳过并收集进 `WorldStartFailure[]`，enabled 不动。(03-world-contract §9)
+- 运行期名字对账禁止以 throw 拦：未声明的工具/事件「照常生效/照常推送」，只记 warn。(03-world-contract §4、05-bot-contract 运行期)
+- provider 模块的可选校验钩子是 `validateEntry?` 与 `validateModel?`（src/providers/base.ts 行101-147，04-provider-contract §2 表），钩子名不是 `validateSpec`。保存路径的正式失败通道是框架内部 `src/providers/configuration.ts` 的两个函数：`validateEntry`（§4 baseUrl 协议、§5 serviceTier、§7 secret 名行93-97）与 `validateSpec`（§5 档位组合、temperature 0..2）。两者都用 throw 表达拒绝，消息取本地化 `S.*` 文案。(04-provider-contract §2、§4、§5、§7)
+- 帧内必填方法缺失（`step`/`layout`/`do`）在帧里 throw，转成一次 `error` 出站消息后 `dead`。(13-figure-runtime §2、§4)
+- `config.json` 解析失败时拒绝写回并抛「config.json解析失败,拒绝写回(请手工检查文件)」，不覆盖坏文件。(08-deploy-env-storage 配置写回节)
+
+### 5.3 日志与脱敏
+
+- `.env` 值经展平读取时打印 `<redacted>`，密钥值不落报告。(04-provider-contract §7、08-deploy-env-storage 复算口径)
+- GitHub 令牌请求头记作 `Authorization: Bearer <redacted>`；讨论帖内带 token 的 URL 值写作 `<redacted>`。(10-market-install §2、c04-capability-usage §5)
+- 敏感动作都记 warn：配置修改「配置项已修改」、存储清除记 `${owner} ${key}`、World 激活状态、扩展装卸「重启后加载/消失」。(08-deploy-env-storage 配置写回节、09-webui-routes §2.2、03-world-contract §9、10-market-install §7)
+- 帧错误消息截 300 字符再出栈；`pnpmFailed` 只回输出末 20 行。(13-figure-runtime §9、10-market-install §6)
+
+### 5.4 HTTP 状态码约定汇总（亲见逐条）
+
+| 码 | 语义与实例 | 出处 |
+|---|---|---|
+| 400 | 参数缺失/类型错（`missingField`、`notBoolean`、`notString`、`badKind`、`badVote`）；provider 路由默认档；`/api/extensions/check` handler 抛错；安装动作抛错；path-picker 请求错 | (09-webui-routes §2.4–§2.6、§2.8) |
+| 401 | 未授权（`loginRequired` + 头 `x-cortico-auth: required`）；登录口令错 `wrongPassword` | (09-webui-routes §1、§2.1) |
+| 403 | 跨站写拒绝 `crossSiteRejected` | (09-webui-routes §1) |
+| 404 | avatar/blob 缺失；storage 无匹配；面板路由没这页/面板；`/packs/` 越界无体；`/assets/extensions/` 产物表未命中 | (09-webui-routes §2.2–§2.3、§2.8、13-figure-runtime §13) |
+| 405 | 面板方法不在 `getMethods` | (09-webui-routes §2.8) |
+| 409 | storage key 撞多 owner；端点仍被引用；卸载在用包 `inUse`；安装事务忙 `busy`；prompts 版本冲突；卸载已挂载 World 的包定义 | (04-provider-contract §1、08-deploy-env-storage /api/storage、09-webui-routes §2.7、10-market-install §6、03-world-contract §9) |
+| 413 | prompts 内容 UTF-8 字节超 1MB | (09-webui-routes §2.7) |
+| 421 | Host 白名单不过 | (09-webui-routes §1) |
+| 428 | 未登录 GitHub 投票/发帖（含令牌被撤后删文件重定向到此码） | (10-market-install §7) |
+| 500 | 面板页内抛错；storage `clear()` 抛错 | (09-webui-routes §2.2、§2.8) |
+| 502 | npm 搜索失败；registry 侧 provider 错误；GitHub GraphQL 其余错误；索引 schema 不认识 | (09-webui-routes §2.6、10-market-install §7) |
+| 503 | 能力未挂载（market、check、panel no-surface、path-picker 不可用）；关机中 `shuttingDown` | (09-webui-routes §2.6、§2.8、10-market-install §6) |
+
+## 6. 硬性限制速查
+
+### 6.1 超时与关机预算
+
+| 值 | 含义 | 出处 |
+|---|---|---|
+| 1s / 4s / 10s | provider 传输重试间隔（0、408、429、5xx 重试） | (04-provider-contract §1) |
+| 3000 ms | `RAW_TIMEOUT_MS` 索引 raw 源超时 | (10-market-install §3) |
+| 5000 ms | `API_TIMEOUT_MS` contents API 超时；两处全超时搜索约等 8 秒 | (10-market-install §3) |
+| 3000 ms | `DOWNLOADS_TIMEOUT_MS` npm 下载统计超时 | (10-market-install §3) |
+| 20_000 ms | `READY_MS` 形象包首帧就绪超时，判定包坏 | (13-figure-runtime §8) |
+| 20_000 ms | `MODULE_STOP_MS` World stop 限时，超时仍继续卸载 | (03-world-contract §5、§9) |
+| 2500 / 0 / 15000 / 100 | 合批 `quietGapMs` / `minBatchAgeMs` / `maxBatchAgeMs` / `maxBatchSize` | (08-deploy-env-storage CORE_DEFAULTS、03-world-contract §3) |
+| 2_000 / 60_000 / 22_000 / 1_000 / 3_000 / 2_000 / 3_000 | 关机七段预算 `SHUTDOWN_BUDGET_MS`：pause/extensions/worlds/core/llm/flush/web，和为 93000 ms | (08-deploy-env-storage launcher 节) |
+| 95000 ms | `SHUTDOWN_GRACE_MS = SHUTDOWN_TOTAL_MS + 2_000`，到时强制退出 | (08-deploy-env-storage launcher 节) |
+| 65_000 / 35_000 ms | Electron 宿主 `EXTENSIONS_WAIT_MS` 与 stop 宽限；SIGKILL 后再等 5 秒 | (08-deploy-env-storage launcher 节) |
+| 约 5 秒 | Windows 关闭窗口处理时限 | (08-deploy-env-storage docs/deployment.md 节) |
+| 1000 ms | `TOUCH_MS`：页面递上 pointer 后允许报 touch 的窗口 | (13-figure-runtime §10、§12) |
+| 700 ms | `WINDOWS_EVERY_MS` 桌面 windows 一读间隔 | (13-figure-runtime §10) |
+| 200 / 100 / 5 | `DIAGNOSTICS_TAIL=200` 事件条数；`GRAPHQL_PAGE_MAX=100`；评论一页 5 条 | (09-webui-routes §2.7、10-market-install §3) |
+
+### 6.2 限流与分页
+
+| 值 | 含义 | 出处 |
+|---|---|---|
+| 5000 次/小时（带令牌）；60 次/IP（匿名） | GitHub contents API 限流；`x-ratelimit-remaining: 0` 会追加进失败串 | (10-market-install §3) |
+| 250 | `SEARCH_PAGE_SIZE`：npm 搜索一页取满（registry 上限） | (10-market-install §3) |
+| 1000 | `SEARCH_MAX_HITS`：搜索最多翻 4 页，到顶回 `partial` | (10-market-install §3) |
+| 5 分钟 | `RAW_CACHE_MS` raw 内存缓存 TTL | (10-market-install §3) |
+| `first: 100` | 讨论帖发现 GraphQL 分页 | (10-market-install §3) |
+| `interval`（`slow_down` 时 +5s） | 设备码轮询间隔，由 GitHub 回值决定 | (10-market-install §3) |
+| clamp 1..1000 / 1..2000 | `GET /api/events` limit 缺省 100；`GET /api/log` limit 缺省 200 | (09-webui-routes §2.7) |
+
+### 6.3 体积与字节
+
+| 值 | 含义 | 出处 |
+|---|---|---|
+| `2 * 1024 * 1024` | `AVATAR_MAX_BYTES` 头像上限，超限拒收 | (09-webui-routes §2.3) |
+| `'256kb'` | `THEME_MAX_BYTES` theme.json body 上限 | (09-webui-routes §2.3) |
+| `'2mb'` / `1024*1024` | prompts 路由 json 上限；内容超 1MB → 413 | (09-webui-routes §2.7) |
+| `'64mb'` | 面板 RPC POST body 上限 | (09-webui-routes §2.8) |
+| `'16kb'` | path-picker POST body 上限 | (09-webui-routes §2.8) |
+| 512 / 64 | 安装路径长度上限（LOCAL_PATH）；版本串长度上限（VERSION_SPEC） | (10-market-install §5) |
+| 10MB / 1MB | 仓内发布审计 `MAX_TRACKED_FILE_BYTES = 10 * 1024 * 1024`、`MAX_FIXTURE_RESOURCE_BYTES = 1024 * 1024`（人工发布前门禁） | (01-cortico-core 脚本表) |
+
+### 6.4 长度、取值域与正则（逐字，扩展侧）
+
+| 项 | 逐字 | 出处 |
+|---|---|---|
+| 密钥变量名 | `[A-Za-z_][A-Za-z0-9_]*`；缺省名 `CORTICO_KEY_<端点名>`（`-`→`_`，大写） | (04-provider-contract §1、§7) |
+| 端点密钥文件读取式 | `` `^[ \\t]*${name}[ \\t]*=[ \\t]*(\\S+)` ``（m 标志；值读到首个空白，不解析引号） | (04-provider-contract §7) |
+| 安装本机路径 | `LOCAL_PATH = /^[A-Za-z0-9_.\-/:\\ ~]{1,512}$/` | (10-market-install §5) |
+| npm 包名 | `PACKAGE_NAME = /^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/` | (10-market-install §5) |
+| 版本串 | `VERSION_SPEC = /^[0-9a-zA-Z.^~*+-]{1,64}$/`（不收 `>=` `\|\|`） | (10-market-install §5) |
+| 链接 spec 跳过 | `/^(?:link|file|workspace):/` 的版本检查跳过 | (10-market-install §4) |
+| 索引源校验 | `/^https?:\/\/\S+$/i.test(value) && URL.canParse(value)`，非 http(s) 抛 400 | (10-market-install §2) |
+| 匿名评论 cursor | 必须匹配 `/^\d+$/`，否则 400 | (10-market-install §3) |
+| 面板 WS 路径 | `/^\/ws\/providers\/([^/]+)\/panels\/([^/]+)$/` | (09-webui-routes §1) |
+| 工具名前缀判据 | `TOOL_PREFIX = /^[a-z0-9]+_/` | (03-world-contract §4) |
+| 模板占位符 | `PLACEHOLDER = /\{\{\s*([\w.]+)\s*(?:\|([^}]*))?\}\}/g`，名字限 `[\w.]` | (03-world-contract §5) |
+| CHANGELOG 段 | 标题 `/^##\s+(.*)$/`、版本 `/\d+\.\d.\d+(?:-[0-9A-Za-z.-]+)?/` | (06-gate-scripts §7) |
+
+形象侧正则见第 10.2 节。
+
+### 6.5 路径包含与写权限
+
+- blob 句柄形状：可打印字符，`/` 分隔，不含 `..` 和空段。(05-bot-contract Persona 必填)
+- 密钥文件 mode 0o600；`config.json` 写回先 `.bak` 后原子 rename，失败还原。(08-deploy-env-storage 配置写回节)
+- WebUI 静态产物路由 `/assets/extensions/<pkg>/<version>/<file>` 只查内存产物表。(09-webui-routes §2.8)
+- 包目录只读时 promptDocs 模板不可保存（check 仅打印提示）。(06-gate-scripts §2 行 130-132)
+
+### 6.6 端口与监听
+
+- 代码默认 `web: { port: 7777, theme: 'mint' }`；未设 host 时监听 `127.0.0.1`。监听非回环且无访问密码时记 warn。(08-deploy-env-storage 数据目录与端口默认节)
+- 固定端口被占最多试 5 个候选：`Math.min(5, 65536 - port)`；`EADDRINUSE`/`EACCES` 才顺延；`0` 交 OS 且只试一次。(08-deploy-env-storage 数据目录与端口默认节)
+- 开发 WebUI 默认 8848（`CORTICO_PORT`）；宿主控制台缺省端口 17788（`CONSOLE_PORT`，snapshot/coopanion/core/seed.ts:12-13）。(08-deploy-env-storage environment-variables 节、_PROFILE-DRAFT §7.1)
+
+### 6.7 契约与协议锚（逐字）
+
+- 扩展契约锚 `EXTENSION_API_VERSIONS = { world: 6, provider: 6, bot: 7 }`；上一版表 `{ world: 5, provider: 5, bot: 6 }`；上一版包在 `check:extension` 判失败。(06-gate-scripts §5；权威事实)
+- `providerSchemaVersion` 现在是 3；`WEBUI_PROTOCOL_VERSION = 1`；市场索引 `SCHEMA = 1`。(04-provider-contract §2、09-webui-routes §2.8、10-market-install §2)
+- describe.auth 取值闭集：`api-key / oauth / device-code / web-session`；input 取值闭集：`text / image / audio / video`。(04-provider-contract §3)
+- declare 的 worlds 表：`webUiClient` 须 `/\.m?js$/`；`webUiStyle` 须 `.css` 且必须配 client；`describe` 须以 `.json` 结尾（否则 warning）。(10-market-install §5)
+
+## 7. 沙箱与验证命令
+
+### 7.1 三层验证，前两层都不需要启动宿主
+
+层 1 · 静态闸。这是唯一官方门禁。两道闸是 Cortico 仓库根的脚本，参数是扩展包目录。(06-gate-scripts §1)(权威事实)
+
+```
+cd <Cortico 仓库检出根>
+pnpm describe:extension <扩展包目录>     # = tsx scripts/extension-describe.ts
+pnpm check:extension   <扩展包目录>      # = tsx scripts/extension-check.ts
+```
+
+- 先 describe 后 check。check 会对账 describe 产物与代码。两条命令来自 package.json:27-28 逐字 (06-gate-scripts §1)。
+- 两个脚本都只取一个参数 = 扩展包根目录。目录里必须有 package.json。(06-gate-scripts §4)
+- 必须在 Cortico 检出语境里跑。脚本 import 的全是 ../src/...。仓库根按脚本自身位置算，不依赖 cwd。(06-gate-scripts §4)
+- 隔离由脚本自己做：check 建 cortico-check- 临时目录，finally 删除。(06-gate-scripts §2)
+- 干装载用默认配置、空 Memory、无密钥、worlds=[]，不调 start()。(06-gate-scripts §2)
+- failures 为 0 才打 `Extension check passed.`，退出码 0。warning 不计入 failures。(06-gate-scripts §2)
+- check 不是零网络。authorGuide 会 fetch 索引仓 index.json。取不到时全程降级，不产生 failure。(06-gate-scripts §7)
+
+层 2 · 模板自带测试。在扩展包目录里跑。扩展包内 scripts 只有这两条。(权威事实；07-templates §5)
+
+```
+pnpm test          # = vitest run
+pnpm typecheck     # = tsc --noEmit
+```
+
+- 每测建临时 scratchDir，afterEach 删除。都 import 框架 src/extensions/dry-mount.ts，断言 `report.failures).toEqual([])`。(07-templates §7)
+- 仅 world 模板带 fake-host.ts。`FakeHost implements WorldHost`，记录 events 与 pushOpts。(07-templates §7)
+- 三份 vitest.config.ts 逐字节相同，md5 1f9bd1b8ac65。include 为 tests/**/*.test.ts，testTimeout 20000，pool forks。(07-templates §8)
+- 加了带构建脚本的依赖要在 templates/extension/world/pnpm-workspace.yaml 的 allowBuilds 补一行，不然 pnpm install 退出 1。(07-templates §10)
+
+层 3 · 宿主/框架实机。本轮调研禁止启动宿主，命令只列不实测。(03-world-contract §10.7)
+
+```
+pnpm start                                  # 框架仓库；框架 WebUI 缺省端口 7777
+CORTICO_COMPANION_DATA=<空目录> pnpm run dev   # 宿主开发模式，干净数据
+```
+
+- 隔离变量清单：`CORTICO_HOME`、`CORTICO_EXTENSIONS_DIR`、`CORTICO_MARKET_INDEX_BASE`、`CORTICO_PORT`（dev 缺省 8848）。(_PROFILE-DRAFT §7.1)
+- 官方作者流程：复制模板目录到仓外，改名，`corepack pnpm install`，包内 `pnpm typecheck && pnpm test`，仓根 `pnpm check:extension <包目录>`，再从 WebUI「扩展」页手动安装填绝对路径并重启。(07-templates §12)
+- 装前预检走 `POST /api/extensions/check`。它只读 manifest，不导入包代码。(10-market-install §5)
+
+### 7.2 真实存在的路由（宿主 `<cortico>/src/web/server.ts`，2506 行，行号 = 注册行）
+
+宿主路径缩写：`<cortico>` = E:/Users/54301/AppData/Local/Programs/Coopanion/resources/app/build/cortico（宿主内置只读副本）。(09-webui-routes §1)(21-local-runtime §8)
+
+| 路由 | 行号 | 回执 |
+|---|---|---|
+| `GET /api/auth/status` | src/web/server.ts:1597 | `{ required, authenticated }` (09-webui-routes §2.1) |
+| `GET /api/status` | src/web/server.ts:1653 | `{ ...safeStatus(), uptimeSec }` (09-webui-routes §2.1) |
+| `GET /api/run/lifecycle` | src/web/server.ts:1973 | `{ deployment, bootId, ready }` (09-webui-routes §2.1) |
+| `GET /api/capabilities` | src/web/server.ts:1714 | `{ capabilities }` (09-webui-routes §2.1) |
+| `GET /api/framework/release` | src/web/server.ts:1657 | 框架新版检查结果原样 JSON (09-webui-routes §2.1) |
+| `GET /api/extensions` | src/web/server.ts:1978 | 已装列表，逐项带五态 state (09-webui-routes §2.6) |
+| `GET /api/extensions/updates` | src/web/server.ts:1991 | 更新检查 (09-webui-routes §2.6) |
+| `GET /api/extensions/search` | src/web/server.ts:1997 | 市场搜索，?kind= 限三值否则 400 (09-webui-routes §2.6) |
+| `GET /api/extensions/package` | src/web/server.ts:2042 | 包详情，?name= 必填 (09-webui-routes §2.6) |
+| `GET /api/extensions/comments` | src/web/server.ts:2157 | 评论，?name= 必填、&cursor= (09-webui-routes §2.6) |
+| `GET /api/webui/manifest` | src/web/server.ts:2252 | 失败也回结构空壳 (09-webui-routes §2.8) |
+| `GET /api/webui/lamps` | src/web/server.ts:2277 | 取灯失败回 `200 { lamps: {} }` (09-webui-routes §2.8) |
+
+形象包路由在桌宠服务自己的端口上，不在控制台 server.ts：`GET /api/figures`（packages/cortico-world-desktop-pet/src/server.ts:309-319，数组，无 CSP）(13-figure-runtime §13)；`GET /api/figures/status`（packages/cortico-world-desktop-pet/src/server.ts:321-325，转引 _PROFILE-DRAFT §7.2）。
+
+易错：不存在或不是 GET 的路由。
+
+- 全文件共 79 条注册：GET 41 条，POST 38 条。PUT / DELETE / PATCH / OPTIONS / all 的注册数各 0。(09-webui-routes §1)
+- `/health`、`/api/health`、`/healthz`、`/readyz` 都不存在。健康语义由 `GET /api/status`（src/web/server.ts:1653）、`GET /api/auth/status`（src/web/server.ts:1597）、`GET /api/run/lifecycle`（src/web/server.ts:1973）承担。(09-webui-routes §4)
+- `GET /api/extensions/check` 不存在，只有 POST（src/web/server.ts:2071）。(09-webui-routes §3)
+- install / uninstall 也只有 POST：src/web/server.ts:2090、src/web/server.ts:2111。没有 `DELETE /api/extensions/:name`。(09-webui-routes §4)
+- `GET /api/webui`（裸前缀）不存在。(09-webui-routes §4)
+- `POST /api/storage/clear`（src/web/server.ts:1816）是 POST 但没有 body，key 与 owner 走 query。(09-webui-routes §2.2)
+- check 的 body 把 name/version/path 包在 `target` 下；install/uninstall 的同名参数在顶层。(09-webui-routes §3)
+- 登录闸门：未授权回 401 `{error: loginRequired}`，`GET /` 与 /index.html 例外。(09-webui-routes §1)
+
+### 7.3 「加载成功」的判定标准
+
+1. 装成功 ≠ 加载成功。「已装」唯一磁盘口径 = `extensions/package.json` 的 `dependencies`。(10-market-install §4)
+2. `list()` 对照磁盘现状与启动时加载结果，得出五态。(10-market-install §7)
+
+```ts
+const state: ExtensionInfo['state'] = spec === undefined ? 'removed'
+  : this.uninstalled.has(r.name) || spec !== r.spec || installedVersion !== r.version ? 'pending-restart'
+  : r.loaded ? 'loaded' : r.idle ? 'idle' : 'failed';
+```
+
+（src/extensions.ts:848-850，逐字）(10-market-install §7)。
+3. `loaded: true` 只在 import 成功且 id 登记成功才置位。bot 在 src/extensions.ts:376，world/provider 在 src/extensions.ts:426。(10-market-install §7)
+4. 判定标准一句话：`GET /api/extensions` 里该包 `state` 为 `"loaded"` 才算加载成功；bot 未激活时 `idle` 不算失败。(10-market-install §7)
+5. 新装与卸载都要重启进程才生效。install/uninstall 回执都带 `restartRequired: true`。(10-market-install §7)
+6. World 启用另有热开关：`POST /api/worlds/activation` 写回 config 并立即挂载或撤出，不重启。只有已 loaded 的扩展才谈得上启用。(10-market-install §7)
+7. 本机安装态真实成功样本：日志 `INFO core: World 已启动: netease-music`。(_PROFILE-DRAFT §7.3)
+8. 验证命令（宿主已启动时，只读）：
+
+```
+curl -s http://127.0.0.1:17788/api/extensions
+```
+
+- 看目标包 `"state":"loaded"`。这条 curl 本轮未执行，因调研禁止启动宿主。(_PROFILE-DRAFT §7.3) [未核验]
+9. 形象包不算扩展：加载成功 = 帧在 20 秒内发出 `ready`，`READY_MS = 20_000`（packages/cortico-world-desktop-pet/web/body-host.js:23）。(13-figure-runtime §8)
+
+## 8. 生态与市场
+
+### 8.1 市场入口与 API 形态
+
+- 市场入口 = 宿主 WebUI 控制台「扩展」页。路由面逐条见 7.2。(09-webui-routes §2.6)
+- 代码分三层：src/extensions/market.ts 管官方索引与讨论区，src/extensions.ts 管 npm 与装卸，server.ts 管 HTTP 路由。(10-market-install §1)
+- 索引源缺省 `https://raw.githubusercontent.com/Pal-AI-Lab/cortico-extensions/main`。可被 market.json 的 indexBase 换掉。(10-market-install §2)
+- 读到的文件四类：index.json、catalog.json、packages/、comments/。搜索分页与限流逐值见 6.2 表。(10-market-install §2、§3)
+- 形象包不是第四类扩展：它不过扩展两道闸，不受 TAGS.md 管辖，装在数据目录 `figures/<id>/`。本节 353 分母里不含形象包。(权威事实；_PROFILE-DRAFT §8.1)
+
+### 8.2 市场分母（2026-11-15 现算，快照 f6d6ef56b7e81d74442d72d6329b77d105e7e0a3 时点）
+
+| 口径 | 值 | 出处 |
+|---|---|---|
+| catalog 包总数 | 353；packages/ 文件同为 353，双向 0 缺失 | (c01-api-drift §1) |
+| kind 分布 | world 333（94.3%）/ bot 11（3.1%）/ provider 9（2.5%） | (c01-api-drift §2)（权威事实） |
+| 带 describe 的包 | 313/353 = 88.7%（world 295、bot 10、provider 8） | (c01-api-drift §6) |
+| 评论语料 | 104 个文件、实存 398 条；sum(total)=628，快照覆盖 63.4%；比例分母一律 398 | (c05-comments-corpus §1)（权威事实） |
+| 有评论的包占市场 | 104/353 = 29.5% | (c05-comments-corpus §1) |
+| 作者总数 | 139（maintainers 去重）；只发 1 包者 76/139 = 54.7% | (c08-author-lifecycle §2、§4)（权威事实） |
+| 有反馈包无维护者回复 | 80/104 = 76.9%（反向：24/104 = 23.1% 有回复；官方 5/104 = 4.8%） | (c05-comments-corpus §5)（权威事实） |
+| 市场年龄 | published 全落在 2026-10-01 → 2026-11-14；近 30 天更新 349/353 = 98.9%。上线约 6 周是推测 | (c08-author-lifecycle §5) |
+| Coo 生态真实并集 | 88/353 = 24.9%；加维护者专授 coopanion 标签 90/353 = 25.5%。按包名数会漏 80 个、误收 14 个 | (c09-coopanion-coupling 结论节)（权威事实） |
+| 工具面 | 工具实例 2052、去重名 1797、事件 type 864；每包中位 4、p90 16、max 57（cortico-world-heybox） | (c07-tool-event-surface §1、§3) |
+
+- 口径差待裁决：21 号报告记 catalog 的 kinds 汇总为 world 331（(21-local-runtime §9)），与权威事实及 c01 的 world 333 冲突（331+11+9=351 ≠ 353）。本稿两值并存，引用前须按新 main 重跑 c01 裁决。
+- 分母时效警告：索引仓上游 main 已同步到 3e02384adfb28808962511be98c2cde3c3d933dc（2026-11-15T05:33:55Z），比上表快照新一次同步。引用索引数据前按新 main 重跑 P9。契约类结论不受影响。(_PROFILE-DRAFT §⓪ P7)
+- 本机缓存 catalog 是 351（写于 Nov 14 19:23）。353 与 351 是时点差，不是矛盾。(10-market-install §8、§9)
+
+### 8.3 市场卫生实测（分母 353）
+
+- CHANGELOG：有 284 = 80.5%、缺 69 = 19.5%。有文件但当前版本无 `## <版本>` 段 15 包 = 4.2%。check 对此提示不拦。(c06-publish-hygiene §1)
+- icon：齐备 140 = 39.7%、缺失 213 = 60.3%；assets 目录 141 个，唯一「有目录无 icon」的是 cortico-world-social-media。describe 缺席 40 包，四种缺因在快照里不可分账。(c06-publish-hygiene §2)(c01-api-drift §6)
+- describe 空壳 18 = 5.1%（16 个逐字 `{"tools": [], "events": []}`）；指错文件 3 例：cortico-bot-memory、cortico-world-fish-sing、cortico-world-qzone-watcher。(c06-publish-hygiene §3)
+- `os` 声明 100 = 28.3%、缺 253 = 71.7%。engines/packageManager 写法率快照零留痕。(c06-publish-hygiene §4) [未核验]
+- 包名：`cortico-<kind>-<id>` 形状 333/353 = 94.3%；scoped 13/353 = 3.7%；keywords 缺本类词 0/353，这是收录门槛的结果不是作者自觉。(c02-naming §2、§3、§4)
+- 标签：`cortico.tags` 越界命中恒 0，是 scripts/scan.mjs 先丢词表外值的管道性质。禁自 declare 的 coopanion 被 2/353 写进声明：cortico-world-doubao-tts、elymes-nte-web，合并时丢弃。(c03-tags §3.1、§4.1)
+- 流程文件执行率（下载前 10、可核实 9 包）：模板式 vitest.config.ts 0/9、模板式 README 0/9、AGENTS.md/CLAUDE.md 1/9、packageManager 3/9；契约字段 main 指 TS 9/9、`cortico.describe` 指针 9/9、engines 9/9。(c10-template-vs-market §4)
+- 审查别人的包按「契约字段必须齐、流程文件可缺」判。(c10-template-vs-market §4)
+
+### 8.4 官方源
+
+- Cortico 框架仓：github.com/Pal-AI-Lab/Cortico（MIT，0.2.15）。docs/、templates/extension/ 三模板、bots/ 三只都在里面。(_PROFILE-DRAFT §8.4)
+- Coopanion 宿主仓：github.com/Pal-AI-Lab/Coopanion（AGPL-3.0-or-later，0.2.20）。桌宠与形象包代码在 packages/cortico-world-desktop-pet。(_PROFILE-DRAFT §8.4)
+- 索引仓：github.com/Pal-AI-Lab/cortico-extensions。定位逐字「这里只放官方维护的分类、认证与覆盖项」；扩展本体仍发 npm。(18-index-protocols §2, README.md:3-4)
+- 升级文档：`UPGRADING_URL` = github.com/Pal-AI-Lab/Cortico/blob/main/docs/upgrading.md（src/extensions/previous-contract.ts:34）。(06-gate-scripts §5)
+- 官方中文指南站：coo.palailab.org/guide/。19 号报告已于 2026-11-15 逐页取证，内容以 19 为准。该域只能走 `mcp__anysearch__extract`，WebFetch 对 coo.palailab.org 被拦。站点改版需重跑 19。(19-guide-site 全文)
+- Cortina 是文本提示件，不是工具、不是扩展脚手架。TINA 既不是人物格式也不是扩展格式。两者都不许当扩展规范引用。(17-cortina-tina)(权威事实)
+
+### 8.5 索引仓四类协议：要填的字段与官方产出
+
+- issue 标题即协议动词，中英前缀都认；正文一行一项 `键: 值`；`blank_issues_enabled: false`。(18-index-protocols §2、§4)
+
+| 协议 | 必填 | 可选 | 官方产出 | 出处 |
+|---|---|---|---|---|
+| 收录（自动 + 门槛） | keywords 含 cortico-world/-provider/-bot 之一，或 cortico.kind | — | 每 30 分 sync.yml 跑 scripts/scan.mjs，写 catalog.json、packages/、assets/、comments/ | (c02-naming §4)、(18-index-protocols §5) |
+| 认证 `[certify]` | package | reason、evidence | Action 回帖贴 5 项自动核对结果；官方审核后写入 index.json 的 certified | (18-index-protocols §3、§4) |
+| 申诉 `[appeal]` | package、reason | evidence | 复核后撤销或维持 blocked | (18-index-protocols §3) |
+| 同步 `[sync]` | package（可多个，最多 10） | — | 立即跑 sync.yml，回帖并自动关闭 issue | (18-index-protocols §3、§4) |
+
+- 其余动词：`[tags]`、`[supersede]`（前作者须先 `npm deprecate 旧包 "改用 新包"`）、`[report]`、`[new-tag]`（至少 3 个已发布扩展会用才收）、`[other]`。(18-index-protocols §2、§3)
+- 缺项时贴 needs-info 并说明缺什么，不关 issue；编辑补上即可。(18-index-protocols §2、§3)
+- 标签合并公式：(作者词表内非官方标) ∪ (keywords 属词表的普通标签) ∪ (粘住的警示标签) ∪ (官方 addTags) − (官方 removeTags)，官方去优先。(18-index-protocols §3)
+- overrides 只有 4 个字段：addTags、removeTags、note、supersededBy。picks 这一层不存在。(18-index-protocols §7)
+- 认证自动核对 5 项：发布过两个以上版本；标签与简介不为空（供应商不要求标签）；World 包 dependencies 无其他 cortico-world-*；无警示标签；未被拉黑。(18-index-protocols §3)
+- 本机索引实况：schema 1、tags 29、certified 17、blocked.packages 18（publishers 0）、overrides 146、newDays 14、sticky 77。(10-market-install §8)
+- 被拉黑包占 353 的 5.1%、certified 占 4.8%；cortico-world-period 已在 catalog 消失，所以 blocked 18 条只有 17 条落在 catalog。(10-market-install §8)(c08-author-lifecycle §7)
+
+## 9. 高频封驳原因（本平台特有）
+
+### A. 被闸拦（`pnpm check:extension` 退出码 1）
+
+1. manifest 硬错误：缺 name 或 version（scripts/extension-check.ts:77-78）；type 非 module、cortico 块缺失、kind 非法、api 非正整数/过旧/过新等 11 个拒绝键。(06-gate-scripts §2)
+2. 按上一版契约写：api 5/5/6 直接 fail 并终止后续检查。装载能过、门禁不过。这是「本地能跑、发布被拒」的头号来源。(06-gate-scripts §5) 市场里这类包数量 [未核验]：快照不落 cortico.api，352/353 不可判定。(c01-api-drift §3、§8)
+3. describe 与代码不一致（checkDescribe 7 类 failure）。实测栽坑包：cortico-bot-memory、cortico-world-fish-sing、cortico-world-qzone-watcher。(06-gate-scripts §7)(c06-publish-hygiene §3)
+4. 写坏的 cortico.describe 路径：describe 侧退出 1；check 侧先 warn、再按缺席走硬失败。(06-gate-scripts §3、§6)
+5. 入口不存在、import 抛错、默认导出形状不符 kind：三段都 fail 后终止。(06-gate-scripts §2)
+6. id 撞内建 World/provider：fail（bot 只打印提示）；id 过不了页面 id 解析：只允许小写字母、数字、连字符，首尾须是字母或数字。(06-gate-scripts §2)
+7. 干装载构造失败：build() 必须在假部署（默认配置、空 Memory、无密钥、worlds=[]）跑通；工具名重复、撞 Core 保留帧、撞别的 World 都是错误。(06-gate-scripts §2)
+8. 面板产物指向 TS：webUiClient 必须指预构建 .js/.mjs；带 webUiStyle 不带 webUiClient 同样拒。(02-ext-manifest §4 步10、步11)
+
+### B. 被装载器拒（装了不加载，或页面显示「需要升级」）
+
+1. api 与内建契约不等 → 拒载并提示升级。上一版是唯一过渡例外。(02-ext-manifest §2、§6)
+2. id 撞内建 → 拒；扩展间重名 → 保留先加载者，后来者报「World id 已被占用,扩展未加载」。(03-world-contract §4，逐字出处 src/extensions.ts:402)
+3. 真实撞名土壤：同 suffix 的 scoped/unscoped 双胞胎有 6 对，例 `@wocwang/cortico-world-gpt-sovits-for-coopanion` 与 `cortico-world-gpt-sovits-for-coopanion`。两包同装且 cortico id 相同时，后者按规则不加载。(c02-naming §3)(10-market-install §7)
+4. 内建 World id 含 qq：市场前 1 的 cortico-world-qq（55269 下载）与内建 id 同名口径。本机装实有 console 一个代码世界（scripts/stage.ts 裁掉平台 World），撞不撞取决于本机裁剪。(c07-tool-event-surface §6)(c10-template-vs-market §2)
+5. bot 包不是当前 activeBot → state 记 idle，不算错误。(10-market-install §7)
+6. 装前 `POST /api/extensions/check` 就拒：kind 与所选类别不符回 kindMismatch；只读 manifest 不导入代码。(10-market-install §5)
+
+### C. 被索引仓拒（市场不收或直接拉黑）
+
+1. 没本类关键字也没 cortico.kind → 不收。逐字：「没有 `cortico-world` / `cortico-provider` / `cortico-bot` 关键字,也没有 `cortico.kind`,不收进市场。」(c02-naming §4, scripts/sync-requests.mjs:77)
+2. 8 类不予收录，一进市场即拉黑、事先不警告：jailbreak / NSFW / 安全攻击与逆向 / 追踪第三方 / 恶意与冒名 / 外挂 / 垃圾批量 / 中国法律禁止内容。同一作者同类两次拉黑 → npm 与 GitHub 账号永久封禁、名下所有包下架。(18-index-protocols §1, TAGS.md:11-22) 现黑名单 18 条；已知落点包名：cortico-provider-humanize、cortico-world-tat-connect（均 deprecated+blocked）、cortico-world-period（已下架）。(c08-author-lifecycle §7)
+3. 官方标注不可自 declare：cortico-world-doubao-tts、elymes-nte-web 把 coopanion 写进 cortico.tags，合并丢弃、市场端不显示。(c03-tags §4.1)
+4. 词表外自造标签：只 warn `is not in the vocabulary and is ignored.`，不计失败但值被丢。(06-gate-scripts §7)(c03-tags §3.1)
+5. 认证被拒硬伤：World dependencies 出现其他 cortico-world-*；只发过一个版本；简介或标签为空；带警示标签；已拉黑。(18-index-protocols §3)
+6. 改名不被当升级：一切键按 npm 包名。须先 npm deprecate 再发 [supersede]。例 cortico-world-qq-final-beta → cortico-world-qq-final。(18-index-protocols §7)(c02-naming §6)
+7. 安全问题的包会被市场暂时不读：coopanion-video-storyboard（cookie 落盘问题，维护者自述）。(c05-comments-corpus §6)
+8. 索引不核验 describe 与代码一致性：scripts/scan.mjs 对 describe 只做 JSON 解析，越界标签照收。本地过闸 ≠ 线上正确。(c03-tags §3.3)
+
+### D. 用户侧挨骂（评论语料 398 条实测）
+
+1. 装不上/加载了不工作：86 条 = 21.6%，第一位。重灾包 `@wocwang/cortico-world-gpt-sovits-for-coopanion` 一家占 22/86 = 25.6%；典型原话「为什么我的安装和启动是暗的不能点？」(c05-comments-corpus §2、§3、§7)
+2. 装了没声音/不能用一类外部依赖坑：better-cortico-world-netease-companion「网易云无法使用」；AMD 原话记在 `@wocwang/cortico-world-gpt-sovits-for-coopanion` 名下，逐字「求求支持AMD吧QAQ」。 (c05-comments-corpus §3)
+3. 需要外部程序却没说清：带 external-setup 标签 108/353 = 30.6%。(c03-tags §2.1)
+4. 文档缺失：14 条 = 3.5%。市场快照不存任何包 README，README 质量无任何门禁。(c05-comments-corpus §3)(c06-publish-hygiene §5)
+5. 契约与版本落后挨骂：20 条 = 5.0%，例 cortico-world-qq-final 语音识别配置抱怨。(c05-comments-corpus §2、§3)
+6. 旧教程撞弃用包：22/353 = 6.2% 带 deprecated，含 cortico-world-audio-play/listen/stt/tts 合并进 cortico-world-voice、cortico-world-shenshen-lib-1…8 转 Gitee。(c05-comments-corpus §6)
+7. 维护者隐身放大负面：76.9% 的有反馈包无维护者回复；官方回复仅 5/104 包。(c05-comments-corpus §5)
+8. 形象包侧封驳另有 41 个消息键（33 硬拒 + 7 软丢弃 + 1 目录级），与 A–D 不同源。(12-figure-manifest §6)
+
+## 10. 形象包（figure pack）
+
+### 10.1 定性与形态；两套版本号不得互套
+
+- 形象包是一个带 `figure.json` 的目录。桌宠 World 扫描数据目录加载它，装在 `<dataDir>/figures/<id>/`，目录名就是包 id。(13-figure-runtime §1)(15-figure-import §6)
+- 它是打扮对象的载体，不是 bot，不是模型。它不是第四类 Cortico 扩展：不过 `describe:extension` 与 `check:extension` 两道闸，不受 TAGS.md 管辖。内置形象包只有 coo 与 whale 两个。(权威事实；06-gate-scripts §4)(19-guide-site §make-figure)
+- 包代码只在沙箱 iframe `/figure-frame` 里运行。页面与包只靠 postMessage 通信。形象包没有 WebUI 面板通道，页面只经 `GET /api/figures` 读 manifest 字段。(13-figure-runtime §1、§13)
+- figure.json 的两个版本字段 `manifest` 与 `api` 当前都等于 2：`MANIFEST_VERSION = 2`、`FIGURE_API = 2`、`MANIFEST_OLDEST = 2`、`FIGURE_API_OLDEST = 2`（packages/cortico-world-desktop-pet/src/packs.ts:39-42）。`v > now` 拒（tooNew），`v < oldest` 拒（tooOld）。当前 OLDEST==VERSION==2，还没有迁移分支。(12-figure-manifest §1)(13-figure-runtime §11)
+- 扩展读 `package.json` 的 `cortico.api`，锚是 world 6 / provider 6 / bot 7。桌宠读包内 `figure.json` 的 `api`。两个 `api` 不是一回事，两套版本号不得互套。(权威事实；20-pet-tool-catalog §1)(12-figure-manifest §3)
+- 混用活样本：桌宠宿主包本身是 world 扩展、api 6；它携带的形象包是 manifest 2 / api 2。(20-pet-tool-catalog §1)(14-figure-dress-skin §1)
+
+### 10.2 figure.json 字段与错误码
+
+- 一手源 `packages/cortico-world-desktop-pet/src/packs.ts`，449 行。`readManifest` 返回错误字符串 = 整包拒载（loaded=false）；软问题进 `skipped` 清单、包照载。错误码消息键共 41 个：33 硬拒 + 7 软丢弃 + 1 目录级（`idTaken`，由 scanPacks 产生）。(12-figure-manifest §1、§3、§6)
+- 必填（错一个值 = 整包拒载）：figure.json 存在（`noManifest`）、JSON 合法（`badJson`）、`manifest`/`api` 须整数、`id` 过 `ID`（`badId`；`id==='coo'` 且非内置 = 错）、`name`/`about` 各至少一个非空 trim 串（`noName`/`noAbout`）、`entry`/`export`（`badEntry`）、`vocab` 实为必填数组（`vocabNotArray`）。(12-figure-manifest §3)
+- 正则逐字：`ID = /^[a-z0-9][a-z0-9-]{0,31}$/`；`OPTION_ID = /^[a-z0-9]{1,24}$/`（轴选项禁 `-`，因 `skin.scheme` 用 `-` 连选项 id）；`SOUND_NAME = /^[a-z][a-zA-Z0-9-]{0,31}$/`；`PARAM_ID = /^[a-z][a-zA-Z0-9]{0,23}$/`；`HEX = /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i`；`NAME_BREAK = /[,，、\s【】<>＜＞]/`；vocab 名 ≤32（`INLINE_TAG_MAX`）。(12-figure-manifest §2、§5)(14-figure-dress-skin §4)
+- 路径守卫 `inside()`：空串、以 `/` 开头、含 `..` 段、协议前缀 `^[a-z]+:/i`、含 `<>`、双引号或控制字符（`\x00-\x1f`），都拒。冒号不在字符类 `[<>"\x00-\x1f]` 里，只被协议前缀拦。(12-figure-manifest §2)
+- 可选项行为：`version` 非 string 缺省 `'0.0.0'`；`model` 不过 inside → `badModel` 硬拒；`can.walk` 非 boolean → skipped `badWalk` 不拒载，缺省 true；`voice.pitch` 限 0.5..2 越界缺省 1；`effects.reach` 限 0..2 越界缺省 0；`bubble` 须 light/dark 两套 fill/text/line 全过 HEX，否则整体静默丢弃；未声明字段完全不读。(12-figure-manifest §4、§1)
+- 语言键 `Names = Record<string, string>`，键即语言码。`nameIn` 回退序 language→zh→第一个值→空串。(12-figure-manifest §6)
+
+### 10.3 vocab、axes、presets 与 bot 侧后果
+
+- vocab：`kind` 只认 `expression` 与 `motion`；不认识 → 丢该词记 `unknownKind`，包仍载。id 与全部名字全局去重（`nameTaken`）。词表经环境提示 `vocabTable` 进 bot 上下文。(12-figure-manifest §5)(20-pet-tool-catalog §5)
+- `pet_act` 的 actions、`pet_say` 文本里的 `【…】`（先行播放并起新气泡）与 `<…>`（打字到该点播放）都按 id 或任一 name 引用，大小写不敏感、优先小写。全部词不在词表 → 回执 `actNone`，本次调用失败；部分丢弃不算错，回执报 dropped。(20-pet-tool-catalog §2、§2.1、§5)
+- manifest 合法但身体不认某些词：World 只写日志，不给 bot。(20-pet-tool-catalog §5)
+- axes：缺失或非数组视作 `[]`。每选项 id 过 `OPTION_ID`。`pet_set` 的 `scheme` 两种写法：preset id，或按轴序用 `-` 连每轴选项 id；匹配不到 → `badScheme`。用户存的 scheme 里选项被新包拿走：`knownScheme` 退回该轴第一个 option，包照常加载。(12-figure-manifest §5)(20-pet-tool-catalog §4)(14-figure-dress-skin §6)
+- presets：`pick` 必须为每个已声明轴选中一个存在的 option，否则 `presetMissing` 整包拒载。内置 coo `presets: []`；内置 whale 8 个。`pet_set` 不带 scheme 时取 `presets[0]?.id`，没有预设则各轴首选项 `-` 连。(12-figure-manifest §5)(14-figure-dress-skin §7)(20-pet-tool-catalog §4)
+- sounds：软丢弃三种——扩展名不在 {.ogg, .mp3, .wav}（`soundType`）、kind 不在 `move/touch/face/snore/talk`（`soundKind`）、文件不存在（`soundMissing`）。`repeat` 取 `overlap/restart/finish`，talk 永远不收。播放者是桌宠页，不是沙箱帧。(12-figure-manifest §5)(13-figure-runtime §7)
+- moves：≤8（`MOVES_MAX`）；id 不得属于 DEFAULT_TARGETS=`['left','center','right','cursor']`；params ≤2（`MOVE_PARAMS_MAX`）。`pet_move_to` 的 `to` 可取自带目标 id 或任一 name；默认目标带 params → `moveBadParams`。本机四包 `moves` 全空，端到端未观测。(12-figure-manifest §5)(20-pet-tool-catalog §3、§9)
+- needs：现仅 `'windows'`，其余值软丢弃（`unknownNeed`）。声明后 `bounds()` 另带 `ledges` 与 `windows`（最多 64）。桌面数据 0.7 s 一读（`WINDOWS_EVERY_MS = 700`），变了才换；页面只把 desk 递给 needsWindows 的包。(12-figure-manifest §5)(13-figure-runtime §3、§10、§12)
+- `effects` 完整语义、`voice.pitch` 的播放链路、包声音的 bot 侧后果：reports 没有记载。(12-figure-manifest §4)(20-pet-tool-catalog §2) [未核验]
+
+### 10.4 工厂契约
+
+- 帧收到 `init` 后执行 `import(entry)[export]`。调用式逐字（packages/cortico-world-desktop-pet/web/figure-frame.js:11-12、:92-97）：`factory(base, { model, scheme, kit, loadImage, asset, host })`。`base` 是 entry 文件自身 URL；`asset: (p) => new URL(p, base)`；工厂 await 后得 body。(13-figure-runtime §2、§4)
+- 必填方法只有三个（packages/cortico-world-desktop-pet/web/figure-frame.js:97）：`step`、`layout`、`do`。缺失在帧里 throw，转成一次 `error` 出站消息后 `dead`。文档同义句逐字：`Only \`step\`, \`layout\` and \`do\` are required.`。其余成员（`resize`、`walk`、`move`、`pointer`、`talk`、`setScheme`、`dispose` 等）全可选，帧内用 `?.` 调。(13-figure-runtime §2)
+- host 成员：`root`、`bounds()`、`emit(kind, detail)`、`sound(name, kind, ...args)`、`start { x, y, facing, enter, skin }`。`start.enter: 'drop'` 表示从上方落下。(13-figure-runtime §3)
+- 出站 `ready { z, words }`；事件 kinds：`arrived`/`interrupted`（被拎起时 by 为 `drag`）、`done { word }`、`touch`（poke|pet|grab|drop|throw|crash）、`mode`。(13-figure-runtime §4)
+- kit 路线：`createBody(host, opts)` 就是 api 2 契约盖在 `createPet` 上；`opts.figure` 必填。(13-figure-runtime §2)
+- 走路超时 `WALK_TIMEOUT_MS = 30_000`：默认目标回执 `walkTimeout`、自带目标回执 `moveTimeout`。`pet_move_to` 是 21 个工具里唯一 `interruptible: true` 的。(20-pet-tool-catalog §2.1、§3)
+
+### 10.5 沙箱、CSP 与 fetch 边界
+
+- iframe 属性逐字：`frame.setAttribute('sandbox', 'allow-scripts');`。没有 allow-same-origin，帧是 opaque origin。(13-figure-runtime §5)
+- /figure-frame 响应 CSP 逐字（元素 join '; '）：`'sandbox allow-scripts', "default-src 'none'", script-src ${self}, img-src ${self} data: blob:, "style-src 'unsafe-inline'", connect-src ${own}, frame-ancestors ${self} http://127.0.0.1:* http://localhost:*`。只有非 builtin 的安装包拿到 `${self}/packs/<id>/`；内置包、未知 id、无 id 都是 `'none'`。(13-figure-runtime §5)
+- CSP 未给 media/font/worker/frame-src，回退 `default-src 'none'`。帧内 `<video>`、`<audio>`、`<iframe>`、worker、字体一律加载不了。要出声就声明进 `sounds`，由桌宠页播放。(13-figure-runtime §5)
+- 包只能读得到本包目录（`/packs/<id>/`）以下的文件；别的包、桌宠服务接口和外网都被拒。`packFile()` 防越界靠 normalize 后包根前缀判定。`model` JSON 由页面侧 fetch 后传进帧。(13-figure-runtime §6)
+- 分界逐字（packages/cortico-world-desktop-pet/README.md:328）：`Coopanion 0.2.13 及更早的版本不许任何 \`fetch\`。`官方回落：同一文件再打一份 `model.moc3.js`，内容 `export default '<base64>';`，fetch 失败 catch 后 import 该模块、`atob` 还原（README 给出 readBytes 函数原文）。本机 0.2.20 已含 fetch 白名单。(13-figure-runtime §11)
+
+### 10.6 就绪、回落、导入、卸载
+
+- `READY_MS = 20_000`（packages/cortico-world-desktop-pet/web/body-host.js:23）：20 秒没出首帧判包坏。ready 前 reject 返回的 promise；ready 后走 `onError?.(err)`。帧错误 message 截 300。(13-figure-runtime §8、§9)
+- 失败回落内置 coo；coo 本身跑不起来时无可展示。包目录消失：`packFor` 回落 coo。加载期间 skin 又变：`swapBody` dispose 新 body。(13-figure-runtime §8)(14-figure-dress-skin §6)
+- 导入两入口：zip（content-type `application/zip`，服务端 unzipSync）与文件夹（`application/x-figure-files`，每文件 = uint32 LE 路径字节长 + UTF-8 路径 + uint32 LE 内容长 + 内容）。content-type 两类都不是 → 415；解不开/读不出 → 400。cancel 恒 200。(15-figure-import §1)
+- 导入正文无字节上限；`IMPORT_LARGE = 128 * 1024 * 1024` 只是页面提示阈值（注释逐字：`The largest pack shipped, the whale, is 12 MB.`）。缩略图 `THUMB_MAX = 1024 * 1024`，超过整个不内联。(15-figure-import §1、§7)
+- install：token 不符 → `importing.expired`；撞内置 → `importing.builtinId`；未批准的 id 冲突 → `{ conflicts }` + 409，零写入，同 token 加 `replace` 可重试。复制用 `cp(..., { recursive: true, force: false, errorOnExist: true })`。没有回滚：中途抛错留下已复制成功的部分。(15-figure-import §4)
+- `removable` 两个条件：非内置、目录严格在 `packDir` 内。其他 roots（`COOPANION_PACK_ROOTS`、Steam 工坊）的包恒 false。remove 四分支：`removing.notInstalled` / `removing.builtin` / `removing.elsewhere` / 成功 `{ removed: id }`。卸载正穿着的形象后强制回落 coo 落盘。(15-figure-import §5)(14-figure-dress-skin §2)
+
+### 10.7 分发与本机实装
+
+- 无 npm、无市场：market catalog 的 kinds 只有 world/bot/provider 三类，没有 figure 种类。安装 = 目录复制进 `<dataDir>/figures/<id>/`，不写 npm 依赖表。(21-local-runtime §9)(15-figure-import §4、§6)
+- 官方作者流程：写完对照文档检查每个字段和路径，打成 zip，在 Coopanion 设置窗口「装扮」页导入。也接受文件夹直选或拖拽。(19-guide-site §make-figure)(15-figure-import §1)
+- Steam 渠道另有一条 root：工坊物品根目录直接放 figure.json，一层一个包。Steam 版不内置 whale，改由工坊发布，包 id 保持 `whale`。(15-figure-import §10)
+- 本机安装根 `E:/Users/54301/AppData/Local/Programs/Coopanion/data/home/companion/data/figures/` 含 holo-whale（v1.0.0，37 词，1 轴 3 项，无 presets，素材 97 文件 / 3107054 B）与 whale-all（v2.1.0，37 词 id 同 holo-whale，2 轴 9+12 项，9 presets 全 deepseek-* 形式，素材 631 文件 / 25723070 B）。已装扫描只枚举直接子目录。(21-local-runtime §5.1、§5.2)(15-figure-import §6)
+- 口径说明：13 号报告 find maxdepth 3 为空、写「本机没有已安装形象包」；21 号报告在更深路径列出 2 包。前者深度不够漏搜，本稿以 21 的文件级实证为准。(13-figure-runtime 取不到-4)(21-local-runtime §5)
+- 本机 config 实据：`skin.figure = "whale-all"`、`scheme = "qwen-knit"`（轴组合串，不是 preset id）。四包 vocab 37 个 id 一致。装包来源查不到：core.log 关键词 grep 0 行命中，「外部导入或人工落盘」是推测。(21-local-runtime §6、§9)(20-pet-tool-catalog §5) [未核验]
+- 内置 coo 与 whale 在宿主只读目录 `resources/app/node_modules/cortico-world-desktop-pet/web/coo/` 与 `web/whale/`，包版本 0.2.0。(14-figure-dress-skin §5)(16-coopanion-app §2)
+
+### 10.8 兼容承诺、作者铁律与索引包边界
+
+- README :409-431 六条：manifest 只升不拒；同一 api 只做加法（新字段、可选方法、消息、kit 导出不升 api）；kit 随 api 冻结；旧应用不认识项跳过并记问题，只有缺必需字段、类型不对、路径出包才拒整包；用户存的打扮不失效（选项没了退回该维第一个）；CI 守着（`tests/fixtures/api2-pack/` 冻结、`packages/cortico-world-desktop-pet/tests/packs.test.ts` 读 manifest、`figure-frame-contract.test.js` 跑身体）。(13-figure-runtime §11)
+- 作者铁律逐字：`兼容承诺：发布过的打扮选项与表情/动作 id 不删不改名。`写在 axes 选项 id 与 vocab 词 id 上。机器侧兜底与铁律分开：作者破坏时页面退回该轴第一个选项，旧 scheme 不炸、包照加载。(19-guide-site §make-figure)(12-figure-manifest §2、§5)(14-figure-dress-skin §6)
+- `cortico-world-figure`（当前发布 4.1.0）、`cortico-world-figure-persona`、`cortico-world-figure-sound` 是市场里的 npm 扩展：计入 353 分母、过两道闸、受 TAGS.md 管辖，不是形象包。`cortico-world-figure` 是全市场唯一同时命中读配置/调 pet_ 工具/带 figure 语义三类的包；`pet_` 工具 21 个的正源是宿主内置 desktop-pet，不是这三个包。C 类共 14/353（4.0%）。(c09-coopanion-coupling §C、结论节)(c02-naming §7)(20-pet-tool-catalog §1)
+- 这三个包内部与 figure.json 的具体交互：reports 无逐包证据。(c09-coopanion-coupling §C) [未核验]
+
+## ⓪ 陈旧门禁（必填，用本 profile 前必跑）
+
+每条探针锚定一个「破坏性变更会删/改的文件、符号或端点」，不用标题搜索类模糊信号。锚在 → 对应章节有效；锚消失 → 按上游新 main 重核后才准用，重核不了标 [未核验]。P1–P9 全部命令已于 2026-11-15 逐条重跑，输出与记录值一致。宿主副本前缀：`H=E:/Users/54301/AppData/Local/Programs/Coopanion/resources/app/build/cortico`。
+
+- **P1 契约档位（决定第 2、7、9A 节）**：`sed -n '23,27p' "$H/src/extensions/manifest.ts"` 应为 `{ world: 6, provider: 6, bot: 7 }`。锚 src/extensions/manifest.ts:23（EXTENSION_API_VERSIONS）。实测通过 2026-11-15。(06-gate-scripts §5) 上游对偶：该文件 GitHub main blob sha = `7ab5a6f06dd81ff8233b71a4f5ecd53b4fc5a441`，与快照 `git hash-object` 一致，即本机副本与上游 main 无漂移。(转引 _PROFILE-DRAFT §⓪ P1)
+- **P2 describe 缺省名与硬失败文案（决定 7.1、9A3）**：`grep -n "DEFAULT_DESCRIBE_FILE = \|has no cortico.describe" "$H/src/extensions/describe-export.ts"` 应命中 src/extensions/describe-export.ts:19 与 src/extensions/describe-export.ts:157。第二条消失 → 「坏路径在 check 里等同缺席、缺席是硬失败」需重核。实测通过 2026-11-15。(转引 _PROFILE-DRAFT §⓪ P2)
+- **P3 安装事务口径（决定 1.4、7.1 层 3）**：`grep -n "LENIENT_BUILDS = \|UNDECIDED_BUILD = " "$H/src/extensions.ts"` 应命中 src/extensions.ts:498 与 src/extensions.ts:516；`grep -rn rollback "$H/src" --include=*.ts | wc -l` 应为 1（src/extensions.ts:1189 的 close() 注释）。数变 → 回滚结论重核。实测通过 2026-11-15。(转引 _PROFILE-DRAFT §⓪ P3)
+- **P4 Core 保留帧名（决定 9A7）**：`grep -n "EXTERNAL_EVENT_FRAME = " "$H/src/core/loop.ts"` 应命中 src/core/loop.ts:198，值 `external_event_frame`。实测通过 2026-11-15。(转引 _PROFILE-DRAFT §⓪ P4)
+- **P5 形象包两套版本号（决定第 10 章）**：对 `H` 同级的 `node_modules/cortico-world-desktop-pet/src/packs.ts` grep 四个常量名，应命中 packages/cortico-world-desktop-pet/src/packs.ts:39、40、41、42 全为 2。任一升位 → 第 10 章按新 main 重核。实测通过 2026-11-15。(转引 _PROFILE-DRAFT §⓪ P5)
+- **P6 上一版过渡层（决定 9A2 的失效预告）**：`ls "$H/src/extensions/previous-contract.ts"`。文件在 → api 5/5/6 仍是「warning + check 拒」；文件消失 = 过渡层已删 → api 5/5/6 变直接拒载，9A2 重写。实测通过 2026-11-15。(06-gate-scripts §5)
+- **P7 上游四仓 HEAD（整体新鲜度）**：`gh api repos/Pal-AI-Lab/<仓>/commits/main --jq '.sha + " " + .commit.committer.date'` 逐仓。读于 2026-11-15：Cortico `83623831133a01679db5b5459eea7d11be590988`（2026-11-12T20:02:14Z，快照锚点未动）；Coopanion `8829fd4fd0916f2c65f824daa63e503eff042b8a`（2026-11-14T02:53:32Z，未动）；Cortina `244b2d05d380d7ae93d980ec143a432aff51b00a`（2026-10-22T05:06:03Z，未动）；cortico-extensions 已到 `3e02384adfb28808962511be98c2cde3c3d933dc`（2026-11-15T05:33:55Z），比第 8 节快照新一次同步。sha 变 → 对应章节重核；探针无结果（网络或仓名变）→ 直接标 [未核验]。(转引 _PROFILE-DRAFT §⓪ P7)
+- **P8 Release 通道（宿主是否换新内置内核）**：`gh api repos/Pal-AI-Lab/Cortico/releases/latest` 读得 v0.2.15（2026-11-12T20:02:18Z）；Coopanion 读得 v0.2.20（2026-11-12T20:41:57Z）。2026-11-15 重跑仍为这两值。出现更新的 Coopanion release → 第 7 节端口与内置裁剪清单、契约档位一并重核。(转引 _PROFILE-DRAFT §⓪ P8)
+- **P9 快照哈希复核（第 8 节全部分母）**：重跑 `python -I C:/Users/54301/tmp/coo-survey/tools/c01_api_drift.py C:/Users/54301/tmp/coo-survey/snapshot/cortico-extensions` 与 `python -I C:/Users/54301/tmp/coo-survey/tools/c06_publish_hygiene.py C:/Users/54301/tmp/coo-survey/snapshot/cortico-extensions`。应得 catalog 353、describe 313、changelog 284、assets 141、comments 104 五项。2026-11-15 重跑，实测记录即这五项逐项一致（_PROFILE-DRAFT §⓪ P9）。changelog 69、icon 140/213、os 100/253 是 c06 报告值，本探针未复算。(c06-publish-hygiene §1、§2、§4) 数字变 = 快照与引用时点分叉，第 8 节按新快照重算。(转引 _PROFILE-DRAFT §⓪ P9)
+
+## 证据不足与 [未核验] 汇总
+
+以下各项在 reports 里取不到或口径不够。正文相应处已标 [未核验]，这里只列对使用影响最大的：
+
+1. 闸脚本真机输出未观测。纪律禁止执行快照内容；退出码与文案在 tsx 包装层下是否变形未验证。(06-gate-scripts 取不到的 1、3)
+2. 上一版契约（api 5/5/6）无活样本。真实运行行为只有仓内自测与文档两级证据。(02-ext-manifest §9、§11)
+3. 市场里「上一版契约包还剩几个」不可数：快照不落 cortico.api，352/353 不可判定。(c01-api-drift §3、§8)
+4. WorldHost 全接口未逐字段取证；World 有无直接调模型/发 HTTP 的主机接口无记载。(03-world-contract §3、§7)
+5. 「钩子异常处理」无成文禁 throw 清单；`core/README.md` 细则未逐行读。(05-bot-contract 取不到 #5)
+6. 所有超时/限流/TTL 只有静态代码证据，宿主未启动。(03-world-contract §10.7)(10-market-install §9)
+7. `pnpm add` 失败时 pnpm 自身是否原子回滚未验证，不在取证通道内。(10-market-install §9)
+8. 扩展进程内出访是否被任何机制限制：无正面也无负面证据，只有形象包帧有 CSP 硬闸。(13-figure-runtime §5)
+9. 发布后改包名/改 id 的官方迁移流程只有「替换包」issue 通道，无步骤文档。(07-templates §11/§14)
+10. `coo.palailab.org` 已逐页取证（19 号报告），但 `/guide/changelog/` 不存在：extract 返回 `extract_failed`，变体路径全 404；部分页 tab 面板内容被 `<!--THE END-->` 截断合并。站点改版后需重跑。(19-guide-site 取不到的)
+11. TAGS.md 标签全集未取枚举；词表外标签真实命中数算不出（catalog 的 0 是过滤器产物）。(07-templates §14)(c03-tags §3.1、§7)
+12. describe 缺席 40 包的四种缺因不可分账；engines/packageManager 与市场包 README 齐备率快照零留痕。(c01-api-drift §6)(c06-publish-hygiene §4、§7)
+13. blocked 18 条完整名单不在任何报告里，已知 3 个落点包名。(c08-author-lifecycle §7)
+14. 评论实存 398 与快照总量 628 的差是否为抓取截断，快照无法证实。(c05-comments-corpus §8)
+15. 单个部署内 World 数量上限、面板数量上限：三份契约报告与 01/16 均无记载，本稿不猜数。
+16. 形象包侧：`packages/cortico-world-desktop-pet/web/figure-frame.js` 帧侧契约与 README 兼容承诺原文未逐字读；0.2.13 原文本机无存；装扮页实机渲染未观测（禁止启动宿主）。(12-figure-manifest §7)(13-figure-runtime 取不到-2、-3)(14-figure-dress-skin 取不到-1)
+17. desktop-pet 的 describe.json 在快照与宿主之间的 `hoverButtons` 文案分叉，哪份对应当前代码未比对。(11-describe-artifact §6、§8)
+
+## 修订
+
+- 2026-11-15 按 _GATE-PROFILE.md 修掉 7 条（共 9 处）：§10.2 inside() 字符类删冒号，改「含 `<>`、双引号或控制字符」，冒号只走协议前缀（12 §2）；§9D2 AMD 原话改挂 `@wocwang/cortico-world-gpt-sovits-for-coopanion`（c05 §3）；§5.2 provider 校验钩子名改正为 `validateEntry?`/`validateModel?`（04 §2 表），保存路径 throw 通道归 `providers 配置校验（configuration.ts）` 的 `validateEntry`/`validateSpec` 并补行号（04 §2、§4、§5、§7）；§8.4 与汇总第 10 条指南站核验方向改正：19 号报告已逐页取证，该域只走 `mcp__anysearch__extract`，WebFetch 被拦（19 全文与取不到的节）；§⓪P9 复算范围改回实测五项 353/313/284/141/104，69、140/213、100/253 标 c06 报告值未复算（draft §⓪ P9；c06 §1、§2、§4）；§2.3 instanceIdMismatch 出处去掉 03 §2，改 05 id 与 bots/ 目录撞名规则节（world.ts:244-254）；§9B2 撞名文案出处 10 §7 改 03 §4（src/extensions.ts:402）；§4.1 给 303 加口径注记，303（03 §4）、313（c01 §6）、274=313−39（c07 §1、§3）三值并存各标口径，不抹平。
