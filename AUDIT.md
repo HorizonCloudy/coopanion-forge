@@ -16,6 +16,8 @@ python -I skills/coopanion-forge/scripts/security_audit.py . \
 2026-11-15 复跑：SEC-1 0 处、**SEC-2 2 处**、SEC-3 0 处、SEC-4 0 处，总分 **85/100**，结论「修完再放」。两处 SEC-2 全在 `data/cmd_config.json` 第 229-230 行：`password` 与 `pbkdf2_password` 的真实哈希值。这个目录不是本仓写的，是宿主把运行数据落在了工作树里。它没进版本库（`git log --all -- data` 空），但以前也不在 ignore 名单里，`git add -A` 就会提上去。已加进 `.git/info/exclude`（本机私有，不随包发）。
 2026-11-16 闭环：两个目录整体挪到仓库外 `C:/Users/54301/coo-worktree-artifacts-20261116/`（搬走，没删，可挪回）。复跑扫描 SEC-1 至 SEC-4 各 0 处、总分 **100/100**、放行。
 
+2026-11-16 入库 `references/profile-botcompat.md`（517 行，四框架桥方法学）。SKILL.md 的两张表各加一行，写明它的锚由 fleet 仓 `spec/pins.json` 与 `doctor.py` 核，不用 `profile_drift.py`。原因：本仓探针的 PATH_RE 认 `src/` 前缀，而那份文件里的 `src/ws.ts:52-53 @4109eb95c` 是 Koishi 适配器侧的路径，探针会把它读成 Cortico 的文件并报 404（实测：`--profile` 指过去时 2 条锚里 1 条这么假漂移）。协议文本的单一真源仍在 `cortico-bridge-fleet`，那仓还没建，归属（个人或 org）待定。
+
 同日还按 SKILL.md「文档内不写死宿主路径」那条规则清了发布件里的宿主绝对路径：已入库的 cortico-notes.md 与 profile-coopanion.md 换成 <HOST>、<SURVEY>、<ENVS>、<THIS-REPO> 占位符并各加图例；profile-botcompat.md 还是未跟踪的半成品，同样改了但没入库；_ASSEMBLE.md、_GATE-PROFILE.md 与 _draft-p1..p4 被 .gitignore 挡住，只在本机存在，同样改了。
 
 ### 豁免清单与依据

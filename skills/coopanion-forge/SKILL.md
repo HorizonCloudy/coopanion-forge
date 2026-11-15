@@ -30,6 +30,7 @@ TDD、极简工程、安全门禁和运行时验证把交付物钉死在"真的�
 | 目标平台 | profile |
 |---|---|
 | Cortico / Coopanion（package.json 的 cortico 块、world/provider/bot、TypeScript、形象包 figure.json） | `references/profile-coopanion.md` |
+| Cortico 与四框架的桥（CBP 契约、`cortico-world-*` 桥包、框架侧插件） | `references/profile-botcompat.md`（锚由 fleet 仓的 `spec/pins.json` 与 `doctor.py` 核，别用 `profile_drift.py` 跑这份） |
 | N.E.K.O（猫娘） | 归 plugin-forge 专家团。本团不适用，勿混引契约 |
 | 其他平台（VSCode / Chrome / Obsidian / MCP…） | 归 plugin-forge 通用范式。本团只有 Cortico 平台知识 |
 
@@ -124,6 +125,7 @@ TDD、极简工程、安全门禁和运行时验证把交付物钉死在"真的�
 | 完整团队宪法（11 条执行纪律） | `references/constitution.md` |
 | 工作流 A–H 阶段表 + 验收清单 | `references/workflows.md` |
 | Cortico / Coopanion 平台契约（manifest / 入口 / 能力面 / 形象包 / ⓪ 门禁） | `references/profile-coopanion.md` |
+| 四框架桥的方法学与契约口径（协议文本单一真源在 `cortico-bridge-fleet`，本件只引用不复述） | `references/profile-botcompat.md` |
 | 写作风格门禁（反 slop，中英） | `references/style-anti-slop.md` |
 | 交付前自检闸门（反缓干 / 反伪阻断 D1–D12） | `references/delivery-self-check.md` |
 | 按任务规模定成员 | `references/task-size-routing.md` |
