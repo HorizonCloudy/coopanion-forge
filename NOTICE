@@ -32,7 +32,7 @@ to reuse.
   1-dcjiang. This repository writes its own prose and copies no rule text or code from it; it reuses
   only rbb's verdict vocabulary (Join / Extend / Fork / Build) and the deliverable marker
   `不可复用原因 / Not reusable because:` so that a rbb-checked deliverable still passes here.
-  Pinned reference: v0.3.20, commit 8388e27, checked 2026-11-16 (the tag is lightweight, so it derefs straight to that commit; the old v0.3.12 was an annotated tag whose target was 4a14fbd). Install it as a N.E.K.O plugin if
+  Pinned reference: v0.3.20, commit 8388e27, checked 2026-11-16. Install it as a N.E.K.O plugin if
   the mechanical rule checks are wanted; coopanion-forge only routes to it.
 - Design credit: jusspound-netizen/dsh-plugin-scanner (commit bb8dc7cd, 2026-11-14). Its ideas
   of manifest-shape checks and of a fail-closed exit code for blind spots inspired

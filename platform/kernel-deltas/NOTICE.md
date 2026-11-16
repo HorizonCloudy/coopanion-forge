@@ -14,15 +14,16 @@
 本仓旧件缺责任限制那一段（grep 实跑 0 命中），属真实许可缺陷，随这次 verbatim 一起修好。
 `LICENSE` 从 2d658a7 起与上游逐字节相同（已实测：`git show 2d658a7:LICENSE` 与本仓 `LICENSE` 相等）。
 
-## NOTICE 的 2 条改写
+## NOTICE 的 1 条改写
 
 1. 出处告示（9 行块）。上游 NOTICE 里有四条注记指向 `references/neko/` 下的文件。本包不发那个目录，逐字搬过来就是失实陈述。
    `platform/deltas.json` 的 `NOTICE` 键把那一块（上游 `NOTICE:16-24`，9 行）换成一句「这四条注记记在内核包的 NOTICE 里，本包不分发那些文件，请去上游内核仓读」。
    锚点必须带 `a21cc32` 新加的那两行 system.llm 保留裁决；只抄旧的 7 行会锚不上。
-2. rbb 钉版本（2026-11-16 午后新增）。上游 NOTICE 那句 `Pinned reference: v0.3.12, commit 4a14fbd, checked 2026-11-15.` 落后于现实：
-   `1-dcjiang/neko-reuse-before-build` 已到 v0.3.20（轻量 tag 直指 `8388e27b1af2595abff780d707e560c9a3f0c7ec`，本会话经 API 解引用核过，LICENSE 原文仍 MIT (c) 2026 1-dcjiang）。
-   带这个新钉的上游 v2.7.5（`4f04414`）没发到 GitHub main，只在本地克隆与工坊 `forge/` 副本里。本仓按「内核只认 GitHub main」的口径先用改写对上事实。
-   **撤回条件**：上游把 v2.7.5 推到 plugin-forge 的 main 之后，这条锚点会失配，`--apply` 会整件不写并报错。那时删掉这条 delta，别留双重改写。同样两条也登记在 workflows.md 台账里。
+2. rbb 钉版本（2026-11-16 午后新增，**同日深夜已撤回**）。上游那句 `Pinned reference: v0.3.12, commit 4a14fbd, checked 2026-11-15.` 曾落后于现实，
+   本仓用一条改写把它对上 v0.3.20 / `8388e27`。撤回条件按本节原来写的话执行了：上游 `4f04414` 进了 GitHub main，tag `v2.7.5` 也已发布。
+   上游 NOTICE 现在自己就是 `Pinned reference: v0.3.20, commit 8388e27, checked 2026-11-16.`，改写留着只会变成死锚。
+   不被内核携带的事实留在本段：v0.3.20 是轻量 tag，直指 `8388e27b1af2595abff780d707e560c9a3f0c7ec`；旧 v0.3.12 是附注 tag，解引用才到 `4a14fbd`。
+   上游那句没写这层解引用细节，这是撤回后唯一的信息差，所以留档在这里。同一件事在 workflows.md 台账里也有对应条目，两条一起撤。
 
 ## 上游 NOTICE 里剩下三条对本仓也成立，所以不动
 

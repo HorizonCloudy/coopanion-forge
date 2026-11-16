@@ -47,16 +47,9 @@ add(W, A1, A1 + """
 add(W, "B 不新建功能，免 full lane。",
     "B 不新建功能，免走 Workflow A 全量。",
     "本平台无 full lane 概念定义，术语向新 routing 口径对齐")
-# 2026-11-16：rbb 上游出了 v0.3.20（轻量 tag 直指 commit 8388e27，LICENSE 仍是 MIT）。
-# 内核文本与 NOTICE 还钉 v0.3.12，因为带新钉的上游 v2.7.5 只在本地和工坊副本里，没发到 GitHub main。
-# 本仓按「只认 GitHub main」的口径先用自己的改写对上事实。上游一旦公开那版，这两条锚点会失配、
-# --apply 会整件不写并报失败，那时删掉这两条，别留双重改写。
-add(W, "v0.3.12 / commit 4a14fbd（2026-11-15 核对）",
-    "v0.3.20 / commit 8388e27（2026-11-16 经 API 解引用核对）",
-    "rbb 钉到 v0.3.20：内核文本落后，临时改写，上游公开后撤")
-add(W, "v0.3.12 / commit 4a14fbd（2026-11-15 读）",
-    "v0.3.20 / commit 8388e27（2026-11-16 读）",
-    "rbb 钉到 v0.3.20：同上一条，另一处出现")
+# rbb 的 v0.3.20 临时改写已在 2026-11-16 撤掉：上游 v2.7.5（tag 已发到 GitHub，指向 4f04414）
+# 的 workflows.md 与 NOTICE 自己就写 v0.3.20 / commit 8388e27，双重改写会把锚点变成死锚。
+# 撤掉后内核文本走上游原句。解引用那条细节留在本仓 AUDIT.md，不再进内核拷贝。
 
 S = "skills/coopanion-forge/references/security-checklist.md"
 add(S, "`plugin.toml` 的必填按 **`[plugin]` 段**判定：子段（如 `[plugin_runtime]`）里的同名键不再顶掉顶层缺项，别的段里的键也不再算已填。",
@@ -206,12 +199,6 @@ NR = "\n".join([
     "  does not distribute those note files. Read them in the upstream kernel repo.",
 ])
 add("NOTICE", NF, NR, "出处告示：本包不发 references/neko/，告示改指上游内核包 NOTICE")
-add("NOTICE",
-    "Pinned reference: v0.3.12, commit 4a14fbd, checked 2026-11-15.",
-    "Pinned reference: v0.3.20, commit 8388e27, checked 2026-11-16 (the tag is lightweight, "
-    "so it derefs straight to that commit; the old v0.3.12 was an annotated tag whose target "
-    "was 4a14fbd).",
-    "rbb 钉到 v0.3.20：上游 v2.7.5 未发到 GitHub，临时改写，上游公开后撤")
 
 path = os.path.join(REPO, "platform", "deltas.json")
 # indent=2 不是随手选的：仓库里那份 deltas.json 一直是两空格缩进（blob 实测），

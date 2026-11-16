@@ -16,16 +16,6 @@
       "find": "B 不新建功能，免 full lane。",
       "replace": "B 不新建功能，免走 Workflow A 全量。",
       "note": "本平台无 full lane 概念定义，术语向新 routing 口径对齐"
-    },
-    {
-      "find": "v0.3.12 / commit 4a14fbd（2026-11-15 核对）",
-      "replace": "v0.3.20 / commit 8388e27（2026-11-16 经 API 解引用核对）",
-      "note": "rbb 钉到 v0.3.20：内核文本落后，临时改写，上游公开后撤"
-    },
-    {
-      "find": "v0.3.12 / commit 4a14fbd（2026-11-15 读）",
-      "replace": "v0.3.20 / commit 8388e27（2026-11-16 读）",
-      "note": "rbb 钉到 v0.3.20：同上一条，另一处出现"
     }
   ],
   "skills/coopanion-forge/references/security-checklist.md": [
@@ -111,11 +101,6 @@
       "find": "- references/neko/neko-court-*.md borrow the institutional model of cft0808/edict (MIT).\n  No source from it is copied here; see references/neko/neko-court-source-notes.md.\n- references/neko/mattpocock-skills.md and references/neko/doc-writing-playbook.md condense\n  ideas from mattpocock/skills, stop-slop and SimpleEnglish (MIT). They are summaries and\n  links, not copies.\n- references/neko/system.llm is an archived third-party system prompt kept for study. Its\n  provenance and licence are not established (see AUDIT.md). It is not policy for this team.\n  The owner decided on 2026-11-16 to keep it in the public repository with no removal deadline,\n  so this remains an open risk rather than an action item.",
       "replace": "- The four notes under references/neko/ in the upstream kernel NOTICE carry these\n  attributions: neko-court-*.md borrow the institutional model of cft0808/edict (MIT), and no\n  source from it is copied; mattpocock-skills.md and doc-writing-playbook.md condense ideas\n  from mattpocock/skills, stop-slop and SimpleEnglish (MIT), as summaries and links, not\n  copies; system.llm is an archived third-party system prompt kept for study, whose\n  provenance and licence are not established, which is not policy for any team, and which\n  the upstream owner decided on 2026-11-16 to keep with no removal deadline. This package\n  does not distribute those note files. Read them in the upstream kernel repo.",
       "note": "出处告示：本包不发 references/neko/，告示改指上游内核包 NOTICE"
-    },
-    {
-      "find": "Pinned reference: v0.3.12, commit 4a14fbd, checked 2026-11-15.",
-      "replace": "Pinned reference: v0.3.20, commit 8388e27, checked 2026-11-16 (the tag is lightweight, so it derefs straight to that commit; the old v0.3.12 was an annotated tag whose target was 4a14fbd).",
-      "note": "rbb 钉到 v0.3.20：上游 v2.7.5 未发到 GitHub，临时改写，上游公开后撤"
     }
   ]
 }

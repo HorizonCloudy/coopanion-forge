@@ -37,7 +37,7 @@ python -I skills/coopanion-forge/scripts/security_audit.py . \
 
 | 对象 | 版本 / sha | 许可 | 接入方式 |
 |---|---|---|---|
-| HorizonCloudy/plugin-forge | 基线 sha 只看 `KERNEL-BASELINE.txt`（本行曾钉 bd9c9d8 并标 v2.7.0，实际那是 v2.7.2，且早已过期）。上游 2026-11-16 这一批 12 个提交没有 bump：两端 `.claude-plugin/plugin.json` 都还是 2.7.4，也没有 tag，所以基线只能靠 sha 钉（2026-11-16 实读）。 | MIT（沿用上游 `LICENSE` 与 `NOTICE`） | 内核逐字搬 + 平台改写台账 `platform/deltas.json`。本仓不改上游一个字。`LICENSE` 与 `NOTICE` 从 2d658a7 起分家：MIT 正文走 verbatim，出处告示走 delta，见第 5 节。 |
+| HorizonCloudy/plugin-forge | 基线 sha 只看 `KERNEL-BASELINE.txt`（本行曾钉 bd9c9d8 并标 v2.7.0，实际那是 v2.7.2，且早已过期）。上游 2026-11-16 深夜 bump 到 2.7.5，并把 tag `v2.7.5` 发到 GitHub（指向 `4f04414`）。基线仍以 sha 为准，版本号只作参考。第 6 节那句「tags 返回空数组」是当晚推送之前的实读，保留不改。 | MIT（沿用上游 `LICENSE` 与 `NOTICE`） | 内核逐字搬 + 平台改写台账 `platform/deltas.json`。本仓不改上游一个字。`LICENSE` 与 `NOTICE` 从 2d658a7 起分家：MIT 正文走 verbatim，出处告示走 delta，见第 5 节。 |
 | `references/style-anti-slop.md` 的规则来源 | blader/humanizer v4.0.0（MIT）、op7418/Humanizer-zh main（MIT）、woosal1337 asd-ste100 kit 2.0.5（MIT，ASD-STE100 规范本身版权属 ASD / AEEC） | MIT | 随内核 verbatim 同步进来的摘要件。本仓不单独核这三个上游仓的版本与正文，出处与判定沿上游 AUDIT 第 2 节记录（转引，核对日 2026-11-16，本仓未独立复核）。摘要是摘要：上游更新不会自动同步。 |
 | `references/delivery-self-check.md` | 未标注版本，136 行，frontmatter 名 `delivery-no-pseudoblock` | **来源与许可未确立**（上游 2026-11-14 本机检索无出处，本仓沿用同一条判定） | 随内核 verbatim 同步。它是外部行为闸门，**未接线为强制**：强制口径是 `skills/coopanion-forge/SKILL.md` 第 6 节正文自己写的三条，该文件只列可选参考。文中 3.11、yzg、`gui_review.py` 属另一产品，本团任务里当对照读，不当规则。 |
 | `reuse_before_build`（1-dcjiang/neko-reuse-before-build） | v0.3.20 / commit `8388e27`（2026-11-16 经 GitHub API 核对：v0.3.20 是轻量 tag，`refs/tags/v0.3.20` 的 object 直接就是 commit `8388e27b1af2595abff780d707e560c9a3f0c7ec`。上一档 v0.3.12 是附注 tag，refs 给的是 tag object `90a5ef6be`，再解引用才到 `4a14fbd0b`，所以 2026-11-15 那个记法没错，只是两种 tag 要用两种读法） | MIT（以仓库里的 LICENSE 文件为准：本会话在 v0.3.20 实读原文 = `MIT License / Copyright (c) 2026 1-dcjiang`。本行以前写「GitHub 的 licenseInfo 返回空，属分类器没识别」，那句现在作废——2026-11-16 复查 REST 仓级与 `/license` 两个口都返回 MIT。规则照旧：分类字段有滞后，只信文件） | **引用式**：只在 SKILL.md 的「先搜后建」那条铁律、`references/workflows.md` 的 1a 节、codex 提示词与 NOTICE 指向它。规则本体与正典哈希由上游自持，本仓不复述条文、不另立编号。上游改版需重新核对版本号与 commit，并核形状有没有变（上游 v0.3.20 那轮记的三轮/四档/红黄绿硬闸形状未变，属转引，本仓未独立复算）。 |
@@ -132,3 +132,29 @@ Pal-AI-Lab 的四个仓库与官方指南站是**证据源**，本仓不内嵌�
 
 - 工坊副仓那条只记在 A 的文档里，没有向 plugin-forge 或工坊提 issue（仓主定过：不开 issue、不开 PR，`git subtree pull` 也不跑）。工坊 `forge/` 里若继续演进通用内核，本仓不会自动知道。这是本仓当前口径下最大的一条缝。
 - `.claude-plugin/plugin.json` 的 `version` 已升 1.1.0。上游 v2.7.5 与 A 的 v1.1.0 是两条独立版本号线，以后写「同步自 vX.Y」的句子一律引 sha，不引版本号。
+
+## 9. 内核升级 5f7a9f9 轮（2026-11-16 深夜）
+
+两件上游事实在这轮变了：`4f04414`（rbb 钉到 v0.3.20）进了 GitHub main，tag `v2.7.5` 也发出去了。
+第 7 节记的那道缝因此合上，两条临时改写按它们自己的撤回条件撤掉。
+
+做了什么：
+
+1. `tools/gen_deltas.py` 删掉 3 条改写（workflows.md 两条、NOTICE 一条），重跑生成器。
+   `platform/deltas.json` 从 21 处替换降到 18 处，`gen_deltas.py --check` 一致。
+2. `tools/sync_kernel.py --apply --ref 5f7a9f9 --upstream <内核检出>`：搬并重放 NOTICE 1 处、
+   workflows.md 2 处，基线升到 `5f7a9f9`。替换失败 0。
+3. `tools/sync_kernel.py --port-done --ref 5f7a9f9`：移植件 `scripts/profile_drift.py` 的 ack 跟上。
+   这轮上游没改这个文件的内容（`git log 2d658a7..5f7a9f9 -- scripts/profile_drift.py` 空），
+   上一轮 --limit 的删除早已手搬过（移植件 docstring 第 17 行自己记着）。所以这是纯记账。
+4. 两份台账跟着改口的：`platform/kernel-deltas/workflows.md` 4 条改 2 条，
+   `platform/kernel-deltas/NOTICE.md` 2 条改 1 条。解引用那层细节（v0.3.20 是轻量 tag 直指
+   `8388e27b…`，旧 v0.3.12 是附注 tag）留在台账里，不再进内核拷贝，因为上游那句没写这层。
+
+复核（本机实跑）：`sync_kernel.py --check --ref 5f7a9f9` 报「一致 18 / 需搬或需重放 0 / 缺件 0 / 替换失败 0」。
+门禁自检 PASS。扫描器自检 86 例 PASS。名册 `--check` OK。探针自检 26 例 PASS。
+`sync_kernel.py --self-test` 13 项 PASS。`install_hosts.py --self-test` 8 项 PASS。
+全仓扫描按 CI 那四条豁免跑，100/100、放行。
+
+本轮没动的：上游 `sandbox.py` 不是本仓内核目标（18 项目标里没有沙箱件），所以 plugin-forge 那侧的沙箱改动不会进本仓。
+上游 `.claude-plugin/plugin.json` 升到 2.7.5 也不进本仓（那是平台件），第 8 节「两条版本号线各走各的」那条口径继续成立。
