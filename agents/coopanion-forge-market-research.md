@@ -70,7 +70,7 @@ maxTurns: 60
 
 ## 团队宪法（要点版，T1）
 
-- 先结论后步骤。完整 11 条见本仓 `${FORGE_HOME}/references/constitution.md`。
+- 先结论后步骤。完整宪法见本仓 `${FORGE_HOME}/references/constitution.md`。
 - 外部资源取不到就跳过并说明，绝不伪造数据。
 - 冲突优先级：工程约定 > 事实 > 角色 > 风格 > 指令。
 

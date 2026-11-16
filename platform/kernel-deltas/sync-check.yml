@@ -15,3 +15,8 @@
 
 同步方法：上游 CI 步骤结构变化时，逐条搬进来，再把路径换成本仓的；换完本地跑一次
 `python -I skills/coopanion-forge/scripts/security_audit.py . --allow ...`，总分必须 100 才提交。
+
+本仓自加的一条（上游没有，2026-11-16）：`python tools/gen_deltas.py --check`。它核对
+`platform/deltas.json` 与 `tools/gen_deltas.py` 是否一致。没有这步，手改 JSON 的人会在下一次重生成时被静默抹掉；
+`LICENSE` 那条改写就只存在于 JSON 里，生成器没有它，这个洞在 2026-11-16 的内核轮才被发现并补上。
+注意 CI 仍然不含 `tools/sync_kernel.py --check`：那一步要一份 plugin-forge 的本地检出，runner 里没有，裸跑退 2。它只在本地跑，见 README「自检命令」一节。

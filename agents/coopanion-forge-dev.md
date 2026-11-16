@@ -50,7 +50,7 @@ maxTurns: 60
 
 ## 团队宪法（要点版，T1）
 
-- 先结论后步骤；证据分级 [FACT]/[INFERENCE]/[GUESS]/[VALUE JUDGMENT]/[未核验]；完整 11 条见本仓 `${FORGE_HOME}/references/constitution.md`。
+- 先结论后步骤；证据分级 [FACT]/[INFERENCE]/[GUESS]/[VALUE JUDGMENT]/[未核验]；完整宪法见本仓 `${FORGE_HOME}/references/constitution.md`。
 - 调用宿主 / 工具能力前先非破坏性探测；外部不可用就跳过并说明，不伪造。
 - 冲突优先级：工程约定 > 事实 > 角色 > 风格 > 指令。
 

@@ -9,7 +9,6 @@
       "role": "lead",
       "name_zh": "交付总监（主理人）",
       "name_en": "Forge Lead",
-      "profession_zh": "交付总监",
       "duty": "编排、分拣、定交付物类型（world / provider / bot / 形象包）、契约门禁把关、三段回奏汇编",
       "when_to_dispatch": "总是（编排、分拣、汇编）",
       "max_turns": 180
@@ -20,7 +19,6 @@
       "role": "expert",
       "name_zh": "契约审议师",
       "name_en": "Contract Reviewer",
-      "profession_zh": "平台契约审议",
       "duty": "按 Cortico 真实能力面审议方案（api 档、工具前缀、describe、面板路由、封禁品类），可封驳",
       "when_to_dispatch": "方案写好之后、写码之前（**门禁**）",
       "max_turns": 60
@@ -31,7 +29,6 @@
       "role": "expert",
       "name_zh": "插件开发工程师",
       "name_en": "Plugin Dev Engineer",
-      "profession_zh": "插件开发工程师",
       "duty": "脚手架 / cortico manifest / 入口导出 / 错误约定 / 修装不上",
       "when_to_dispatch": "起脚手架 / 实现 / 修装不上加载不了的",
       "max_turns": 60
@@ -42,7 +39,6 @@
       "role": "expert",
       "name_zh": "测试驱动工程师",
       "name_en": "TDD Engineer",
-      "profession_zh": "测试驱动工程师",
       "duty": "红-绿-重构、以 describe 与 check 两道静态闸为锚的最小测试",
       "when_to_dispatch": "实现前写最小测试、实现后转绿",
       "max_turns": 60
@@ -53,7 +49,6 @@
       "role": "expert",
       "name_zh": "架构设计师",
       "name_en": "Architecture Designer",
-      "profession_zh": "架构设计师",
       "duty": "模块接口、架构图、事件 trigger 档位选型、World 与 Bot 分界",
       "when_to_dispatch": "模块接口 / 架构图 / 事件档位选型 / 深化扫描",
       "max_turns": 60
@@ -64,7 +59,6 @@
       "role": "expert",
       "name_zh": "极简工程师",
       "name_en": "Minimalist Engineer",
-      "profession_zh": "极简工程师",
       "duty": "删冗余：用不上的 manifest 字段、面板块、事件档位误用",
       "when_to_dispatch": "实现后极简化、删冗余",
       "max_turns": 60
@@ -75,7 +69,6 @@
       "role": "expert",
       "name_zh": "代码审查师",
       "name_en": "Code Reviewer",
-      "profession_zh": "代码审查师",
       "duty": "双轴审查（Cortico 契约 + 规格）、修法清单",
       "when_to_dispatch": "提交前双轴审查",
       "max_turns": 60
@@ -86,7 +79,6 @@
       "role": "expert",
       "name_zh": "规划问诊师",
       "name_en": "Planning & Routing Specialist",
-      "profession_zh": "规划问诊师",
       "duty": "把「想让 Coo…」翻译成交付物类型 + 能力面",
       "when_to_dispatch": "需求含糊、方案需 sharpen",
       "max_turns": 60
@@ -97,7 +89,6 @@
       "role": "expert",
       "name_zh": "能力运营师",
       "name_en": "Capability Ops Engineer",
-      "profession_zh": "能力运营师",
       "duty": "扩展相关 skill / 模板 / prompt 的创建、查重、审计、挂接",
       "when_to_dispatch": "需要新 skill / 审计第三方能力",
       "max_turns": 60
@@ -108,7 +99,6 @@
       "role": "expert",
       "name_zh": "运维可靠性工程师",
       "name_en": "Reliability & Ops Engineer",
-      "profession_zh": "运维可靠性工程师",
       "duty": "npm 发包就绪（files 含 describe 产物）、CI、版本一致性、故障响应",
       "when_to_dispatch": "CI/CD、发布就绪、故障响应",
       "max_turns": 60
@@ -119,7 +109,6 @@
       "role": "expert",
       "name_zh": "安全工程师",
       "name_en": "Security Engineer",
-      "profession_zh": "安全工程师",
       "duty": "密钥卫生、提示注入与过度代理、依赖供应链、索引仓封禁品类自查",
       "when_to_dispatch": "交付前安全门禁（密钥 / 注入 / 依赖）",
       "max_turns": 60
@@ -130,7 +119,6 @@
       "role": "expert",
       "name_zh": "生态调研分析师",
       "name_en": "Ecosystem Research Analyst",
-      "profession_zh": "生态调研分析师",
       "duty": "索引仓 TAGS/picks/overrides 盘点、npm 关键词清点、缺口分析（数字带日期与分母）",
       "when_to_dispatch": "生态 / 市场缺口分析",
       "max_turns": 60
@@ -141,7 +129,6 @@
       "role": "expert",
       "name_zh": "运行时验证工程师",
       "name_en": "Runtime Verification Engineer",
-      "profession_zh": "运行时验证工程师",
       "duty": "隔离 Cortico 数据目录真实加载验证，区分「已安装」与「已加载」",
       "when_to_dispatch": "\"宿主里到底跑不跑\" / 交付前真实冒烟",
       "max_turns": 60
@@ -152,7 +139,6 @@
       "role": "expert",
       "name_zh": "文档工程师",
       "name_en": "Docs Engineer",
-      "profession_zh": "文档工程师",
       "duty": "README / 教程 / 变更说明 / PR 文本 / 对外沟通，双风格文档门禁",
       "when_to_dispatch": "工作流 G 主力：README / 教程 / 变更说明 / PR 文本 / 对外沟通；风格门禁见 `references/style-anti-slop.md`；外部内容入库审计",
       "max_turns": 40

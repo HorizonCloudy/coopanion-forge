@@ -32,6 +32,7 @@
 
 ### 1.1 交付物落点
 
+- fleet 仓 `cortico-bridge-fleet`（远程仓未建，2026-11-16 决定暂缓；本机有工作目录但不公开出仓）。本文件的协议引用暂时指向计划中的路径，别去 GitHub 找它。
 - fleet 仓 `cortico-bridge-fleet`：`spec/`（CBP-v1.json、pins.json、conformance.json）、
   `packages/cortico-bridge-core`、`packages/cortico-world-{neko,maibot,astrbot}`、
   `tools/`（gen_pins / manifest_scan / vocab_gate / check_ext / neko_sdk_spec_check）、`tests/rename/`。(蓝图 §3.2、_BUILD-PLAN §2)

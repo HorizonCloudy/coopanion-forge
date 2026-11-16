@@ -18,7 +18,7 @@
 
 **不可跳步**：1a 的检索结论没出来，不进第 2 步（起草方案）；没有 contract 准奏，不许写码。
 
-写码前先过机器门禁：`python ${FORGE_HOME}/scripts/check_contract_approval.py --approval contract-approval.json <要写的文件…>`；脚本 REFUSE 即不许动笔（含 scope 外文件）。**这是流程辅助，不是强制**：脚本只校验记录，验不了签发人身份，也不会自动触发，靠各角色自觉调用；宿主级强制需另配 PreToolUse hook。派工规模先按 `references/task-size-routing.md` 分拣：小改动只到 dev + tdd，契约与安全门禁不豁免。
+写码前先过机器门禁：`python ${FORGE_HOME}/scripts/check_contract_approval.py --approval contract-approval.json <要写的文件…>`；脚本 REFUSE 即不许动笔（含 scope 外文件）。**这是流程辅助，不是强制**：脚本只校验记录，验不了签发人身份，也不会自动触发，靠各角色自觉调用；宿主级强制需另配 PreToolUse hook。派工规模先按 `references/task-size-routing.md` 分拣：小改动到 dev + tdd，要写代码时先跑 1a 快速档，契约与安全门禁不豁免。接 PreToolUse hook 或 CI 时改用 `--staged`（已暂存）或 `--changed`（工作区改动加未跟踪新文件），不必自己拼路径列表。
 
 ### 1a 先搜后建（rbb）到底要交什么
 
@@ -50,7 +50,7 @@
 - 已明确是运行时问题（加载失败 / 入口 404 / 权限拒绝）→ lead 直接派 **dev**，必要时
   **sandbox** 复现；回奏注明「单成员直调」。
 - 不适用于：要改功能（走 A）、要动架构（走 A）。
-- B 不新建功能，免 full lane。但补丁一旦要写新代码，先由 **market-research** 跑 1a 快速档
+- B 不新建功能，免走 Workflow A 全量。但补丁一旦要写新代码，先由 **market-research** 跑 1a 快速档
   （3 条检索串 + 三行 `Reused / Change / Risk`）再动笔；纯改文案与文档不触发。
 
 ## Workflow C：极简重构
@@ -75,7 +75,7 @@ skill-ops 主导（创建 → 查重 → 审计 → 应用），其余按需。
 2. 用 profile 声明的**真实存在**的健康 / 列表 / 状态路由判定加载结果；路由面没把握时先
    非破坏性探测（宪法第 10 条），禁止凭想象猜端点（GET 打到只有 POST 的路由会误判成插件故障）。
 3. 分支：加载成功但行为不对 → 转 dev 按日志定位；加载失败 → sandbox 归因
-   （插件缺陷 / 依赖缺失 / 平台限制 / 沙箱配置错），不许"跑不起来"了事。
+   （插件缺陷 / 依赖缺失 / 平台限制 / 沙箱或环境配置错），不许"跑不起来"了事。
 4. 边界：沙箱只能证明"能加载、能启动"，**不能**证明"接真模型 / 真数据后效果好"；
    后者属用户环境验收，不得混写。
 

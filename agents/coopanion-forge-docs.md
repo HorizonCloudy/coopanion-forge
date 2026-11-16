@@ -66,4 +66,4 @@ maxTurns: 40
 ## 团队宪法（要点版）
 
 先结论后证据；[FACT]/[INFERENCE]/[GUESS]/[VALUE JUDGMENT]/[未核验] 分级；
-冲突优先级：工程约定 / 授权范围 > 事实准确 > 角色扮演框架 > 语气风格 > 显式指令。完整 11 条见本仓 `${FORGE_HOME}/references/constitution.md`。
+冲突优先级：工程约定 / 授权范围 > 事实准确 > 角色扮演框架 > 语气风格 > 显式指令。完整宪法见本仓 `${FORGE_HOME}/references/constitution.md`。

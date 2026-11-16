@@ -6,7 +6,8 @@ coopanion-forge · 名册表生成器（roster.json 为唯一来源）
 用途
   从 roster.json 重新生成 README.md、skills/coopanion-forge/SKILL.md、
   agents/coopanion-forge-lead.md 里的名册表格，并同步各处的人数声明
-  （"1 主理人 + N 专家"、"调度 N 位专家"、"N 人编制"、"N 个人设"）。
+  （"1 主理人 + N 专家"、"调度 N 位专家"、"N 人编制"、"N 个人设"、"共 N 人编制"）。
+  人数声明同时覆盖 .claude-plugin/plugin.json。
   表格区域由成对标记包住，标记之间只许本脚本写入，不许手改。
 
 用法
@@ -22,7 +23,8 @@ coopanion-forge · 名册表生成器（roster.json 为唯一来源）
     都退出码 1，绝不静默跳过。
 
 约束
-  - 零第三方依赖（Python 3.8+）。只写上面三个被标记的文档，不动其他文件。
+  - 零第三方依赖（Python 3.8+）。只写上面三个被标记的文档，外加 .claude-plugin/plugin.json
+    里的人数声明；其余文件一律不动。
 """
 import sys, os, re, json, glob, argparse
 
@@ -57,9 +59,10 @@ COUNT_CLAIMS = [
     (r"调度 (\d+) 位专家", "n_experts"),
     (r"(\d+) 人编制", "n_total"),
     (r"(\d+) 个人设", "n_total"),
-    # 2026-11-15 补：README 与 SKILL 里的「共 14 人」以前不在模式表里，
-    # 人数改了 --write 与 --check 都不碰它，实测留在旧值还能退 0。
-    (r"共 (\d+) 人", "n_total"),
+    # 2026-11-16 改（A571 第 7 条）：上一条「共 (\d+) 人」是全仓库空转模式——仓库里
+    # 根本没有这种句子，只有自检的合成用例。它同时作用于四份文档，将来任何无关的
+    # 「会上共 3 人」都会被 --write 悄悄改成编制人数。锚定到「编制」才生效。
+    (r"共 (\d+) 人编制", "n_total"),
 ]
 COUNT_FILES = ["README.md", "skills/coopanion-forge/SKILL.md",
                "agents/coopanion-forge-lead.md", ".claude-plugin/plugin.json"]
@@ -184,9 +187,11 @@ def _self_test():
         ("1 主理人 + 1 专家，调度 1 位专家，1 人编制，1 个人设",
          "1 主理人 + 13 专家，调度 13 位专家，14 人编制，14 个人设", 4),
         ("1 主理人 + 13 专家", "1 主理人 + 13 专家", 0),
-        # 「共 N 人」这一写法以前不在模式表里：人数改了它不动，--check 还退 0
-        ("编制是 1 主理人 + 13 专家，共 12 人。",
-         "编制是 1 主理人 + 13 专家，共 14 人。", 1),
+        # 「共 N 人编制」这一写法以前不在模式表里：人数改了它不动，--check 还退 0
+        ("编制是 1 主理人 + 13 专家，共 12 人编制。",
+         "编制是 1 主理人 + 13 专家，共 14 人编制。", 1),
+        # 反向：与编制无关的「共 N 人」不许被改。旧的全仓库空转模式会把它一起改掉。
+        ("调研纪要：会上共 3 人发言。", "调研纪要：会上共 3 人发言。", 0),
     ]
     for src, want, want_hits in cases:
         got, hits = apply_counts(src, vals)

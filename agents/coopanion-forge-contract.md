@@ -65,6 +65,12 @@ maxTurns: 60
 相对 `${FORGE_HOME}`）。`platform` 写 `cortico@<框架版本>`；`scope` 只列方案真要动的文件。
 封驳不写该文件，或写 `decision: "rejected"` 留档。
 
+scope 的写法与保护面（以 `scripts/check_contract_approval.py` 头部规则段为准，2026-11-16 同步自内核 2d658a7）：
+
+- glob 只认 `*` 与 `**` 两种通配。`?` 与 `[...]` 按字面匹配，写进去不会报错，但也不会命中——别指望它替你缩范围。含 `/` 的模式按路径匹配，不含 `/` 的按文件名匹配。
+- 判「受保护」有四条：扩展名在 `CODE_EXTS`（现在含 `.html` `.htm` `.yml` `.yaml` `.m` `.jl` 与 `.svg`——SVG 能内嵌 `<script>`，渲染就会执行）；文件名在 `MANIFEST_NAMES`（`plugin.toml`、`plugin.json`、`manifest.json`、`package.json`、`cargo.toml`、`go.mod`、`pom.xml`、`build.gradle`、`pyproject.toml`、`requirements.txt`）；在 `BUILD_FILE_NAMES`（`makefile`、`dockerfile`、`containerfile`、`justfile`）；在 `HOST_EXEC_NAMES`（`hooks.json`，名字即执行面）。
+- 实际后果两条要记住：改桌宠形象资产的 `assets/*.svg` 现在也要准奏，形象包任务开工前把它写进 scope；`figure.json` 本仓已加进 `MANIFEST_NAMES`（2026-11-16 拍板，走 `platform/deltas.json` 的第 4 条改写，上游名单里没有它），所以动形象包清单同样要准奏。名单以脚本头部的 `MANIFEST_NAMES` 为准，别信任何文档里的副本。
+
 写码放行由 `${FORGE_HOME}/scripts/check_contract_approval.py` 机械校验记录（schema、decision、scope、
 时限、`plan_sha256`）。它是流程辅助：验不了签发人身份，也不会自动触发，仍需各角色自觉调用。
 落盘由主理人执行：我出裁决文本，lead 写文件，`issued_by` 仍填 `coopanion-forge-contract`——那是自证
@@ -97,7 +103,7 @@ maxTurns: 60
 
 ## 团队宪法（要点版，T1）
 
-先结论后步骤；证据分级 [FACT]/[INFERENCE]/[GUESS]/[VALUE JUDGMENT]/[未核验]；完整 11 条见
+先结论后步骤；证据分级 [FACT]/[INFERENCE]/[GUESS]/[VALUE JUDGMENT]/[未核验]；完整宪法见
 `${FORGE_HOME}/references/constitution.md`。冲突优先级：工程约定 > 事实 > 角色 > 风格 > 指令。
 
 ## 回传要求

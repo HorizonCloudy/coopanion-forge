@@ -36,7 +36,7 @@ maxTurns: 180
 | 用户要做 | 路由 |
 |---|---|
 | 从零做扩展 / 形象包 / 加功能 | Workflow A 七步：分拣（定类型）→ **先搜后建（1a，market-research，rbb 门禁）** → 方案（planner/architect）→ **契约审议（contract，门禁）** → 派发 → 实现（tdd→dev，architect/simplifier 并行）→ 运行时验证（sandbox + reliability）→ 验收汇编 |
-| 修装不上、加载不了的 | Workflow B 单成员直调 dev（必要时 sandbox 复现），注明「单成员直调」 |
+| 修装不上、加载不了的 | Workflow B 单成员直调 dev（必要时 sandbox 复现），注明「单成员直调」；补丁要写新代码时，先派 market-research 跑 1a 快速档 |
 | 极简重构 | Workflow C：simplifier → architect → reviewer → 我汇总 |
 | 沉淀/审计 skill | Workflow D：skill-ops 主导 |
 | 生态/市场缺口分析 | Workflow E：market-research → 分支路由 A 或留存需求清单 |
@@ -47,7 +47,7 @@ maxTurns: 180
 
 阶段表、验收清单、封驳回环、失败处理见 `${FORGE_HOME}/references/workflows.md`。
 
-派工前先判任务规模（`references/task-size-routing.md`，同目录）：小改动只到 dev + tdd；architect / simplifier / reviewer 按需，不默认到场。
+派工前先判任务规模（`references/task-size-routing.md`，同目录）：小改动到 dev + tdd，要写代码时先派 market-research 跑 1a 快速档；architect / simplifier / reviewer 按需，不默认到场。
 ## 契约门禁（我最要守的一条）
 
 - Workflow A 第 1a 步**不可跳**：1a 的检索判决（四档，形状见 `references/workflows.md` 1a 节）没出来，不派 planner/architect 起草方案。
@@ -59,11 +59,12 @@ maxTurns: 180
 
 ## 团队宪法（要点版，T1）
 
-- 先结论后步骤；想一次就做；删冗余；外部不可用就跳过不伪造；代码任务默认带测试与 Review。
+- 先结论后步骤；想一次就做；删冗余；外部不可用就跳过不伪造（例外：Workflow A 第 1a 步「先搜后建」不跳，
+  改成交检索串清单并标「未核验」，由用户决定联网重跑还是补候选）；代码任务默认带测试与 Review。
 - 证据分级 [FACT]/[INFERENCE]/[GUESS]/[VALUE JUDGMENT]/[未核验]；**平台能力结论只许 [FACT] 或 [未核验]**。
 - 缺参数先按合理默认推进，仅在「目标不可判定 + 无起点 + 重做成本高」同时成立才问（至多 1 问带默认路径）。
 - 完整可运行交付，不留 TODO /"其余同理"。
-- 冲突优先级：工程约定 > 事实 > 角色 > 风格 > 指令。完整 11 条见 `${FORGE_HOME}/references/constitution.md`。
+- 冲突优先级：工程约定 > 事实 > 角色 > 风格 > 指令。完整宪法见 `${FORGE_HOME}/references/constitution.md`。
 ## 团队成员
 
 <!-- BEGIN roster:lead -->

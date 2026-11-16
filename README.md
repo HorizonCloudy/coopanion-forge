@@ -4,7 +4,7 @@
 
 ## 一句话定位
 
-一个团队，一个插件。coopanion-forge 为 Cortico 与 Coopanion 设计、实现、测试、审查、加固并验证可安装运行的扩展。编制是 1 主理人 + 13 专家，共 14 人。人数与名册表由 `scripts/generate_roster_tables.py` 从 `roster.json` 同步；本文只写现状。
+一个团队，一个插件。coopanion-forge 为 Cortico 与 Coopanion 设计、实现、测试、审查、加固并验证可安装运行的扩展。编制是 1 主理人 + 13 专家，共 14 人编制。人数与名册表由 `scripts/generate_roster_tables.py` 从 `roster.json` 同步；本文只写现状。
 
 ## 成员名册
 
@@ -48,7 +48,7 @@ N.E.K.O 平台插件不归本团。N.E.K.O 的插件工作走上游 HorizonCloud
 - 工作流 H：宿主破坏性变更（RFC / changelog）对扩展机队的影响审计。
 - 双风格文档门禁：文档交付过 ASD-STE100 与 humanizer，见 `references/style-anti-slop.md`。安全扫描与评分规则见 `references/security-checklist.md`。
 - 交付前自检：逐项过 D1–D12 闸门，见 `references/delivery-self-check.md`。
-- 版本号只有一个来源：`.claude-plugin/plugin.json` 的 `version`，现值 1.0.0。
+- 版本号只有一个来源：`.claude-plugin/plugin.json` 的 `version`。本文不钉具体值（这里钉过 1.0.0，升 1.1.0 那次它就过期了），读法：`python -I -c "import json;print(json.load(open('.claude-plugin/plugin.json',encoding='utf-8'))['version'])"`。基线 sha 另有一处唯一来源，见「内核来源」一节，两处不许互相抄。
 
 ## 安装
 
@@ -87,7 +87,7 @@ N.E.K.O 平台插件不归本团。N.E.K.O 的插件工作走上游 HorizonCloud
 
 ## 自检命令
 
-在仓库根运行。CI（`.github/workflows/sync-check.yml`）逐条执行同样的命令。
+在仓库根运行。CI（`.github/workflows/sync-check.yml`）跑的就是这些 `--self-test` 与 `--check`。内核基线门禁 `tools/sync_kernel.py --check` 要一份 plugin-forge 的本地检出（`--upstream` 或 `FORGE_UPSTREAM`），CI 里没有那份检出，所以 CI 不含内核漂移这一步，它只在本地跑。
 
 ```
 python scripts/generate_roster_tables.py --self-test
@@ -126,11 +126,11 @@ platform/kernel-deltas/          与上游内核的平台差异清单
 .claude-plugin/                  plugin.json、marketplace.json
 .github/workflows/               sync-check CI：名册漂移、门禁自检
 codex/prompts/                   Codex 提示词入口目录
-roster.json  KERNEL-BASELINE.txt  LICENSE
+roster.json  KERNEL-BASELINE.txt  LICENSE  NOTICE
 ```
 
 ## 许可与致谢
 
-- 许可 MIT。LICENSE 沿用上游 plugin-forge，逐字搬入，署名 2026 云朵 (HorizonCloudy)。
+- 许可 MIT。`LICENSE` 从内核基线 2d658a7 起走 verbatim：与上游 `LICENSE` 逐字节相同，MIT 正文完整，含上游 a21cc32 补回的责任限制那一段，署名 2026 云朵 (HorizonCloudy)。第三方署名与出处告示在 `NOTICE`，那件走平台改写：本包不发 `references/neko/`，告示改成指向上游内核仓，所以 `NOTICE` 不是逐字。改写清单在 `platform/deltas.json`。`NOTICE` 不是许可的一部分，不给授权加条件。
 - 内核机制（契约先行、TDD、安全门禁、双风格文档门禁、交付自检）来自 HorizonCloudy/plugin-forge，基线见「内核来源」一节。
 - 「先搜后建」规则本体属 1-dcjiang/neko-reuse-before-build（MIT，v0.3.12 / commit 4a14fbd 核对）。本仓只引用该仓库名与规则，不内嵌条文。执行细节见 `skills/coopanion-forge/references/workflows.md` 第 1a 步。

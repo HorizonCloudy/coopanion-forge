@@ -11,6 +11,11 @@
       "find": "- 与契约门禁的分工：1a 判「该不该由本团做」，第 3 步判「平台能不能做到」。两道都不许跳，顺序也不能换——先确认不是重复造轮子，再花时间核能力面。",
       "replace": "- 与契约门禁的分工：1a 判「该不该由本团做」，第 3 步判「平台能不能做到」。两道都不许跳，顺序也不能换——先确认不是重复造轮子，再花时间核能力面。\n\n### 1a 在本平台的检索落点\n\n- 轮 1 仓库：Pal-AI-Lab/Cortico 的 `templates/extension/` 与 `docs/`；Pal-AI-Lab/Coopanion 的 `packages/`；索引仓 Pal-AI-Lab/cortico-extensions 的 `packages/*.json` 与 `TAGS.md`。\n- 轮 2 包生态：npm 关键词 `cortico-world` / `cortico-provider` / `cortico-bot`。这是收录门槛，市场 353 个包 100% 带本类关键词（普查 c02，2026-11-15）；索引仓 catalog 同一批 353 个；官方指南 `coo.palailab.org/guide/make-extension` 与 `make-figure`，页内含给 coding agent 的整段提示词。\n- 轮 3 人问过没：索引仓的 discussions 与 `comments/*.json`（104 个文件、实存 398 条，2026-11-15）。反馈里已有同类功能请求就先做增量，别开新工程。\n- 判决落点：Join 是给 Cortico 或 Coopanion 提 PR；Extend 是挂在桌宠 World 的接缝上做扩展；Fork 是分叉既有 npm 包并保持同步；Build 是自建，第一行写不可复用原因。\n- 先判交付物类型再检索：换身体、加表情词表、配音属于形象包（`figure.json`，manifest 2 / api 2），不是 Cortico 扩展。按包名筛 Coo 生态会同时漏 80 个、误收 14 个（普查 c09），所以候选清单按字段与内容判，不按名字判。\n- 上架是独立动作：发到 npm 不等于进市场。收录、认证、标签走索引仓的 `[tags]` 与 `[certify]` issue，见 `references/cortico-notes.md`。",
       "note": "1a 平台检索落点"
+    },
+    {
+      "find": "B 不新建功能，免 full lane。",
+      "replace": "B 不新建功能，免走 Workflow A 全量。",
+      "note": "本平台无 full lane 概念定义，术语向新 routing 口径对齐"
     }
   ],
   "skills/coopanion-forge/references/security-checklist.md": [
@@ -28,14 +33,19 @@
   "skills/coopanion-forge/references/contract-approval.schema.json": [
     {
       "find": "\"description\": \"目标平台与 profile 版本，如 neko@0984249。\"",
-      "replace": "\"description\": \"目标平台与 profile 版本，如 cortico@0.2.15。\"",
+      "replace": "\"description\": \"目标平台与 profile 版本，如 cortico@0.2.16。\"",
       "note": "平台示例值"
+    },
+    {
+      "find": "不含 / 的模式按文件名匹配。",
+      "replace": "不含 / 的模式按文件名匹配。只认 * 与 ** 两种通配，? 与 [...] 按字面匹配。",
+      "note": "通配口径：54f3e4e 收紧 compile_glob，schema 描述同步"
     }
   ],
   "skills/coopanion-forge/scripts/check_contract_approval.py": [
     {
       "find": "\"platform\": \"neko@0984249\",",
-      "replace": "\"platform\": \"cortico@0.2.15\",",
+      "replace": "\"platform\": \"cortico@0.2.16\",",
       "note": "自检 platform 值"
     },
     {
@@ -47,6 +57,11 @@
       "find": "(base(), [J(\"src\", \"a.py\"), J(\"src\", \"pkg\", \"b.py\"), J(\"plugin.toml\")], True),",
       "replace": "(base(), [J(\"src\", \"a.ts\"), J(\"src\", \"pkg\", \"b.ts\"), J(\"package.json\")], True),",
       "note": "自检用例文件名"
+    },
+    {
+      "find": "\"pyproject.toml\", \"requirements.txt\"}",
+      "replace": "\"pyproject.toml\", \"requirements.txt\", \"figure.json\"}",
+      "note": "保护面补 figure.json：桌宠形象包清单，World 真读"
     }
   ],
   "skills/coopanion-forge/scripts/security_audit.py": [
@@ -81,11 +96,11 @@
       "note": "删掉不再被引用的 plugin_toml_keys 助手"
     }
   ],
-  "LICENSE": [
+  "NOTICE": [
     {
-      "find": "- references/neko/neko-court-*.md borrow the institutional model of cft0808/edict (MIT).\n  No source from it is copied here; see references/neko/neko-court-source-notes.md.\n- references/neko/mattpocock-skills.md and references/neko/doc-writing-playbook.md condense\n  ideas from mattpocock/skills, stop-slop and SimpleEnglish (MIT). They are summaries and\n  links, not copies.\n- references/neko/system.llm is an archived third-party system prompt kept for study. Its\n  provenance and licence are not established (see AUDIT.md). It is not policy for this team.",
-      "replace": "- The four notes under references/neko/ in the upstream kernel package carry these\n  attributions: neko-court-*.md borrow the institutional model of cft0808/edict (MIT), and no\n  source from it is copied; mattpocock-skills.md and doc-writing-playbook.md condense ideas\n  from mattpocock/skills, stop-slop and SimpleEnglish (MIT), as summaries and links, not\n  copies; system.llm is an archived third-party system prompt kept for study, whose\n  provenance and licence are not established and which is not policy for any team.\n  This package does not distribute those note files. Read them in the upstream kernel repo.",
-      "note": "出处告示：本包不发 references/neko/，改成指向上游内核包"
+      "find": "- references/neko/neko-court-*.md borrow the institutional model of cft0808/edict (MIT).\n  No source from it is copied here; see references/neko/neko-court-source-notes.md.\n- references/neko/mattpocock-skills.md and references/neko/doc-writing-playbook.md condense\n  ideas from mattpocock/skills, stop-slop and SimpleEnglish (MIT). They are summaries and\n  links, not copies.\n- references/neko/system.llm is an archived third-party system prompt kept for study. Its\n  provenance and licence are not established (see AUDIT.md). It is not policy for this team.\n  The owner decided on 2026-11-16 to keep it in the public repository with no removal deadline,\n  so this remains an open risk rather than an action item.",
+      "replace": "- The four notes under references/neko/ in the upstream kernel NOTICE carry these\n  attributions: neko-court-*.md borrow the institutional model of cft0808/edict (MIT), and no\n  source from it is copied; mattpocock-skills.md and doc-writing-playbook.md condense ideas\n  from mattpocock/skills, stop-slop and SimpleEnglish (MIT), as summaries and links, not\n  copies; system.llm is an archived third-party system prompt kept for study, whose\n  provenance and licence are not established, which is not policy for any team, and which\n  the upstream owner decided on 2026-11-16 to keep with no removal deadline. This package\n  does not distribute those note files. Read them in the upstream kernel repo.",
+      "note": "出处告示：本包不发 references/neko/，告示改指上游内核包 NOTICE"
     }
   ]
 }

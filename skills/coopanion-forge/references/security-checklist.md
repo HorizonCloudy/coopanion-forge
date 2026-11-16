@@ -21,14 +21,23 @@ python ${FORGE_HOME}/scripts/security_audit.py <repo> [--allow 前缀1,前缀2] 
 
 ### SEC-2 明文密钥
 
-**文件名判据（2026-11-15 新增，来源：外部深审 A464 第 3 条 / A472 第 4 条）**
+**文件名判据（2026-11-15 新增，来源：外部深审 A464 第 3 条 / A472 第 4 条；2026-11-16 按 A571 第 3、4、5 条收窄）**
 - 一票否决（名字本身即泄露）：`id_rsa` / `id_dsa` / `id_ecdsa` / `id_ed25519`（前缀匹配，`id_rsa.bak` 也算）、
   `.netrc` / `_netrc` / `private_key`，以及扩展名 `.pfx` / `.p12` / `.kdbx` / `.ppk`。
-- 按内容判：`.npmrc` / `.pypirc` 只在含 `_auth` / `_authToken` / `password` / `token` 时计，报告只出标记名不出值。
+- 前缀匹配排除 `.pub` 结尾：`id_rsa.pub`、`id_ed25519.pub` 是公钥，常出现在 ansible、部署文档与测试夹具里，
+  不该被一票否决。
+- 按内容判：`.npmrc` / `.pypirc` 只在含 `_auth` / `_authToken` / `password` / `token` **且值是真凭据形态**时计。
+  值为空、`${NPM_TOKEN}` 这类环境变量引用（npm 官方推荐写法）、`<your-token>` 这类占位符都不计。
+  报告只出标记名不出值。
 - 只算真盲区、不阻断：`.pem`（常是公钥证书）、`.key`（Next.js 本地化文件）、`.jks` / `.keystore`（调试库）、
   `.pypirc` 无凭据时。理由：一票否决项的误报代价比漏报大。
-- 已知边界：把文件改名成 `foo.bin` 不覆盖；内容里没有明文头的加密容器不覆盖。判据与 `security_audit.py` 的
-  `SECRET_FILE_HARD` / `SECRET_KEY_PREFIXES` / `AUTH_GATED_NAMES` 三处常量一致，改一处要同步改另两处。
+- `--allow` 的豁免值先归一化（去 `./` 前缀、去尾斜杠、反斜杠转正斜杠），内容那一遍与文件名那一遍
+  **共用同一份归一化结果**（`norm_allow` / `is_allowed`）。旧版只在 `iter_files` 里归一化，
+  `--allow tests/fixtures/` 豁免得了内容、豁免不了夹具里的 `id_rsa`，于是假阻断。
+- 已知边界：把文件改名成 `foo.bin` 不覆盖；内容里没有明文头的加密容器不覆盖。
+- 判据分散在 `security_audit.py` 的六处常量，改一处要同步改其余：一票否决用 `SECRET_FILE_HARD`（扩展名）与
+  `SECRET_FILE_HARD_NAMES`、`SECRET_KEY_PREFIXES`（文件名）；按内容判用 `AUTH_GATED_NAMES` 加 `AUTH_MARKER_RE`；
+  只算盲区用 `SECRET_FILE_EXTS` 与 `SECRET_FILE_NAMES`。公钥排除是 `PUBLIC_KEY_SUFFIX`。
 
 
 要求：仓库内不得出现任何可用凭据（token、API key、私钥、password 形态赋值）。
@@ -49,7 +58,7 @@ URL 内嵌凭据一条同样过滤模板占位：`${DB_PASSWORD}`、`<password>`
 ### SEC-3 任意执行
 
 要求：外部输入不得到达动态执行；子进程用固定 argv 列表，不开 shell。
-机器查：`eval` / `exec` / `new Function`；`shell=True`、`os.system`、`shell -c` 执行串；`curl … | sh`；`Invoke-Expression`；`pickle.load` 与 unsafe `yaml.load`。
+机器查：`eval` / `exec` / `new Function`；`shell=True`、`os.system`、`os.popen`、`subprocess.getoutput` / `getstatusoutput`、`shell -c` 执行串；`curl … | sh`；`Invoke-Expression`；`pickle.load`、`marshal.load`、unsafe `yaml.load` 与 `yaml.unsafe_load`。（后五条 2026-11-15 补：旧名单整批漏这几种形状，实测喂进临时仓库报 SEC-3 0 处、100/100、放行。）
 修法：白名单 argv；参数化 API；safe loader；删除管道执行。
 
 ### SEC-4 静默下载

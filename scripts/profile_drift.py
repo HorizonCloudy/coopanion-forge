@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""profile 锚点漂移探针（零第三方依赖，Python 3.8+；网络只走 GitHub 的只读 API）
+"""profile 锚点漂移探针（零第三方依赖，Python 3.8+；网络走 GitHub REST 只读接口，
+用 urllib 直连，不依赖 gh——CI 里没有交互式登录也能跑，见 api()）
 
-移植自 plugin-forge 内核 69cde01:scripts/profile_drift.py，2026-11-15 落到本平台。
+首搬自 plugin-forge 内核 69cde01:scripts/profile_drift.py（2026-11-15）。
+本件对到哪个上游 sha 以 platform/port-ack.json 为准，这里不钉死数字。
 改四处：单上游改双上游；PATH_RE 换成本仓 profile 的真实锚形状；DEFAULT_PROFILE 指
 skills/coopanion-forge/references/profile-coopanion.md；自检补路由与 PATH_RE 用例。
 其余逻辑与输出格式逐字保留。
@@ -10,6 +12,9 @@ skills/coopanion-forge/references/profile-coopanion.md；自检补路由与 PATH
 2026-11-15 二次手搬上游 d98fd1e 的三处修法：collect 删掉「整行取词」这级兜底并把无符号
 的锚点标 weak；enclosing 补 TS/JS 的顶层定义形状；报告把 weak 单列成「核不了」，
 不再算进「对得上」。上游新增的 404 / 限流 / 正文过大分账（body_state）本仓早已带上。
+
+2026-11-16 三次手搬上游 10a981f 与 b81f61f：文件头的取数说法改回实现（urllib 直连 REST），
+删掉零调用者的 --limit 与它的截断。本仓的双上游路由与路径片段过滤不动。
 
 用途
   profile-coopanion.md 的锚点是「路径 + 紧跟该路径的行号」。行号会随上游漂移，而这份
@@ -20,13 +25,13 @@ skills/coopanion-forge/references/profile-coopanion.md；自检补路由与 PATH
   packages/、web/ 归 Pal-AI-Lab/Coopanion。取内容用各自仓的默认分支当前 sha。
 
 用法
-  python scripts/profile_drift.py [--profile 路径] [--json] [--strict] [--limit N] [--fresh]
+  python scripts/profile_drift.py [--profile 路径] [--json] [--strict] [--fresh]
 
   默认只报告：不改文件、不因漂移失败（退出码 0）。--strict 时有漂移退 1，留给以后要 blocking
   的场合；CI 现在按非阻塞接。--fresh 忽略缓存重拉。
 
 缓存
-  拉到的上游文件放在 scripts/.drift-cache/，避免一次跑打上百次 API。
+  拉到的上游文件放在仓库外的 <仓名>-drift-cache/（见 CACHE_DIR），避免一次跑打上百次 API。
   各仓当前 main 的 sha 也存那里，超过 24 小时自动重取，否则「当前 main」这句话站不住。
 
 匿名限额是一小时 60 次。CI 里给这一步传 GITHUB_TOKEN，否则跑不了几条就限流。
@@ -387,7 +392,6 @@ def main():
     ap.add_argument("--profile", default=DEFAULT_PROFILE)
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--strict", action="store_true", help="有漂移就退出 1（默认只报告）")
-    ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--fresh", action="store_true", help="忽略缓存重拉")
     ap.add_argument("--self-test", action="store_true", help="只跑自检，不碰网络")
     a = ap.parse_args()
@@ -403,8 +407,6 @@ def main():
 
     text = open(a.profile, encoding="utf-8-sig").read().replace("\r\n", NL)
     anchors = collect(text)
-    if a.limit:
-        anchors = anchors[:a.limit]
 
     # 双上游：只解析锚点实际引用到的仓，省匿名限额。
     heads, referenced = {}, []

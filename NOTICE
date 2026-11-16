@@ -1,0 +1,40 @@
+Third-party attribution and credit
+==================================
+
+This product is licensed under the MIT License (see LICENSE). The entries below
+are attributions and design credits. They add no conditions to that license and
+grant no rights beyond it. LICENSE carries only the MIT text so that automated
+license scanners recognise the grant; this file carries the rest.
+
+Provenance for every entry is recorded with its check date in AUDIT.md. Where an
+entry says the provenance is not established, treat it as unsettled, not as free
+to reuse.
+
+- references/style-anti-slop.md condenses rules from asd-ste100 kit (MIT, (c) woosal1337;
+  the ASD-STE100 specification itself is copyright ASD / AEEC), humanizer (MIT, (c) blader),
+  and Humanizer-zh (MIT, (c) op7418). See AUDIT.md.
+- The four notes under references/neko/ in the upstream kernel NOTICE carry these
+  attributions: neko-court-*.md borrow the institutional model of cft0808/edict (MIT), and no
+  source from it is copied; mattpocock-skills.md and doc-writing-playbook.md condense ideas
+  from mattpocock/skills, stop-slop and SimpleEnglish (MIT), as summaries and links, not
+  copies; system.llm is an archived third-party system prompt kept for study, whose
+  provenance and licence are not established, which is not policy for any team, and which
+  the upstream owner decided on 2026-11-16 to keep with no removal deadline. This package
+  does not distribute those note files. Read them in the upstream kernel repo.
+- skills/coopanion-forge/references/delivery-self-check.md is a third-party behaviour gate whose
+  provenance and licence are not established (see AUDIT.md). It is not enforced as policy
+  until that is settled.
+- N.E.K.O is an Apache-2.0 project. This repository cites its routes, contracts and ports as
+  verifiable facts and contains none of its source.
+- Process credit and external dependency (referenced, not vendored): 1-dcjiang/neko-reuse-before-build,
+  plugin id `reuse_before_build`, "先搜后建". Workflow A step 1a and the search-before-build iron rule
+  in SKILL.md point at it as the authority for search-before-build rules. MIT License, (c) 2026
+  1-dcjiang. This repository writes its own prose and copies no rule text or code from it; it reuses
+  only rbb's verdict vocabulary (Join / Extend / Fork / Build) and the deliverable marker
+  `不可复用原因 / Not reusable because:` so that a rbb-checked deliverable still passes here.
+  Pinned reference: v0.3.12, commit 4a14fbd, checked 2026-11-15. Install it as a N.E.K.O plugin if
+  the mechanical rule checks are wanted; coopanion-forge only routes to it.
+- Design credit: jusspound-netizen/dsh-plugin-scanner (commit bb8dc7cd, 2026-11-14). Its ideas
+  of manifest-shape checks and of a fail-closed exit code for blind spots inspired
+  skills/coopanion-forge/scripts/security_audit.py. That repository publishes no licence file, so
+  nothing was copied from it; the detector here is an independent implementation.

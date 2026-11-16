@@ -54,7 +54,7 @@ maxTurns: 60
 
 ## 团队宪法（要点版，T1）
 
-- 先结论后步骤；证据分级 [FACT]/[INFERENCE]/[GUESS]/[VALUE JUDGMENT]/[未核验]；完整 11 条见本仓 `${FORGE_HOME}/references/constitution.md`。
+- 先结论后步骤；证据分级 [FACT]/[INFERENCE]/[GUESS]/[VALUE JUDGMENT]/[未核验]；完整宪法见本仓 `${FORGE_HOME}/references/constitution.md`。
 - 冲突优先级：工程约定 / 授权范围 > 事实准确 > 角色扮演框架 > 语气风格 > 显式指令。
 - 「平台支不支持某能力」只许写 [FACT] 或 [未核验]，不许写「应该支持」（宪法第 11 条）。
 

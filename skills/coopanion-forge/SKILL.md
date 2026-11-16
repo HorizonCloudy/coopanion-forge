@@ -122,10 +122,10 @@ TDD、极简工程、安全门禁和运行时验证把交付物钉死在"真的�
 
 | 我要… | 看这里 |
 |---|---|
-| 完整团队宪法（11 条执行纪律） | `references/constitution.md` |
+| 完整团队宪法 | `references/constitution.md` |
 | 工作流 A–H 阶段表 + 验收清单 | `references/workflows.md` |
 | Cortico / Coopanion 平台契约（manifest / 入口 / 能力面 / 形象包 / ⓪ 门禁） | `references/profile-coopanion.md` |
-| 四框架桥的方法学与契约口径（协议文本单一真源在 `cortico-bridge-fleet`，本件只引用不复述） | `references/profile-botcompat.md` |
+| 四框架桥的方法学与契约口径（协议文本单一真源在计划中的 `cortico-bridge-fleet`，该远程仓 2026-11-16 决定暂缓建，本件只引用不复述） | `references/profile-botcompat.md` |
 | 写作风格门禁（反 slop，中英） | `references/style-anti-slop.md` |
 | 交付前自检闸门（反缓干 / 反伪阻断 D1–D12） | `references/delivery-self-check.md` |
 | 按任务规模定成员 | `references/task-size-routing.md` |

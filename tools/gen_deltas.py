@@ -5,9 +5,16 @@
 为什么要它：上游 HorizonCloudy/plugin-forge 每天在动，手工重放迟早漏一条。
 tools/sync_kernel.py --apply 搬完上游文本后按本清单逐条替换，锚点找不到就报错退出，
 不静默跳过。改写内容本身的设计理由见 platform/kernel-deltas/*.md。
+
+用法
+  python -I tools/gen_deltas.py            # 按本文件重写 platform/deltas.json
+  python -I tools/gen_deltas.py --check    # 只比对，不分叉退 0，分叉退 1 并列差异
+
+本文件是台账唯一来源。直接编辑 JSON 的人会在下一次重生成时被抹掉，所以 CI 跑 --check。
 """
 import json
 import os
+import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
@@ -37,6 +44,9 @@ add(W, A1, A1 + """
 - 先判交付物类型再检索：换身体、加表情词表、配音属于形象包（`figure.json`，manifest 2 / api 2），不是 Cortico 扩展。按包名筛 Coo 生态会同时漏 80 个、误收 14 个（普查 c09），所以候选清单按字段与内容判，不按名字判。
 - 上架是独立动作：发到 npm 不等于进市场。收录、认证、标签走索引仓的 `[tags]` 与 `[certify]` issue，见 `references/cortico-notes.md`。""",
     "1a 平台检索落点")
+add(W, "B 不新建功能，免 full lane。",
+    "B 不新建功能，免走 Workflow A 全量。",
+    "本平台无 full lane 概念定义，术语向新 routing 口径对齐")
 
 S = "skills/coopanion-forge/references/security-checklist.md"
 add(S, "`plugin.toml` 的必填按 **`[plugin]` 段**判定：子段（如 `[plugin_runtime]`）里的同名键不再顶掉顶层缺项，别的段里的键也不再算已填。",
@@ -48,14 +58,22 @@ add(S, "`plugin.toml` 缺 `id`/`name`/`version`/`entry`；`package.json` 缺 `li
 
 SC = "skills/coopanion-forge/references/contract-approval.schema.json"
 add(SC, '"description": "目标平台与 profile 版本，如 neko@0984249。"',
-    '"description": "目标平台与 profile 版本，如 cortico@0.2.15。"', "平台示例值")
+    '"description": "目标平台与 profile 版本，如 cortico@0.2.16。"', "平台示例值")
+add(SC, "不含 / 的模式按文件名匹配。",
+    "不含 / 的模式按文件名匹配。只认 * 与 ** 两种通配，? 与 [...] 按字面匹配。",
+    "通配口径：54f3e4e 收紧 compile_glob，schema 描述同步")
 
 G = "skills/coopanion-forge/scripts/check_contract_approval.py"
-add(G, '"platform": "neko@0984249",', '"platform": "cortico@0.2.15",', "自检 platform 值")
+add(G, '"platform": "neko@0984249",', '"platform": "cortico@0.2.16",', "自检 platform 值")
 add(G, '"decision": "approved", "scope": ["src/**", "plugin.toml"],',
     '"decision": "approved", "scope": ["src/**", "package.json"],', "自检 scope")
 add(G, '(base(), [J("src", "a.py"), J("src", "pkg", "b.py"), J("plugin.toml")], True),',
     '(base(), [J("src", "a.ts"), J("src", "pkg", "b.ts"), J("package.json")], True),', "自检用例文件名")
+# 2026-11-16 用户拍板：figure.json 进保护面。它是桌宠 World 真读的安装清单，与 package.json 同类，
+# 所以进 MANIFEST_NAMES；HOST_EXEC_NAMES 那一桶只收「文件里写着会被宿主执行的命令」的名（hooks.json）。
+add(G, '"pyproject.toml", "requirements.txt"}',
+    '"pyproject.toml", "requirements.txt", "figure.json"}',
+    "保护面补 figure.json：桌宠形象包清单，World 真读")
 
 A = "skills/coopanion-forge/scripts/security_audit.py"
 add(A, "  SEC-5 清单形状（不计分）：安装期钩子、依赖直连远端包、plugin.toml/package.json 缺必填字段。",
@@ -154,9 +172,68 @@ add(A, """def plugin_toml_keys(text):
 
 """, "", "删掉不再被引用的 plugin_toml_keys 助手")
 
+# 上游 a21cc32 把出处告示整块从 LICENSE 挪进新文件 NOTICE，并给 system.llm 条目补了两行保留裁决。
+# LICENSE 因此改走 verbatim（MIT 全文照搬，含 a21cc32 补回的责任限制段），告示改写挂到 NOTICE 上。
+NF = "\n".join([
+    "- references/neko/neko-court-*.md borrow the institutional model of cft0808/edict (MIT).",
+    "  No source from it is copied here; see references/neko/neko-court-source-notes.md.",
+    "- references/neko/mattpocock-skills.md and references/neko/doc-writing-playbook.md condense",
+    "  ideas from mattpocock/skills, stop-slop and SimpleEnglish (MIT). They are summaries and",
+    "  links, not copies.",
+    "- references/neko/system.llm is an archived third-party system prompt kept for study. Its",
+    "  provenance and licence are not established (see AUDIT.md). It is not policy for this team.",
+    "  The owner decided on 2026-11-16 to keep it in the public repository with no removal deadline,",
+    "  so this remains an open risk rather than an action item.",
+])
+NR = "\n".join([
+    "- The four notes under references/neko/ in the upstream kernel NOTICE carry these",
+    "  attributions: neko-court-*.md borrow the institutional model of cft0808/edict (MIT), and no",
+    "  source from it is copied; mattpocock-skills.md and doc-writing-playbook.md condense ideas",
+    "  from mattpocock/skills, stop-slop and SimpleEnglish (MIT), as summaries and links, not",
+    "  copies; system.llm is an archived third-party system prompt kept for study, whose",
+    "  provenance and licence are not established, which is not policy for any team, and which",
+    "  the upstream owner decided on 2026-11-16 to keep with no removal deadline. This package",
+    "  does not distribute those note files. Read them in the upstream kernel repo.",
+])
+add("NOTICE", NF, NR, "出处告示：本包不发 references/neko/，告示改指上游内核包 NOTICE")
+
 path = os.path.join(REPO, "platform", "deltas.json")
+# indent=2 不是随手选的：仓库里那份 deltas.json 一直是两空格缩进（blob 实测），
+# 生成器写 indent=1 会把整份文件重排成 188 行的伪 diff，把真改动埋掉。要改缩进就单独一个提交。
+payload = json.dumps(DE, ensure_ascii=False, indent=2) + "\n"
+
+
+def _tail(s):
+    """比对本仓文件时忽略尾部换行差异：旧版 json.dump 不落末尾 \\n。"""
+    return s.rstrip("\n") + "\n"
+
+
+if "--check" in sys.argv:
+    # 台账与生成器分叉的检出档。CI 跑这条：谁手改了 platform/deltas.json 而没同步本文件，
+    # 下次重生成就会静默抹掉那一条（LICENSE 那条就是这么漏的，2026-11-16 才发现）。
+    have = open(path, encoding="utf-8").read() if os.path.isfile(path) else ""
+    if _tail(have) != payload:
+        print("FAIL: platform/deltas.json 与 tools/gen_deltas.py 不一致。")
+        print("  生成器：%d 个目标文件，%d 处替换" % (len(DE), sum(len(v) for v in DE.values())))
+        if have:
+            try:
+                got = json.loads(have)
+                for k in sorted(set(list(got.keys()) + list(DE.keys()))):
+                    a, b = len(got.get(k, [])), len(DE.get(k, []))
+                    if got.get(k) != DE.get(k):
+                        print("  %-62s 现 %d 条 / 生成 %d 条" % (k, a, b))
+            except ValueError:
+                print("  现文件不是合法 JSON")
+        else:
+            print("  现文件不存在")
+        print("  修法：改本文件（台账唯一来源），再跑 python -I tools/gen_deltas.py 重写 JSON。")
+        sys.exit(1)
+    print("OK: platform/deltas.json 与 tools/gen_deltas.py 一致（%d 个目标文件，%d 处替换）"
+          % (len(DE), sum(len(v) for v in DE.values())))
+    sys.exit(0)
+
 with open(path, "w", encoding="utf-8", newline="\n") as f:
-    json.dump(DE, f, ensure_ascii=False, indent=1)
+    f.write(payload)
 n = sum(len(v) for v in DE.values())
 print("platform/deltas.json：%d 个目标文件，%d 处替换" % (len(DE), n))
 for k, v in DE.items():

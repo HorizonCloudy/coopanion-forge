@@ -14,11 +14,12 @@
 | 中 | 加功能、改行为；接口不变 | Workflow A 全量七步 | architect（有接口争议时）、simplifier（有膨胀信号时）、reviewer（提交前双轴） |
 | 大 | 跨模块重构、新入口类型、换宿主/迁移存储、manifest 能力声明变更 | A 全量 + architect + reviewer + simplifier + sandbox 交付前冒烟 | reliability（发布就绪） |
 
-## 小改动精简流（只到 dev + tdd）
+## 小改动精简流（lead 派 dev + tdd，要写代码时先派 market-research 跑 1a 快速档）
 
 1. lead 分拣并一句话定规模，记录判据（文件数/接口/能力三项）。跳过 planner / architect。
 2. 要写代码就先过 1a 快速档：lead 派 market-research 跑 3 条检索串，回三行 `Reused / Change / Risk`。
-   纯文档 / 文案改动不触发 1a；一旦动到代码就触发，full lane 才免。
+   纯文档 / 文案改动不触发 1a；一旦动到代码就触发。免跑快速档只有一种情形：本任务已走 Workflow A
+   全量，里面含完整的 1a（三轮检索 + 四档判决），不再另跑一遍。
 3. contract 极简审议，三行结论：能力点是否仍存在 / 入口类型是否不变 / 验收口径是否不变。准奏仍落盘 `contract-approval.json`，scope 只写实际要动的 ≤3 个文件。
 4. tdd 写最小失败测试 → dev 修到绿 → 测试通过即交付。architect / simplifier / reviewer **默认不派**。
 5. 实现中发现要动接口 / manifest / 新能力：立即停下，升档重走第 3 步，不得按小改动继续写。
