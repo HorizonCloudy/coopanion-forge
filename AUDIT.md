@@ -120,7 +120,7 @@ Pal-AI-Lab 的四个仓库与官方指南站是**证据源**，本仓不内嵌�
 10. **克隆写法会污染基线台账，已修。** `git clone` 用带 `.git` 的 URL 时，`remote.origin.url` 就带 `.git`，而 `KERNEL-BASELINE.txt` 的 `upstream repo=` 那行直接抄它。本轮第一次对新克隆跑 `--apply`，那行就多出 `.git`，diff 里看着像换了上游。修法：`tools/sync_kernel.py` 加 `norm_url()`，写台账前剥掉结尾的 `.git` 与多余的 `/`。
 11. **自检项数不再写死。** 同一文件 `_self_test()` 以前打印硬编码的「6 项」。现在改成 `ck()` 每跑一条计一条，实跑报 11 项。反向对照做在仓库外的副本上：把 `norm_url` 改成恒等、`port_state` 改成恒真，自检退 1 并逐条点名（`没有 ack 记录却被判一致`、三条 `norm_url` 差异），恢复后 PASS。这是上游 AUDIT 那条「项数以实算为准」的同款做法。
 
-## 7. 上游 plugin-forge 仓的地位变化（本仓不跟，只记录）
+## 7. 上游 plugin-forge 仓的地位变化（口径见第 9 节，这道缝已合上）
 
 同日另有一条与本仓相关的裁决：plugin-forge 在 N.E.K.O 侧被并进 `neko-plugin-workshop` 的 `forge/` 子树，工坊那边写下「工坊副本即唯一维护处，上游 plugin-forge 仓退役」。本仓怎么处理由仓主同日拍板：**内核只认 GitHub 上 `HorizonCloudy/plugin-forge` 的 main**。理由是本仓公开，`KERNEL-BASELINE.txt` 里那个 sha 必须访客能复现，而工坊副本的 sha 在 GitHub 上不存在。
 
@@ -130,7 +130,7 @@ Pal-AI-Lab 的四个仓库与官方指南站是**证据源**，本仓不内嵌�
 
 ## 8. 待确认（本会话没有结论的事）
 
-- 工坊副仓那条只记在 A 的文档里，没有向 plugin-forge 或工坊提 issue（仓主定过：不开 issue、不开 PR，`git subtree pull` 也不跑）。工坊 `forge/` 里若继续演进通用内核，本仓不会自动知道。这是本仓当前口径下最大的一条缝。
+- ~~工坊副仓那条只记在 A 的文档里…这是本仓当前口径下最大的一条缝。~~ 已合上（2026-11-16 深夜，见第 9 节）：上游把 `4f04414` 推到了 GitHub main 并发了 tag `v2.7.5`。口径不变（仍只认 GitHub main），但这条缝不再是「已知会漏东西」的常开洞。要防的是同一件事再来一次：上游在本地或工坊改内核而不推 main，本仓就只能靠临时改写顶上，而临时改写必须各带撤回条件。
 - `.claude-plugin/plugin.json` 的 `version` 已升 1.1.0。上游 v2.7.5 与 A 的 v1.1.0 是两条独立版本号线，以后写「同步自 vX.Y」的句子一律引 sha，不引版本号。
 
 ## 9. 内核升级 5f7a9f9 轮（2026-11-16 深夜）
@@ -158,3 +158,36 @@ Pal-AI-Lab 的四个仓库与官方指南站是**证据源**，本仓不内嵌�
 
 本轮没动的：上游 `sandbox.py` 不是本仓内核目标（18 项目标里没有沙箱件），所以 plugin-forge 那侧的沙箱改动不会进本仓。
 上游 `.claude-plugin/plugin.json` 升到 2.7.5 也不进本仓（那是平台件），第 8 节「两条版本号线各走各的」那条口径继续成立。
+
+## 10. 内核升级 8db6748 轮 + 索引仓第五次现算（2026-11-17）
+
+上游 main 从 `5f7a9f9` 走到 `8db6748`，六个提交。落在本仓 18 项目标里的只有一件：
+`skills/plugin-forge/scripts/security_audit.py`（+49 行）。两处变化对本仓有实际含义：
+
+1. **内容池补上 `.htm`、`.svg`、`.m`、`.jl`**（上游 e17aecd）。以前只有契约门禁把这四类算作受保护文件，
+   扫描器不读它们的内容，于是密钥与 `eval` 写进 SVG 或 htm 就等于不存在。审扩展包与形象包时，
+   `assets/*.svg` 里的 `<script>` 从现在起会被真读。本仓自己不产这四类文件
+   （`find` 实跑 0 命中），所以本仓的扫描结果不变，仍 22 个文件、100/100。
+   口径已写进 `agents/coopanion-forge-security.md` 第 9 条，判据一律指向脚本里的 `CODE_EXTS`，不留文档副本。
+2. **取值模式认 `@"..."` 字面量**（上游 f81f777）。旧模式的值字符类在引号前撞上 `@` 就整个不匹配，
+   Objective-C 与 C# 的 `NSString *token = @"..."` 整条漏报。上游是在 `.m` 进池之后实测到这条漏网的，
+   顺序对：先扩面，再补面。
+
+移植件 `scripts/profile_drift.py` 的 ack 从 `5f7a9f9` 跟到 `8db6748`，是纯记账：
+`git diff --stat 5f7a9f9..8db6748 -- scripts/profile_drift.py` 为空，上游这段没改它。
+上一轮加的逐字节守卫这轮第一次真用上——它先确认 incoming 等于上游原文，才写 ack。
+
+索引仓又 sync 一次到 `245d61164`（2026-11-16T17:31:06Z，距上一档 41 分钟）。用本仓自己的 c01、c05、c06
+在 `--depth 1` 全新克隆上重跑：catalog `373`、记录文件 `373`、带 describe `332`、CHANGELOG `300`（80.4%）、
+assets `153`、评论 `104` 个文件实存 `405` 条；kind 是 world `353`、bot `11`、provider `9`，加和等于 373。
+**那个 353 与历史快照总数 353 无关，纯属撞数**，两处文档都写了防混话。工具面、作者面、Coo 耦合三组本轮没重跑，
+仍标 `1040eb169`（分母 368）。落点：`cortico-notes.md` 第 1 节那行、P7、P9、3.1 表，profile 8.2 与 ⓪ P7、P9。
+
+复核（本机实跑）：`sync_kernel.py --check --ref 8db6748` 报「一致 18 / 需搬或需重放 0 / 缺件 0 / 替换失败 0」；
+`gen_deltas.py --check` 一致（7 个目标文件，18 处替换）；扫描器自检 91 例 PASS（上一档 86，多的 5 例是上游新加的
+池子覆盖与 `@"..."` 正反例）；契约门禁自检 PASS；名册 `--check` OK；探针自检 26 例 PASS；
+`sync_kernel.py --self-test` 13 项 PASS；`install_hosts.py --self-test` PASS；全仓扫描 100/100、真盲区 0；
+`profile_drift.py` 对三个上游当前 main 实跑，锚点全对得上、漂移 0。装机面重装到位，复跑预演写 0 个。
+
+本轮没做的：`skills/neko-plugin-sandbox/scripts/sandbox.py` 那 41 行改动仍不进本仓（18 项目标里没有沙箱件，
+同第 9 节末段）。上游 AUDIT 里那条「两份扩展名池不等价」的说明也不搬（AUDIT 是平台件，本仓自己写）。
