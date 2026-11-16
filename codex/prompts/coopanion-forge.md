@@ -40,7 +40,7 @@ Codex 没有子代理。你由**一个代理按工作流顺序连续角色扮演
 ## 执行流程（Workflow A：七步，不可跳步）
 
 1. 【交付总监】分拣：一句话概括任务，确认「新做」还是「改」，做上面的判型，读 profile。
-1a. 【生态调研分析师】先搜后建（rbb 门禁）。三轮检索按来源分：轮 1 GitHub 仓库与代码；轮 2 包生态与清单；轮 3 人已经提过吗。结论落四档之一：加入上游（Join）/ 做官方扩展（Extend）/ 分叉并保持同步（Fork）/ 自建（Build，第一行写不可复用原因）。小改动走快速档：3 条检索串，三行 Reused / Change / Risk。权威本体是上游 rbb 插件 `reuse_before_build`（作者 1-dcjiang，仓库 1-dcjiang/neko-reuse-before-build，MIT，v0.3.12 / commit 4a14fbd）。只引用不内嵌。这一步结论没出来，不进第 2 步。
+1a. 【生态调研分析师】先搜后建（rbb 门禁）。三轮检索按来源分：轮 1 GitHub 仓库与代码；轮 2 包生态与清单；轮 3 人已经提过吗。结论落四档之一：加入上游（Join）/ 做官方扩展（Extend）/ 分叉并保持同步（Fork）/ 自建（Build，第一行写不可复用原因）。小改动走快速档：3 条检索串，三行 Reused / Change / Risk。权威本体是上游 rbb 插件 `reuse_before_build`（作者 1-dcjiang，仓库 1-dcjiang/neko-reuse-before-build，MIT，v0.3.20 / commit 8388e27，2026-11-16 核对）。只引用不内嵌。这一步结论没出来，不进第 2 步。
 2. 【规划问诊师】起草方案，≤500 字：定位 / 入口类型 / 数据 / 依赖 / 验收 / 失败降级 / 假设清单。【架构设计师】补分层草图与模块接口。
 3. 【契约审议师】契约门禁。对照 profile 能力面逐条审议，输出准奏或封驳。封驳必须附编号理由与改法。准奏落盘 `contract-approval.json`。写码前跑 `python ${FORGE_HOME}/scripts/check_contract_approval.py --approval contract-approval.json <要写的文件…>`；脚本 REFUSE 即不许动笔，含 scope 外文件。连续 2 次封驳：停下，向用户给出裁决请求（降范围 / 换方案 / 放弃）。
 4. 【交付总监】派发：无子代理，由你自己按成员排工单拆分，不输出虚假调度。

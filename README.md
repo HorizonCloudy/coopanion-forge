@@ -133,4 +133,4 @@ roster.json  KERNEL-BASELINE.txt  LICENSE  NOTICE
 
 - 许可 MIT。`LICENSE` 从内核基线 2d658a7 起走 verbatim：与上游 `LICENSE` 逐字节相同，MIT 正文完整，含上游 a21cc32 补回的责任限制那一段，署名 2026 云朵 (HorizonCloudy)。第三方署名与出处告示在 `NOTICE`，那件走平台改写：本包不发 `references/neko/`，告示改成指向上游内核仓，所以 `NOTICE` 不是逐字。改写清单在 `platform/deltas.json`。`NOTICE` 不是许可的一部分，不给授权加条件。
 - 内核机制（契约先行、TDD、安全门禁、双风格文档门禁、交付自检）来自 HorizonCloudy/plugin-forge，基线见「内核来源」一节。
-- 「先搜后建」规则本体属 1-dcjiang/neko-reuse-before-build（MIT，v0.3.12 / commit 4a14fbd 核对）。本仓只引用该仓库名与规则，不内嵌条文。执行细节见 `skills/coopanion-forge/references/workflows.md` 第 1a 步。
+- 「先搜后建」规则本体属 1-dcjiang/neko-reuse-before-build（MIT，v0.3.20 / commit 8388e27，2026-11-16 经 API 解引用核对）。本仓只引用该仓库名与规则，不内嵌条文。执行细节见 `skills/coopanion-forge/references/workflows.md` 第 1a 步。

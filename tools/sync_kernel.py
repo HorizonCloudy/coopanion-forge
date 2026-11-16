@@ -138,12 +138,20 @@ def rel(p):
     return p.replace("\\", "/")
 
 
+def norm_url(u):
+    """公开 URL 的规范形：去掉结尾的 .git 与多余的 /。
+    --upstream 给哪一种克隆都行（GitHub 的 Clone 按钮给的是带 .git 的），
+    但 KERNEL-BASELINE.txt 里那一行只能有一种写法，否则换台机器就多出一次无意义改动。"""
+    u = (u or "").strip().rstrip("/")
+    return u[:-4] if u.endswith(".git") else u
+
+
 def upstream_label():
     """打印与 KERNEL-BASELINE.txt 里用公开 URL，不写本机的绝对路径。
     拿不到 remote 才退回本地路径，那种情况只发生在离线的开发机上。"""
     p = subprocess.run(["git", "-C", UP_REPO, "remote", "get-url", "origin"],
                        capture_output=True)
-    return p.stdout.decode("utf-8", "replace").strip() or rel(UP_REPO)
+    return norm_url(p.stdout.decode("utf-8", "replace").strip()) or rel(UP_REPO)
 
 
 def read_b(path):
@@ -160,35 +168,47 @@ def write_b(path, data):
 
 
 def _self_test():
-    """移植件台账的回归自检：ack 缺失或过期都算漂移，读写要走临时文件。
+    """移植件台账与公开 URL 的回归自检：ack 缺失或过期都算漂移，读写要走临时文件。
 
     挡的是这一类假绿：基线 sha 升到上游新值，仓库里的移植件却还停在旧 sha，
     旧实现只看「上游相对上次基线动没动」，于是报一致。
+
+    项数不写死：ck() 每跑一条就计一条，加检查项不用再改打印那句。
     """
     global PORT_ACK_PATH
-    bad = []
+    bad, ran = [], []
+
+    def ck(desc, is_bad):
+        ran.append(desc)
+        if is_bad:
+            bad.append(desc)
+
     sha_old, sha_new = "69cde01" + "0" * 35, "5282d40" + "0" * 35
-    if port_state(None, sha_new):
-        bad.append("没有 ack 记录却被判一致")
-    if not port_state(sha_new, sha_new):
-        bad.append("ack 等于本次 ref 却被判漂移")
-    if port_state(sha_old, sha_new):
-        bad.append("ack 停在旧 sha 却被判一致（上游已动，移植件待手搬）")
+    ck("没有 ack 记录却被判一致", port_state(None, sha_new))
+    ck("ack 等于本次 ref 却被判漂移", not port_state(sha_new, sha_new))
+    ck("ack 停在旧 sha 却被判一致（上游已动，移植件待手搬）", port_state(sha_old, sha_new))
     saved, tmp = PORT_ACK_PATH, os.path.join(tempfile.mkdtemp(prefix="port-ack-"), "port-ack.json")
     try:
         PORT_ACK_PATH = tmp
-        if load_port_ack():
-            bad.append("台账文件不存在却读出非空记录")
+        ck("台账文件不存在却读出非空记录", bool(load_port_ack()))
         want = {"scripts/profile_drift.py": sha_new, "skills/x/y.py": sha_old}
         save_port_ack(want)
-        if load_port_ack() != want:
-            bad.append("ack 写入后读回不一致")
-        if os.path.exists(tmp + ".tmp"):
-            bad.append("临时文件没被 os.replace 收掉")
+        ck("ack 写入后读回不一致", load_port_ack() != want)
+        ck("临时文件没被 os.replace 收掉", os.path.exists(tmp + ".tmp"))
     finally:
         PORT_ACK_PATH = saved
         shutil.rmtree(os.path.dirname(tmp), ignore_errors=True)
-    print("SYNC_KERNEL SELF-TEST: %s（%d 项）" % ("PASS" if not bad else "FAIL", 6))
+    # 公开 URL 规范形：换一种克隆写法不该动 KERNEL-BASELINE.txt 那一行
+    for raw, want_u in (("https://github.com/HorizonCloudy/plugin-forge.git",
+                         "https://github.com/HorizonCloudy/plugin-forge"),
+                        ("https://github.com/HorizonCloudy/plugin-forge",
+                         "https://github.com/HorizonCloudy/plugin-forge"),
+                        ("https://github.com/a/b.git/", "https://github.com/a/b"),
+                        ("git@github.com:a/b.git", "git@github.com:a/b")):
+        ck("norm_url(%s) 应为 %s，实得 %s" % (raw, want_u, norm_url(raw)),
+           norm_url(raw) != want_u)
+    ck("norm_url 不该吃掉空值", norm_url("") != "")
+    print("SYNC_KERNEL SELF-TEST: %s（%d 项，实算）" % ("PASS" if not bad else "FAIL", len(ran)))
     for b in bad:
         print("  FAIL: " + b)
     return 1 if bad else 0

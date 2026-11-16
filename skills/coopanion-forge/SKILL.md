@@ -93,7 +93,7 @@ TDD、极简工程、安全门禁和运行时验证把交付物钉死在"真的�
    判定先过可改性硬闸：绿才 Join，黄只 Extend，红禁止 Join。小改动走快速档：3 条检索串加三行
    Reused / Change / Risk，但「有没有人做过」这一问不豁免。
    权威本体是上游插件 `reuse_before_build`（作者 1-dcjiang，仓库 1-dcjiang/neko-reuse-before-build，
-   MIT，v0.3.12 / commit 4a14fbd，2026-11-15 核对）。本团只引用、不内嵌。
+   MIT，v0.3.20 / commit 8388e27，2026-11-16 经 API 解引用核对）。本团只引用、不内嵌。
    本平台三轮检索的落点见 `references/workflows.md` Workflow A 第 1a 节。
 3. **封驳必须给改法**：只否定不给路径算失职。契约审议师封驳时要指明改成什么、对照哪条能力面。
    连续 2 次封驳升级用户裁决（降范围 / 换方案 / 放弃）。

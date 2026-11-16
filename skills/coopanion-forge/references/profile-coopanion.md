@@ -6,6 +6,13 @@
 > 指本团 2026-11-15 的一次性取证记录，不随本仓库分发，也不能当成复核凭据。两者不可互相顶替：
 > 只带档案标记、没有文件行号或官方文档 URL 的结论，一律按 `[未核验]` 对待。
 
+> **写锚点的四条规矩**（⓪ 探针按前缀选仓、按「本路径到下一个路径之间那段文字」取行号，写错了就自毁）：
+> 1. 路径写全。Coopanion 的文件必须带 `packages/cortico-world-desktop-pet/` 这类完整前缀；裸写 `src/xxx.ts` 会被路由到 Cortico 并报 404。
+> 2. 一行只放一个文件的路径。同文件的其他行号写「同文件 `:212`」这种形式，安全。
+> 3. 路径之后别出现不属于它的数字。`maxItems: 6`、`slice(0, 300)`、`11 种` 这类会被当成行号吃进去，要写在路径之前，或改成中文数字。
+> 4. 探针只核 Cortico、Coopanion、cortico-extensions 三个仓。cortico-world-vtuber 与 Coopanion 根的 `console/**`、`app/*.cjs` 不在路由表里，写裸文件名（如 `world.ts:1510`）让它跳过，并在正文说明「探针不收」。
+> 本会话 2026-11-16 就一次写坏 21 条锚点（全是第 1、3 条），`profile_drift.py` 当场抓到，逐条改回后 98 条全绿。合完任何 prose 改动都要跑一次 `python -I scripts/profile_drift.py`。
+
 > 核验日期：2026-11-15 首核，2026-11-16 主理人会话复核一轮。首核方式 = 四仓快照 + 本机宿主内置副本 + 索引仓全量现算。
 > 证据只读 `<SURVEY>/reports/`。出处写成（文件 §节）。行号紧跟路径。
 > 2026-11-16 那一轮只动了三类东西：上游 HEAD 与 release 值（⓪ P7、P8、P9）、五个新事实
@@ -166,7 +173,7 @@
 ### 2.6 上一版过渡层的真实后果
 
 - 上一版（api 5/5/6）能过渡加载，但 `pnpm check:extension` 判失败，不是告警。(权威事实；02-ext-manifest §8、06-gate-scripts §5)
-- 上一版契约有活标本，不用只靠仓内自测：官方参考 World `cortico-world-vtuber@e455703` 的 `package.json:20-25` 钉 `kind: "world"`、`api: 5`，还带 `consoleClient` 与 `consoleStyle` 两个旧字段名。它今天靠过渡层加载（`src/world.ts:1510` 一带仍写 `console()`），`check:extension` 判它失败：`scripts/extension-check.ts:89-90` 那条 fail 逐字要求改成当前档位再来。两个结论：过渡层在 Cortico 下一个大版本删除后它必须升 world 6；新包一律用 `webUi` 系命名，抄它的命名就是抄旧契约。上一版过渡层「无活样本」那条 [未核验] 从此结案。(cortico-world-vtuber package.json:20-25 与 src/world.ts @e455703，2026-11-16 实读；Cortico scripts/extension-check.ts:89-90 @9569f55)
+- 上一版契约有活标本，不用只靠仓内自测：官方参考 World 仓 `cortico-world-vtuber@e455703` 的 `package.json:20` 那个 cortico 块钉 `kind: "world"` 与 `api: 5`，还带 `consoleClient` 与 `consoleStyle` 两个旧字段名。它今天靠过渡层加载（该仓 `world.ts:1510` 一带仍写 `console()`，裸文件名写法是故意的：探针只按前缀路由 Cortico 与 Coopanion 两个仓，vtuber 不在里面），而 `check:extension` 判它失败：Cortico 的 `scripts/extension-check.ts:89` 那条 `fail` 逐字要求把 `cortico.api` 改成当前档位再来。两个结论：过渡层在 Cortico 下一个大版本删除后它必须升 world 6；新包一律用 `webUi` 系命名，抄它的命名就是抄旧契约。上一版过渡层「无活样本」那条 [未核验] 从此结案。(cortico-world-vtuber 的 package.json 与 world.ts @e455703，2026-11-16 实读；Cortico scripts/extension-check.ts:89 @9569f55)
 - 装载器给上一版包一条 `previousContract` 警告，文案带 UPGRADING_URL。随后 `renamePreviousManifestFields(m)` 改 manifest 旧字段名。(02-ext-manifest §4 步7、§6)
 - 改名只发生在上一版契约分支。新旧都写时取新名，旧名剥离后不再出现在产物里。(02-ext-manifest §6)
 - 当前契约的包若仍写 `consoleClient`：解析器不读它、不报错、不警告，产物里没有 `webUiClient`。面板不发，包照常加载。(02-ext-manifest §6)
@@ -321,7 +328,9 @@
 
 - 工具只在两处声明：World 的 `tools()` 与 Bot 的 `SessionDecl.tools()`。Persona 上没有工具。(03-world-contract §2、05-bot-contract 工具归属)
 - `ToolDef` = `name`/`description`/`parameters` + `tags` + `handler`，另可选 `barrierAfter?`、`streamsOutput?`、`endsTurn?`、`interruptible?`。(03-world-contract §4)
-- `streamsOutput` 的确切语义（Cortico main 9569f55 实读）：带 `barrierAfter` 的工具之后，同一条 assistant 输出里的后续调用被跳过，`streamsOutput: true` 的除外——它在模型还在吐参数时就照常执行。`src/core/loop.ts:1420` 是那句判定（`if (pastBarrier && !def?.streamsOutput)`），`:2186` 是成文说明，`src/core/types.ts:269、276` 是字段与注释。被跳过那几条的回执末尾会补一行 `[streaming tools in this response ran as usual: <名字>]`，出自 `src/core/markers.ts:31-33` 的 `streamedPastBarrier`。活样本：官方参考 World 把 `vtuber_act` 标了 `streamsOutput: true` 与 `tags: ['speak']`（`src/world.ts:1143-1147 @e455703`），它自己的注释写「输出旁路在参数流里就开演，Core 的屏障不跳过它，回执是这次演出的真实结果」。术语按 Cortico 的叫「输出接收器 / OutputTap」，vtuber 侧叫「输出旁路」，同一个东西两个名。[团队判断] 只给「说话与演出」这类只读输出的工具标；会改外部状态的标上去就等于绕过屏障，本团不建议。
+- `streamsOutput` 的确切语义（Cortico main 9569f55 实读）：带 `barrierAfter` 的工具之后，同一条 assistant 输出里的后续调用被跳过，标了 `streamsOutput` 的除外——它在模型还在吐参数时就照常执行。判定在 `src/core/loop.ts:1420` 那句 `if (pastBarrier && !def?.streamsOutput)`，成文说明在同文件 `:2186`。字段声明与注释在同仓 `src/core/types.ts:276` 与 `:269`。
+- 跳过类回执末尾补的那一行由 `src/core/markers.ts:31` 的 `streamedPastBarrier` 生成，字面量形如 `[streaming tools in this response ran as usual: ...]`。
+- 活样本（cortico-world-vtuber@e455703；这里一律写裸文件名，探针不路由该仓）：该仓把 `vtuber_act` 标了 `streamsOutput: true` 与 `tags: ['speak']`，声明在 `world.ts:1147`。它自己的注释写「输出旁路在参数流里就开演,Core 的屏障不跳过它,回执是这次演出的真实结果」。术语按 Cortico 的叫「输出接收器 / OutputTap」，vtuber 侧叫「输出旁路」，同一个东西两个名。[团队判断] 只给「说话与演出」这类只读输出的工具标；会改外部状态的标上去就等于绕过屏障，本团不建议。
 - 工具名在一个 bot 内全局唯一。模型按名字调用，Core 按名字归属与隐藏。(03-world-contract §1)
 - 撞名是运行时硬门槛：命中保留帧名或被别的 World 占用时，装配层拒绝挂载并报原因。(03-world-contract §4)
 - Core 保留帧名共 1 个：`external_event_frame`。session 工具注册同名被拒。(05-bot-contract sessions、03-world-contract §4)
@@ -341,7 +350,7 @@
 - 隐藏的 World：pushEvent 归档为 archive-only，pushDeferred 直接丢弃，pushCandidate 原始事件仍归档、投影作废。(03-world-contract §8)
 - 主循环在一批之内的轮次边界接收新事件：工具全部返回后，或 preempt、interrupt 取消模型轮后。(03-world-contract §3)
 - 仓内 World 没有任何一处把 `preempt` 或 `interrupt` 当字面量传给 `trigger:`（50 处中 0 处）。(03-world-contract §3)
-- 官方参考 World 的实操写法（cortico-world-vtuber@e455703 实读）：`src/world.ts:3262-3267` 推 `vtuber.act.outcome` 时逐字写 `origin: 'external'`、`tags: ['speak']`，同一条 pushEvent 的第二参数给 `{ trigger: 'flush' }`。外部事件按本节的缺省本该 debounce，它显式提档到 flush，为的是演出结果当轮就进模型。仓内另有 4 处 `trigger: 'flush'`（:1745、:3246、:3378 与 :3267 那处）。这是「外部事件不必一直等缺省」的一个官方先例，不是新规则。
+- 官方参考 World 的实操写法（cortico-world-vtuber@e455703 实读，裸文件名写法是故意的——探针不路由这个仓）：该仓 `world.ts:3262` 推 `vtuber.act.outcome` 时逐字写 `origin: 'external'` 与 `tags: ['speak']`，同一条 pushEvent 的第二参数给 `{ trigger: 'flush' }`（:3267）。外部事件按本节的缺省本该 debounce，它显式提档到 flush，为的是演出结果当轮就进模型。该仓另有 4 处 `flush`（:1745、:3246、:3378 与 :3267）。这是「外部事件不必一直等缺省」的一个官方先例，不是新规则。
 - 市场实态：952 条声明事件里 539 条（56.6%）不写档位走缺省；显式声明里 flush 223、debounce 135、piggyback 47、preempt 6、interrupt 2。(c04-capability-usage §3)
 - Bot 侧 `eventDelivery` 只有 2 档：`'tool'`（默认，进保留的 external_event_frame 调用/回执对）与 `'user'`（进 user 消息，排在内部文本之后）。(05-bot-contract sessions)
 
@@ -457,7 +466,7 @@ Core 侧工具回执的实际形状（Cortico main 9569f55 实读，2026-11-16�
 - 回执正文是字符串。失败不靠异常，靠一个标记字段：`src/core/types.ts:259-260` 逐字写 `failed?: true`，注释「执行失败；工具调用记录据此标记 failed」。
 - 两条自动转 failed 的路径：参数坏 → `src/core/loop.ts:1442` 发 `TOOL_FAILED_BAD_ARGS`；handler 返回坏值 → `src/core/loop.ts:2167` 用 `toolFailedBadReturn(def.name, got)` 包装，`:2171` 同一形状。扩展抛错也走这一族，不炸主循环。
 - 跳过类回执是一组写死的英文串，全在 `src/core/markers.ts:27-44`：`[not executed: function call incomplete]`、`[not executed: review the preceding tool result first]`（屏障跳过）、`[not executed: this thread already ended]`、`[not executed: stream aborted mid-response]`、`[not executed: interrupted by a new event]`、`[not executed: main loop stopped]`，另加 `[an interrupt signal was sent while this tool ran]`、`[tool result unavailable: shutdown interrupted the round]`，以及 `streamedPastBarrier` 那一行。断言测试要按这些字面量配，别自己造中文串。
-- 别把参考世界的文风当契约：cortico-world-vtuber 的回执是中文方括号前缀加错误码，`src/act-script.ts:3` 定义 `INVALID_ACT_SCRIPT_SHAPE = 'invalid_script_shape'`，`:48` 逐字返回 `'[vtuber_act 失败] invalid_script_shape: script 必须是普通字符串台本…'`。那是那个 World 自己的作者风格，不是 Core 规定。两种写法不要混着写成一种，也不要拿前者去断言后者。
+- 别把参考世界的文风当契约：cortico-world-vtuber 的回执是中文方括号前缀加错误码。该仓 `act-script.ts:3` 定义 `INVALID_ACT_SCRIPT_SHAPE = 'invalid_script_shape'`，同文件 `:48` 逐字返回 `'[vtuber_act 失败] invalid_script_shape: script 必须是普通字符串台本…'`。裸文件名写法是故意的，探针不路由那个仓。那是那个 World 自己的作者风格，不是 Core 规定。两种写法不要混着写成一种，也不要拿前者去断言后者。
 
 HTTP 层（WebUI）：
 
@@ -644,7 +653,7 @@ CORTICO_COMPANION_DATA=<空目录> pnpm run dev   # 宿主开发模式，干净�
 ```
 
 - 隔离变量清单：`CORTICO_HOME`、`CORTICO_EXTENSIONS_DIR`、`CORTICO_MARKET_INDEX_BASE`、`CORTICO_PORT`（dev 缺省 8848）。(_PROFILE-DRAFT §7.1)
-- 停宿主的口径（代码读实 2026-11-16，未实机）：上游没有停止脚本，停止就向 core 进程发 `SIGINT`（Ctrl+C 的形状），触发信号清单见 3.10。没停干净不会静默过去：端口被上一个实例占着时框架按 6.6 的规则顺延最多 5 个候选，并在 `src/web/server.ts:1487-1494` 打一条 warn「端口 X 被占用或不可监听，改用 Y」，那句注释写的就是「便于发现预期端口被其他实例占用」。排障含义：残留的旧宿主占住 8848 时，你连上的可能是它，返回的是旧进程的 200 与旧数据，不是全 404。归因前先核对端口占用，再怀疑扩展本身。等待上限取 6.1 的 `SHUTDOWN_GRACE_MS = 95000`、`EXTENSIONS_WAIT_MS = 65_000` 与 stop 宽限 `35_000`，别照抄内核 sandbox 脚本里的 3 秒。本节整条 [未核验]：7.1 层 3 的既有纪律禁止本轮启动宿主。
+- 停宿主的口径（代码读实 2026-11-16，未实机）：上游没有停止脚本，停止就向 core 进程发 `SIGINT`（Ctrl+C 的形状），触发信号清单见 3.10。没停干净不会静默过去：端口被上一个实例占着时框架按 6.6 的规则顺延最多 5 个候选，并在 `src/web/server.ts:1487` 那个 `maxAttempts` 候选循环里打 warn，文案见同文件 `:1494`「端口 X 被占用或不可监听，改用 Y」，`:1492` 那句注释写的就是「便于发现预期端口被其他实例占用」。排障含义：残留的旧宿主占住 8848 时，你连上的可能是它，返回的是旧进程的 200 与旧数据，不是全 404。归因前先核对端口占用，再怀疑扩展本身。等待上限取 6.1 的 `SHUTDOWN_GRACE_MS = 95000`、`EXTENSIONS_WAIT_MS = 65_000` 与 stop 宽限 `35_000`，别照抄内核 sandbox 脚本里的 3 秒。本节整条 [未核验]：7.1 层 3 的既有纪律禁止本轮启动宿主。
 - 官方作者流程：复制模板目录到仓外，改名，`corepack pnpm install`，包内 `pnpm typecheck && pnpm test`，仓根 `pnpm check:extension <包目录>`，再从 WebUI「扩展」页手动安装填绝对路径并重启。(07-templates §12)
 - 装前预检走 `POST /api/extensions/check`。它只读 manifest，不导入包代码。(10-market-install §5)
 
@@ -735,9 +744,13 @@ curl -s http://127.0.0.1:17788/api/extensions
 - 分母时效警告：索引仓上游 main 已同步到 3e02384adfb28808962511be98c2cde3c3d933dc（2026-11-15T05:33:55Z），比上表快照新一次同步。引用索引数据前按新 main 重跑 P9。契约类结论不受影响。(_PROFILE-DRAFT §⓪ P7)
 - 2026-11-16 二次刷新：上游 main 已到 `a4d41ea84184e33ce9879b8a805eb67c99666030`（08:58:52Z），比 3e02384 又多 27 个提交。上表整套数字仍是 `f6d6ef5` 快照时点（353 分母），一个字没改。新分母在下一条。
 - 现算分母（2026-11-16，快照 `a4d41ea`）：主理人会话把同一对脚本 `c01_api_drift.py` 与 `c06_publish_hygiene.py` 指向该 sha 的解包目录重跑，得 catalog `367`、packages 记录文件 `367`（双向 0 缺失）、kind 分布 `world 347 / bot 11 / provider 9`（347+11+9=367 自洽）、带 describe `326`（world 308、bot 10、provider 8）、CHANGELOG `294`（80.1%）、assets 目录 `152`、comments `104` 个文件实存 `404` 条。引用比例时必须声明分母：353 是历史快照，367 是现值，两套不得互换。Coo 耦合 88-90、工具面 2052/1797/864、作者 139 这三项本会话没重跑，仍是 353 口径。(c01 与 c06 对 `a4d41ea` 重跑，2026-11-16)
+- 再一次现算（2026-11-16 午后，快照 `1040eb169`，全新克隆）：该仓隔 41 分钟又 sync 一次，多一个包。catalog `368`、记录文件 `368`、kind `world 348 / bot 11 / provider 9`（348+11+9=368）、带 describe `327`（88.9%，缺 41）、CHANGELOG `295`（80.2%）、assets `153`、icon 齐 `153` 缺 `215`、`os` 声明 `103` 缺 `265`、comments 仍 `104` 文件 `404` 条。所以本仓现在有三套分母并存：353（`f6d6ef5`）、367（`a4d41ea`）、368（`1040eb169`）。引用时只准挑一套并标 sha。要新值就重跑 ⓪ P9，别拿旧表凑。逐项数字见 `cortico-notes.md` 3.1。
+- 索引仓许可证那条本会话核过，可以脱离 [未核验]：`1040eb169` 的全量克隆里没有 LICENSE 也没有 COPYING，REST 的 `license` 字段返回 null。本仓照旧只引用它的分类与统计事实，不内嵌其文本。
 - 本机缓存 catalog 是 351（写于 Nov 14 19:23）。353 与 351 是时点差，不是矛盾。(10-market-install §8、§9)
 
 ### 8.3 市场卫生实测（分母 353）
+
+下面整块是 `f6d6ef5` 时点值，本会话没在它上面重算，别拿它当现状读。2026-11-16 在 `1040eb169` 上重算过的同一组数（icon、`os`、changelog、assets）记在 8.2 末两条与 ⓪ P9，逐项表在 `cortico-notes.md` 3.1。两套并存时先说 sha。
 
 - CHANGELOG：有 284 = 80.5%、缺 69 = 19.5%。有文件但当前版本无 `## <版本>` 段 15 包 = 4.2%。check 对此提示不拦。(c06-publish-hygiene §1)
 - icon：齐备 140 = 39.7%、缺失 213 = 60.3%；assets 目录 141 个，唯一「有目录无 icon」的是 cortico-world-social-media。describe 缺席 40 包，四种缺因在快照里不可分账。(c06-publish-hygiene §2)(c01-api-drift §6)
@@ -898,25 +911,32 @@ curl -s http://127.0.0.1:17788/api/extensions
 
 ### 10.9 运行失败的可见面（宿主 v0.2.21 起，Coopanion 提交 3bbb621a）
 
-形象包跑失败了到底能看见什么。全部行号取自 Coopanion main `338854e795c84dc0ff29112ed3a9f252b72c81bf`（release v0.2.21，2026-11-16T02:41:51Z），主理人会话 2026-11-16 逐文件实读。路径前缀一律 `packages/cortico-world-desktop-pet/`，写全以免与宿主别处的同名文件混。宿主装到 0.2.21 以下时本节不成立，旧宿主没有这条链。
+形象包跑失败了到底能看见什么。全部行号取自 Coopanion main `338854e795c84dc0ff29112ed3a9f252b72c81bf`（release v0.2.21，2026-11-16T02:41:51Z），主理人会话 2026-11-16 逐文件实读。路径前缀一律写全 `packages/cortico-world-desktop-pet/`：⓪ 探针按前缀选仓，`src/` 归 Cortico、`packages/` 归 Coopanion，写短了探针就去 Cortico 找一个不存在的文件并报漂移（本会话第一次就这么自毁过 21 条锚点，已改回来）。宿主装到 0.2.21 以下时本节不成立，旧宿主没有这条链。
 
 四个可见面：
 
-1. 状态接口。`GET /api/figures/status`（`src/server.ts:321` 路由，2026-11-15 就在）从本版起把运行失败并进来。`src/server.ts:324` 逐字：`problems: (this.opts.packProblems?.() ?? []).filter((p) => !p.loaded).map((p) => ({ dir: basename(p.dir), reason: p.reason }))`。三个后果：只有 `loaded: false` 的条目对外露出，「包有一部分没用上」那类扫描问题在这里看不见；`dir` 是 basename，不是全路径；条目形状就 `{dir, reason}` 两个键。
-2. 模型侧事件与聊天页。`src/world.ts:652-653` push 一条 `desktop-pet.figure`，档位 flush，`meta.figure` 为 `{ kind: 'failed', name: { ...manifest.name, id }, reason }`。给模型看的那句在 `src/model-text.ts:67`（zh）与 `:211`（en）：`[figure] <名>没能显示出来(<reason>),你现在是<body>。` 与 `[figure] <name> could not be shown (<reason>); you are now <body>.`。聊天页对应行是 `figureWhy`（`console/features/chat/index.ts`）。
-3. 日志。`src/world.ts:646` 打 `形象包 <id> 没能显示:<reason>`，级别 warn。warn 走 `console.warn`（Cortico `src/core/util.ts:325`）即 stderr，过 stdout 门槛（默认 `info`，Cortico `src/core/config.ts:118`），进宿主 launcher 写的 `<logDir>/core.log`；该文件超过 `LOG_ROTATE_BYTES` 时改名成 `core.old.log`（Coopanion `app/core-host.cjs:89-90`）。框架另在 `runs/<run>/log.jsonl` 记同一条（Cortico `src/core/core.ts:141`）。`<logDir>` 的实值本会话没读到，所以这里留占位。
-4. 回落。`src/world.ts:643` 记 `figureFailed = id`，`:647` coo 本体失败时另记 `bodyMissing`，`:554` 的 `packFor` 在当前皮肤正是失败那个包时回落 COO。这与 10.6 那句「失败回落内置 coo」是同一条代码路径，现在有了行号。
+1. 状态接口。路由 `path === '/api/figures/status'` 在 `packages/cortico-world-desktop-pet/src/server.ts:321`，2026-11-15 就在。同一文件 `:324` 逐字 `problems: (this.opts.packProblems?.() ?? []).filter(...)`，`packProblems` 那一次调用把运行失败并进来。三个后果：只有 `loaded: false` 的条目对外露出，「包有一部分没用上」那类扫描问题在这里看不见；`dir` 走 `basename`，不是全路径；条目形状就 `{dir, reason}` 两个键。
+2. 模型侧事件与聊天页。`packages/cortico-world-desktop-pet/src/world.ts:652` 用 `this.push` 发一条 `desktop-pet.figure`，档位 flush，`meta.figure` 为 `{ kind: 'failed', name, reason }`。给模型看的那句在 `packages/cortico-world-desktop-pet/src/model-text.ts:67`（zh）与 `:211`（en），两个键都叫 `figureFailed`。聊天页对应行是 `figureWhy`，写在 Coopanion 根的 `console/features/chat/index.ts`（这路径探针不收，见下面「覆盖边界」）。
+3. 日志。`packages/cortico-world-desktop-pet/src/world.ts:646` 那条 `this.log?.warn` 打「形象包 <id> 没能显示:<reason>」。warn 走 `console.warn`，在 `src/core/util.ts:325` 判级别；stdout 门槛在 `src/core/config.ts:118` 的 `logging` 默认 `info`。两条都在 Cortico，探针核得到。宿主 launcher 把 core 输出写进 `<logDir>/core.log`，超过 `LOG_ROTATE_BYTES` 改名 `core.old.log`，那段在 Coopanion 根的 `app/core-host.cjs:89`（探针不收）。框架另在 `src/core/core.ts:141` 用 `Runlog` 写 `runs/<run>/log.jsonl`。`<logDir>` 的实值本会话没读到，所以留占位。
+4. 回落。`packages/cortico-world-desktop-pet/src/world.ts:643` 记 `figureFailed = id`，`:647`  coo 本体失败时记 `bodyMissing`，`:554` 那句 `packFor` 在当前皮肤正是失败那个包时回落 COO。这与 10.6 的「失败回落内置 coo」是同一条代码路径，现在有了行号。
 
 归因口径三条，dev 与 sandbox 照此写：
 
-- 失败原因是截断的自由文本，没有错误码枚举。帧侧截 300 字符（`web/figure-frame.js:58`：`String(err?.message ?? err).slice(0, 300)`），World 侧再截 200（`src/world.ts:644`），reason 不是字符串时兜底 `原因不明` / `reason unknown`（`src/model-text.ts:68`、`:212`）。两侧长度不同，同一条错在页面与接口里可以不一样长，这不是 bug。
-- 稳定匹配按 `[figure]` 前缀与括号里的 reason 段配，别按界面语言配句子。给模型看的文本只有 zh 与 en 两本（`src/model-text.ts:325`：`MODEL_TEXT = { zh, en }`）；`src/i18n/` 那 11 份语言表是页面 UI 文案，不在这条链上。工单草稿写的「按 i18n 句式配 11 种译文」把两层混了，作废。
-- 运行失败是内存态：`src/world.ts:514` 的 `runFailures` 是个 Map，显示成功就 `delete`（`:664`），World 重启即清空。排障顺序因此是先抓 `/api/figures/status` 再谈重启；重启之后接口里就读不到那一条了。
+- 失败原因是截断的自由文本，没有错误码枚举，也没有稳定可匹配的 id。帧侧那句 `String(err?.message ?? err).slice(0, 300)` 在 `packages/cortico-world-desktop-pet/web/figure-frame.js:58`，所以帧侧报上来的原因最长三百字符。
+- World 侧再截一刀：`msg.reason.slice(0, 200)` 那段在 `packages/cortico-world-desktop-pet/src/world.ts:644`，最长两百字符。不是字符串时兜底 `reasonUnknown`。
+- 兜底文案的两本表在 `packages/cortico-world-desktop-pet/src/model-text.ts:68`（zh 的「原因不明」）与同文件 `:212`（en 的 reason unknown）。两侧长度不同，同一条错在页面与接口里可以不一样长，这不是 bug。
+- 稳定匹配按 `[figure]` 前缀与括号里的 reason 段配，别按界面语言配句子。给模型看的文本只有 zh 与 en 两本，那句 `export const MODEL_TEXT ... = { zh, en }` 在 `packages/cortico-world-desktop-pet/src/model-text.ts:325`。i18n 目录那十一份语言表是页面 UI 文案，不在这条链上。工单草稿写的「按 i18n 句式配十一种译文」把两层混了，作废。
+- 运行失败是内存态：`packages/cortico-world-desktop-pet/src/world.ts:514` 的 `runFailures` 是个 Map，`:546` 的 `packProblemsNow` 每次现拼，显示成功就在 `:664` 删掉，World 重启即清空。排障顺序因此是先抓 figures 状态接口再谈重启；重启之后接口里就读不到那一条了。
 
 配套的两个新开关与右键菜单：
 
-- `window.overTaskbar`（默认 `true`）与 `window.hideFromCapture`（默认 `false`）：注册处 `src/config.ts:202、204`（类型）、`:301`（缺省值）、`:369`（`process.platform === 'win32'` 才进 schema）、`:372-373`（两项都 `x-hot: true`）。含义逐字取自官方文案（`src/i18n/zh.ts:269-270`）：前者关着时窗口到任务栏上沿为止，形象画在地面以下的部分（坐下垂下的腿）会被裁掉；后者开着时 Coo 不出现在截图、录屏、直播与 Coo 自己的截屏里，并且 NVIDIA 即时重放的桌面捕获可能无法开启。两条都只在 Windows 出现。控制台那两行在宿主没回布尔值时保持隐藏（`console/features/pet/index.ts:403-405、705-706`），所以非 win32 上看不到开关不是缺功能。[未实机]
-- 右键菜单只列选中的悬停按钮加运行控制：扩展与形象包都不能往菜单里挂入口。悬停按钮上限 `MAX_HOVER_BUTTONS = 6`（`src/config.ts:19`），可选 id 限 `PET_ACTIONS` 那 9 个固定动作 `chat, voice, roam, theme, sound, hide, size, dress, worlds`（`src/config.ts:16`），缺省 `'chat,voice'`（`:310`）。要改菜单可见项只能改这两个配置。官方措辞就在工具描述里，逐字：`The buttons beside you while the mouse pointer rests on you; your right-click menu shows the same ones, beside the settings, pause and quit the app provides. An empty list takes every hover button away, from the menu too.`（`src/tools.ts:73`，与 `describe.json` 的 hoverButtons 块逐字相同，`maxItems: 6` 与 9 项 enum 都对得上，见未核验汇总第 17 条）。(Coopanion main 338854e，2026-11-16 实读，改动来自 ae90b168)
+- `window.overTaskbar` 与 `window.hideFromCapture` 的类型声明在 `packages/cortico-world-desktop-pet/src/config.ts:202` 与同文件 `:204`。两项的缺省值在同一文件的 `window` 那行，即 `:301`：前者默认开，后者默认关。schema 注册在同文件 `:372` 与 `:373`，`'x-hot': true` 就写在那两行里，所以改完即生效不用重启。
+- 这两个键只在 Windows 上注册：那句 `process.platform === 'win32'` 的判断在 `packages/cortico-world-desktop-pet/src/config.ts:369`。控制台侧的对应两行在宿主没回布尔值时保持隐藏，赋值 `hidden = false` 的写法在 Coopanion 根的 `console/features/pet/index.ts` 第七百零五行一带（这路径探针不收，见上面「覆盖边界」）。所以非 win32 上看不到开关不是缺功能。[未实机]
+- 开关含义的官方文案：`packages/cortico-world-desktop-pet/src/i18n/zh.ts:269` 是 overTaskbar 那条，逐字「开着时桌宠窗口向下盖住屏幕底部的任务栏，形象绘制在地面以下的部分（坐下时垂下的腿）显示在任务栏上；关着时窗口到任务栏上沿为止」。同文件 `:270` 是 hideFromCapture 那条，逐字「开着时 Coo 不出现在截图、录屏、直播和 Coo 自己的截屏里。开着时 NVIDIA 即时重放的桌面捕获可能无法开启」。后者那句 NVIDIA 的风险是官方文案自带的提醒，出处是用户报告 #728，本仓未复现。
+- 右键菜单只列选中的悬停按钮加运行控制：扩展与形象包都不能往菜单里挂入口。上限常量 `MAX_HOVER_BUTTONS = 6` 在 `packages/cortico-world-desktop-pet/src/config.ts:19`，九个固定动作在那行的 `PET_ACTIONS` 里。缺省串 `hoverButtons: 'chat,voice'` 在同文件 `:310`。
+- 悬停按钮的工具面描述逐字写着 `your right-click menu shows the same ones, beside the settings, pause and quit the app provides`，那行在 `packages/cortico-world-desktop-pet/src/tools.ts:73`。它与 describe.json 里 hoverButtons 那块的 description 逐字相同，`maxItems` 与 enum 也一致（对照见未核验汇总第 17 条，已结案）。(Coopanion main 338854e，2026-11-16 实读，改动来自 ae90b168)
+
+覆盖边界，用本节前先读：⓪ 探针只核三个上游（Cortico、Coopanion、cortico-extensions），按前缀路由。所以三类引用它核不到，本会话靠 `git show` 与逐文件读核过：一，`console/features/**` 与 `app/*.cjs`（在 Coopanion 根，前缀不在路由表）；二，cortico-world-vtuber 那个仓（根本不在探针的三个上游里，本节的引用一律写裸文件名，如 `world.ts:1510`）；三，`src/i18n/` 这种目录级写法。这三类要机器核，得先给探针加第四个上游与前缀路由，那是改工具，不是改文档。
 
 ## ⓪ 陈旧门禁（必填，用本 profile 前必跑）
 
@@ -930,7 +950,7 @@ curl -s http://127.0.0.1:17788/api/extensions
 - **P6 上一版过渡层（决定 9A2 的失效预告）**：`ls "$H/src/extensions/previous-contract.ts"`。文件在 → api 5/5/6 仍是「warning + check 拒」；文件消失 = 过渡层已删 → api 5/5/6 变直接拒载，9A2 重写。实测通过 2026-11-15。(06-gate-scripts §5)
 - **P7 上游五仓 HEAD（整体新鲜度）**：`gh api repos/Pal-AI-Lab/<仓>/commits/main --jq '.sha + " " + .commit.committer.date'` 逐仓，仓名取 Cortico、Coopanion、cortico-extensions、Cortina、cortico-world-vtuber。规则：第 8.4 节每列一个 git 源，这里的 for 列表就要有一个名字，漏一个就等于宣称「核过」而实际没核。读于 2026-11-15：Cortico `83623831133a01679db5b5459eea7d11be590988`（2026-11-12T20:02:14Z，快照锚点未动）；Coopanion `8829fd4fd0916f2c65f824daa63e503eff042b8a`（2026-11-14T02:53:32Z，未动）；Cortina `244b2d05d380d7ae93d980ec143a432aff51b00a`（2026-10-22T05:06:03Z，未动）；cortico-extensions 已到 `3e02384adfb28808962511be98c2cde3c3d933dc`（2026-11-15T05:33:55Z），比第 8 节快照新一次同步。2026-11-16 复跑：Cortico `9569f5520bbd09100e151160f16598f33e3f4862`（02:28:21Z）、Coopanion `338854e795c84dc0ff29112ed3a9f252b72c81bf`（02:37:22Z）、cortico-extensions `a4d41ea84184e33ce9879b8a805eb67c99666030`（08:58:52Z）、Cortina `244b2d05d` 未动、cortico-world-vtuber `e4557038377c94f3e614496d050fa3fd8775962b`（2026-11-04T19:42:07Z）。sha 变 → 对应章节重核；探针无结果（网络或仓名变）→ 直接标 [未核验]。(转引 _PROFILE-DRAFT §⓪ P7)
 - **P8 Release 通道（宿主是否换新内置内核）**：`gh api repos/Pal-AI-Lab/Cortico/releases/latest` 读得 v0.2.15（2026-11-12T20:02:18Z）；Coopanion 读得 v0.2.20（2026-11-12T20:41:57Z）。2026-11-15 重跑仍为这两值。2026-11-16 重跑变为 `v0.2.16`（2026-11-16T02:28:34Z）与 `v0.2.21`（2026-11-16T02:41:51Z），条款触发一次：第 7 节端口与内置裁剪清单、契约档位一并重核，档位仍是 6/6/7（`src/extensions/manifest.ts:23-27` 的 blob 与 0.2.15 同一版，`7ab5a6f06dd81ff8233b71a4f5ecd53b4fc5a441`），新读的宿主侧变化登在 10.9。出现更新的 Coopanion release → 同样一并重核。(转引 _PROFILE-DRAFT §⓪ P8)
-- **P9 快照哈希复核（第 8 节全部分母）**：重跑 `python -I <SURVEY>/tools/c01_api_drift.py <快照根>` 与 `python -I <SURVEY>/tools/c06_publish_hygiene.py <快照根>`。按 `f6d6ef5` 快照应得 catalog 353、describe 313、changelog 284、assets 141、comments 104 五项，2026-11-15 逐项一致。2026-11-16 把同一对脚本指向 `a4d41ea` 的解包目录重跑，得 367、326、294、152、104（评论实存 404 条），kind 分布 world 347 / bot 11 / provider 9。两套都是实测值，引用时须说明用哪个 sha。changelog 69、icon 140/213、os 100/253 是 c06 报告值，本探针未复算。(c06-publish-hygiene §1、§2、§4) 数字变 = 快照与引用时点分叉，第 8 节按新快照重算。(转引 _PROFILE-DRAFT §⓪ P9)
+- **P9 快照哈希复核（第 8 节全部分母）**：重跑 `python -I <SURVEY>/tools/c01_api_drift.py <快照根>` 与 `python -I <SURVEY>/tools/c06_publish_hygiene.py <快照根>`，评论口径另跑 `c05_comments.py <同目录>`。按 `f6d6ef5` 快照应得 catalog 353、describe 313、changelog 284、assets 141、comments 104 五项，2026-11-15 逐项一致。2026-11-16 把同一对脚本指向 `a4d41ea` 的解包目录重跑，得 367、326、294、152、104（评论实存 404 条），kind 分布 world 347 / bot 11 / provider 9。同日午后用 `1040eb169` 的全新克隆第三次跑，得 368、327、295、153、104（仍 404 条），kind world 348 / bot 11 / provider 9，348+11+9=368 自洽。三套都是实测值，引用时须说明用哪个 sha。c06 的次要项现在也实测过：`1040eb169` 上 icon 齐 153 / 缺 215（41.6% / 58.4%）、`os` 声明 103 / 缺 265（28.0% / 72.0%）、changelog 缺 73、有 CHANGELOG 但当前版本无 `## <版本>` 段 15 包（`a4d41ea` 时点是 14，多出一个）。以前这些写的是 353 时点的 140/213、100/253、69，属未复算转引，现已换掉。数字变 = 快照与引用时点分叉，第 8 节按新快照重算；该仓按小时 sync，所以这条探针隔天读就得重跑。(c01 与 c06 与 c05 对 `1040eb169` 实测，2026-11-16)
 
 ## 证据不足与 [未核验] 汇总
 
@@ -952,10 +972,11 @@ curl -s http://127.0.0.1:17788/api/extensions
 14. 评论实存 398 与快照总量 628 的差是否为抓取截断，快照无法证实。2026-11-16 在 `a4d41ea` 上重跑 c05 得实存 404 条 / 104 个文件，声明总量那条本轮未复算，所以 398-vs-628 这个疑点仍挂着，只是分母换了时点。(c05-comments-corpus §1、§8)
 15. 单个部署内 World 数量上限、面板数量上限：三份契约报告与 01/16 均无记载，本稿不猜数。
 16. 形象包侧：`packages/cortico-world-desktop-pet/web/figure-frame.js` 已读到帧侧错误上报那一行（`:58`，message 截 300，见 10.9），其余帧侧契约原文仍未逐字读；0.2.13 时代那份 README 本机无存；装扮页实机渲染未观测（禁止启动宿主）。(12-figure-manifest §7)(13-figure-runtime 取不到-2、-3)(14-figure-dress-skin 取不到-1)
-17. ~~desktop-pet 的 describe.json 在快照与宿主之间的 `hoverButtons` 文案分叉，哪份对应当前代码未比对。~~ 已结案（2026-11-16）：在 main `338854e` 上逐字比对，`describe.json` 的 hoverButtons 块（enum 9 项、`maxItems: 6`、description 全文）与 `src/tools.ts:73` 完全一致。判旧副本时以 describe.json 为准即可，两侧现在不必二选一。(11-describe-artifact §6、§8)
+17. ~~desktop-pet 的 describe.json 在快照与宿主之间的 `hoverButtons` 文案分叉，哪份对应当前代码未比对。~~ 已结案（2026-11-16）：在 main `338854e` 上逐字比对，`describe.json` 的 hoverButtons 块（enum 9 项、`maxItems: 6`、description 全文）与 `packages/cortico-world-desktop-pet/src/tools.ts:73` 完全一致。判旧副本时以 describe.json 为准即可，两侧现在不必二选一。(11-describe-artifact §6、§8)
 
 ## 修订
 
+- 2026-11-16 同日第二轮（重新克隆六个仓之后）。内核基线不变，仍是 GitHub plugin-forge 的 `2d658a7`：v2.7.5 那个提交没发到 main，本仓不跟，仓口口径见 `AUDIT.md` 第 7 节。本轮动三块。一，rbb 从 v0.3.12 / `4a14fbd` 升到 v0.3.20 / `8388e27`，七处落点全改，其中 workflows.md 两处与 NOTICE 一处走 delta，撤回条件写在 `platform/kernel-deltas/`。二，索引仓又 sync 一次到 `1040eb169`，本仓自己的 c01/c05/c06 在新克隆上第三次现算，得 368 / 327 / 295 / 153 / 404，kind 348+11+9=368；icon 153/215 与 `os` 103/265 这两个以前只转引的值第一次实测；8.2 加分母三套并存那条，8.3 加「本节是 353 时点」的前言，⓪ P9 换成三次现算的并排。三，索引仓的许可证从 [未核验] 升成实测：`1040eb169` 无 LICENSE 无 COPYING，REST license 返回 null。同时撤掉上午自己写过头的一句话——P9 里那句「旧的两处冲突在新 main 上不复现」只有 kind 加和那一条成立，331-vs-333 那条属 353 时点本会话没复算，已改成写清边界。同日还改了锚点写法本身：本轮新写约三十四条 `file:line`，第一次跑探针就报 21 条漂移，全是自己写坏的——Coopanion 的文件裸写 `src/...` 被路由到 Cortico，`maxItems: 6` 与 `slice(0, 300)` 这类数字被当成前一个锚点的行号。改法就是文件头新增的「写锚点的四条规矩」。改完探针报对得上九十八条、漂移零、核不了零。探针覆盖不到的三类（vtuber 仓、Coopanion 根的 console 与 app 路径、目录级写法）写在 10.9 末「覆盖边界」里，不再假装被机器核过。
 - 2026-11-16 内核 2d658a7 轮 + 平台快照刷新。上游值：Cortico 0.2.15 → 0.2.16（main `9569f55`）、Coopanion v0.2.20 → v0.2.21（main `338854e`）、索引仓快照 `f6d6ef5` → 现算 `a4d41ea`，Cortina 与 cortico-world-vtuber 的 sha 复核未动与新增。契约档位实测未变（world 6 / provider 6 / bot 7，`manifest.ts:23-27` 的 blob 与 0.2.15 同一版），模板钉版本 `^0.2.15` → `^0.2.16`。第 1、2、3、7、8、10 章与 ⓪ 节相应更新，新增 10.9 一节。可复核锚新增：templates 三份 package.json 的 main/describe/files/api、world/tests/helpers/fake-host.ts:4、dry-mount 三个入口、vitest.config.ts 的完整 md5、Cortico markers.ts:27-44 回执字面量族、loop.ts:1420 与 :2186、types.ts:259-260 与 :276、server.ts:1487-1494、extension-check.ts:74、:89-90、:131、:192、author-guide.ts:2、extensions.ts:218、:235、Coopanion 的 server.ts:321、:324、world.ts:514、:546-548、:643-647、:652-653、:664、config.ts:16、:19、:202、:204、:301、:310、:369、:372-373、model-text.ts:67-68、:211-212、:325、figure-frame.js:58、gemini/wire.ts:48-69、:153-159、core-host.cjs:89-90、README.md:329（原 :328）。
 - 同日撤两条：未核验汇总第 2 条（api 5 无活样本）结案，第 17 条（describe.json 与 tools.ts 的 hoverButtons 分叉）结案。工单草稿那句「按 i18n 11 种句式配失败文案」作废，理由写在 10.9 归因口径第 2 条：MODEL_TEXT 只有 zh 与 en。
 - 引用比例时先声明分母：353（`f6d6ef5` 历史快照）或 367（`a4d41ea` 现值）。两套不许互换。Coo 耦合 88-90、工具面 2052/1797/864、作者 139 三项未重跑，只属 353 口径。

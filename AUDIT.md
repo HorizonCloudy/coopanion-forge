@@ -40,7 +40,7 @@ python -I skills/coopanion-forge/scripts/security_audit.py . \
 | HorizonCloudy/plugin-forge | 基线 sha 只看 `KERNEL-BASELINE.txt`（本行曾钉 bd9c9d8 并标 v2.7.0，实际那是 v2.7.2，且早已过期）。上游 2026-11-16 这一批 12 个提交没有 bump：两端 `.claude-plugin/plugin.json` 都还是 2.7.4，也没有 tag，所以基线只能靠 sha 钉（2026-11-16 实读）。 | MIT（沿用上游 `LICENSE` 与 `NOTICE`） | 内核逐字搬 + 平台改写台账 `platform/deltas.json`。本仓不改上游一个字。`LICENSE` 与 `NOTICE` 从 2d658a7 起分家：MIT 正文走 verbatim，出处告示走 delta，见第 5 节。 |
 | `references/style-anti-slop.md` 的规则来源 | blader/humanizer v4.0.0（MIT）、op7418/Humanizer-zh main（MIT）、woosal1337 asd-ste100 kit 2.0.5（MIT，ASD-STE100 规范本身版权属 ASD / AEEC） | MIT | 随内核 verbatim 同步进来的摘要件。本仓不单独核这三个上游仓的版本与正文，出处与判定沿上游 AUDIT 第 2 节记录（转引，核对日 2026-11-16，本仓未独立复核）。摘要是摘要：上游更新不会自动同步。 |
 | `references/delivery-self-check.md` | 未标注版本，136 行，frontmatter 名 `delivery-no-pseudoblock` | **来源与许可未确立**（上游 2026-11-14 本机检索无出处，本仓沿用同一条判定） | 随内核 verbatim 同步。它是外部行为闸门，**未接线为强制**：强制口径是 `skills/coopanion-forge/SKILL.md` 第 6 节正文自己写的三条，该文件只列可选参考。文中 3.11、yzg、`gui_review.py` 属另一产品，本团任务里当对照读，不当规则。 |
-| `reuse_before_build`（1-dcjiang/neko-reuse-before-build） | v0.3.12 / commit `4a14fbd`（2026-11-15 核对） | MIT（仓库自带 LICENSE；GitHub 的 licenseInfo 返回空，属分类器没识别） | **引用式**：只在 SKILL.md 的「先搜后建」那条铁律与 `references/workflows.md` 的 1a 节指向它。规则本体与正典哈希由上游自持，本仓不复述条文、不另立编号。 |
+| `reuse_before_build`（1-dcjiang/neko-reuse-before-build） | v0.3.20 / commit `8388e27`（2026-11-16 经 GitHub API 核对：v0.3.20 是轻量 tag，`refs/tags/v0.3.20` 的 object 直接就是 commit `8388e27b1af2595abff780d707e560c9a3f0c7ec`。上一档 v0.3.12 是附注 tag，refs 给的是 tag object `90a5ef6be`，再解引用才到 `4a14fbd0b`，所以 2026-11-15 那个记法没错，只是两种 tag 要用两种读法） | MIT（以仓库里的 LICENSE 文件为准：本会话在 v0.3.20 实读原文 = `MIT License / Copyright (c) 2026 1-dcjiang`。本行以前写「GitHub 的 licenseInfo 返回空，属分类器没识别」，那句现在作废——2026-11-16 复查 REST 仓级与 `/license` 两个口都返回 MIT。规则照旧：分类字段有滞后，只信文件） | **引用式**：只在 SKILL.md 的「先搜后建」那条铁律、`references/workflows.md` 的 1a 节、codex 提示词与 NOTICE 指向它。规则本体与正典哈希由上游自持，本仓不复述条文、不另立编号。上游改版需重新核对版本号与 commit，并核形状有没有变（上游 v0.3.20 那轮记的三轮/四档/红黄绿硬闸形状未变，属转引，本仓未独立复算）。 |
 | jusspound-netizen/dsh-plugin-scanner | `bb8dc7cd`，2026-11-14 | 该仓库无 LICENSE 文件 | 只作设计参照（清单形状检查、盲区不得当作放行）。`security_audit.py` 是上游的独立实现，本仓未复制其代码。 |
 
 Pal-AI-Lab 的四个仓库与官方指南站是**证据源**，本仓不内嵌任何其源码或文本；profile 与档案里只引用文件路径、行号与不超过 80 字的摘录。
@@ -100,4 +100,35 @@ Pal-AI-Lab 的四个仓库与官方指南站是**证据源**，本仓不内嵌�
 - `--port-done` 守卫不加 sha 校验，见第 4 节第 6 条末段。
 - ~~figure.json 进不进保护面：等仓主（HorizonCloudy）拍板。~~ 已决（2026-11-16，仓主选「加，走本仓 delta」）：`platform/deltas.json` 的 `check_contract_approval.py` 键加第 4 条，把 `figure.json` 补进上游 `MANIFEST_NAMES`（锚在 `:63` 那行，唯一命中）。实测 `is_protected` 现在对根目录与嵌套的 `figure.json` 都返回 True，门禁自检 PASS，`README.md` 仍 False（没把范围扩宽）。这条是本仓自加改写：上游哪天自己加上，锚点会失配、`--apply` 报错退出，那时撤掉这条，别留双重添加。
 - `profile-coopanion.md:28` 的「本机安装版本」这条在调研机上读不到实值（`%LOCALAPPDATA%/Programs/Coopanion` 空扫）。保持 `[未核验]`，拿到 `resources/app/package.json` 的 version 再改。
-- 市场普查的分母从 353 走到 367（extensions 仓两次 auto-sync）。Coo 耦合 88-90、工具面 2052/1797/864、作者 139 这几项没重跑，引用时必须声明用的是 353 口径。
+- 市场普查的分母现在有三套：353（`f6d6ef5` 历史快照）、367（`a4d41ea`）、368（`1040eb169`）。Coo 耦合 88-90、工具面 2052/1797/864、作者 139 这几项没在新分母上重跑，只属 353 口径。该仓按小时 sync，所以这条会一直活着：引用前先跑 ⓪ P9，别凑。
+
+## 6. 同日第二轮：重新克隆六个仓（2026-11-16 午后）
+
+仓主要求「全部重新克隆一遍，pull 到最新版」。六个仓全新克隆到 `<HOST>/forge-refresh-20261116/fresh/`，HEAD 逐个记下：plugin-forge `2d658a7`、coopanion-forge `65364c5`、Cortico `9569f55`、Coopanion `338854e`、Cortina `244b2d0`、cortico-world-vtuber `e455703`，另加索引仓 `1040eb1`。
+
+1. **GitHub 上的内核没有新东西。** plugin-forge 的 `origin/main` 仍是 `2d658a7`，也就是本仓现基线。带 rbb 新钉的上游 v2.7.5（`4f04414`）只存在于本地克隆与工坊 `forge/` 子树里。`gh api repos/HorizonCloudy/plugin-forge/tags` 返回空数组，分支只有 `main`。所以本仓不改基线。
+2. **平台四仓 main 全部未动。** Cortico、Coopanion、Cortina、vtuber 的 main 与上午记的一致。Cortico 最新 release 仍 v0.2.16，Coopanion 仍 v0.2.21。Cortina、vtuber、索引仓三处 `releases/latest` 返回 404，即从来没有 release，所以只能钉 sha——这条以前是推断，现在是实测。
+3. **唯一真新的是索引仓的 auto-sync。** `a4d41ea`（08:58:52Z）之后又多一笔 `1040eb169`（12:39:56Z）。本仓自己的 c01/c05/c06 在新克隆上重算：368 包、327 describe、295 changelog、153 assets、104 文件 404 评论，kind 348+11+9=368 自洽。次要项第一次实测：icon 齐 153 / 缺 215，`os` 声明 103 / 缺 265，当前版本无 `## <版本>` 段 15 包（`a4d41ea` 时点是 14）。以前那几个是 c06 报告值转引，未复算。
+4. **rbb 升到 v0.3.20，本仓七处落后。** 实测：`refs/tags/v0.3.20` 的 object 直接是 commit `8388e27b1af2595abff780d707e560c9a3f0c7ec`（轻量 tag）；旧 v0.3.12 是附注 tag，refs 给 tag object `90a5ef6be`，解引用才到 `4a14fbd0b`。所以旧记法不错，只是过期。许可本会话在 v0.3.20 实读原文仍 MIT (c) 2026 1-dcjiang，仓级与 `/license` 两个 REST 口都返回 MIT，以前记的「licenseInfo 返回空」作废。落点七处：本文件第 2 节那一行、README、SKILL.md、codex 提示词、workflows.md 两处（内核文本，走 delta）、NOTICE 一处（走 delta）。
+5. **索引仓许可状态从 [未核验] 升成实测。** `1040eb169` 全量克隆里没有 LICENSE 也没有 COPYING，REST 的 `license` 字段返回 null。本仓继续只引用它的分类与统计事实，不内嵌文本。
+6. **两条内核改写的撤回条件写在台账里。** workflows 与 NOTICE 各带 rbb 锚点。上游公开 v2.7.5 之后这些锚点会失配，`--apply` 会整件不写并报错，那时删改写，别留双重添加。见 `platform/kernel-deltas/workflows.md` 与 `platform/kernel-deltas/NOTICE.md`。
+7. **门禁与装机面。** `sync_kernel --check` 对 `2d658a7` 报一致 18 / 需搬 0 / 缺件 0 / 替换失败 0。`gen_deltas --check` 一致（7 个目标文件，21 处替换）。契约门禁自检、安全审计自检、名册 `--check` 与自检、探针 26 例、安装器自检全 PASS。全仓扫描 100/100、真盲区 0。装机面重装后预演报「要写 0 个」。
+
+8. **锚点数从 64 涨到 98，中途自毁过 21 条。** 本轮新写约三十四条 `file:line` 锚点，第一次跑探针就报 21 条漂移。原因全在我自己：Coopanion 的文件写了裸 `src/...`，被探针按前缀路由到 Cortico；同一段里 `slice(0, 300)`、`maxItems: 6` 这类数字被当成行号吃进上一个锚点。逐条改回「路径写全 + 一行一个文件 + 数字放在路径之前」后，`profile_drift.py` 报对得上 98 / 漂移 0 / 核不了 0 / 取不到 0。这三条已经写成规矩记在 `references/profile-coopanion.md` 文件头「写锚点的四条规矩」。上一轮那条「64 条全对」仍然成立，只是它测的是当时的锚点集。
+9. **探针覆盖不到的东西要认。** 它只路由 Cortico、Coopanion、cortico-extensions 三个仓。cortico-world-vtuber 的行号、Coopanion 根的 `console/features/**` 与 `app/core-host.cjs` 都不在它的路由表里，所以这些引用现在靠 `git show` 与逐文件读核，不是靠探针。要机器核就得给探针加第四个上游与前缀规则，那是改工具。
+
+10. **克隆写法会污染基线台账，已修。** `git clone` 用带 `.git` 的 URL 时，`remote.origin.url` 就带 `.git`，而 `KERNEL-BASELINE.txt` 的 `upstream repo=` 那行直接抄它。本轮第一次对新克隆跑 `--apply`，那行就多出 `.git`，diff 里看着像换了上游。修法：`tools/sync_kernel.py` 加 `norm_url()`，写台账前剥掉结尾的 `.git` 与多余的 `/`。
+11. **自检项数不再写死。** 同一文件 `_self_test()` 以前打印硬编码的「6 项」。现在改成 `ck()` 每跑一条计一条，实跑报 11 项。反向对照做在仓库外的副本上：把 `norm_url` 改成恒等、`port_state` 改成恒真，自检退 1 并逐条点名（`没有 ack 记录却被判一致`、三条 `norm_url` 差异），恢复后 PASS。这是上游 AUDIT 那条「项数以实算为准」的同款做法。
+
+## 7. 上游 plugin-forge 仓的地位变化（本仓不跟，只记录）
+
+同日另有一条与本仓相关的裁决：plugin-forge 在 N.E.K.O 侧被并进 `neko-plugin-workshop` 的 `forge/` 子树，工坊那边写下「工坊副本即唯一维护处，上游 plugin-forge 仓退役」。本仓怎么处理由仓主同日拍板：**内核只认 GitHub 上 `HorizonCloudy/plugin-forge` 的 main**。理由是本仓公开，`KERNEL-BASELINE.txt` 里那个 sha 必须访客能复现，而工坊副本的 sha 在 GitHub 上不存在。
+
+后果两条都要认账。一，工坊 `forge/` 里继续演进的通用内核改动不会自动进本仓，要么等它出现在 GitHub main，要么由仓主改口径。二，本次 rbb 落后正好暴露了这个缝：上游在本地已改，GitHub 上还是旧值。本仓的临时改写与撤回条件都登记在 `platform/kernel-deltas/`。
+
+复核读法：`git -C <内核检出> rev-parse origin/main`；`gh api repos/HorizonCloudy/plugin-forge/tags`（现在返回空数组）；`git -C <工坊检出> rev-parse merge/forge-into-workshop:forge`；`git -C <工坊检出> show merge/forge-into-workshop:workbench/forge_pin.json`（记 tag v2.7.5 与 commit `4f04414`）。
+
+## 8. 待确认（本会话没有结论的事）
+
+- 工坊副仓那条只记在 A 的文档里，没有向 plugin-forge 或工坊提 issue（仓主定过：不开 issue、不开 PR，`git subtree pull` 也不跑）。工坊 `forge/` 里若继续演进通用内核，本仓不会自动知道。这是本仓当前口径下最大的一条缝。
+- `.claude-plugin/plugin.json` 的 `version` 已升 1.1.0。上游 v2.7.5 与 A 的 v1.1.0 是两条独立版本号线，以后写「同步自 vX.Y」的句子一律引 sha，不引版本号。
