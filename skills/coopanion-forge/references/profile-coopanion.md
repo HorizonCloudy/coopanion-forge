@@ -173,7 +173,8 @@
 ### 2.6 上一版过渡层的真实后果
 
 - 上一版（api 5/5/6）能过渡加载，但 `pnpm check:extension` 判失败，不是告警。(权威事实；02-ext-manifest §8、06-gate-scripts §5)
-- 上一版契约有活标本，不用只靠仓内自测：官方参考 World 仓 `cortico-world-vtuber@e455703` 的 `package.json:20` 那个 cortico 块钉 `kind: "world"` 与 `api: 5`，还带 `consoleClient` 与 `consoleStyle` 两个旧字段名。它今天靠过渡层加载（该仓 `world.ts:1510` 一带仍写 `console()`，裸文件名写法是故意的：探针只按前缀路由 Cortico 与 Coopanion 两个仓，vtuber 不在里面），而 `check:extension` 判它失败：Cortico 的 `scripts/extension-check.ts:89` 那条 `fail` 逐字要求把 `cortico.api` 改成当前档位再来。两个结论：过渡层在 Cortico 下一个大版本删除后它必须升 world 6；新包一律用 `webUi` 系命名，抄它的命名就是抄旧契约。上一版过渡层「无活样本」那条 [未核验] 从此结案。(cortico-world-vtuber 的 package.json 与 world.ts @e455703，2026-11-16 实读；Cortico scripts/extension-check.ts:89 @9569f55)
+- 上一版契约有活标本，不用只靠仓内自测：官方参考 World 仓 `cortico-world-vtuber@e455703` 的 `package.json:20` 那个 cortico 块钉 `kind: "world"` 与 `api: 5`，还带 `consoleClient` 与 `consoleStyle` 两个旧字段名。它今天靠过渡层加载（该仓 `world.ts:1510` 一带仍写 `console()`，裸文件名写法是故意的：探针只按前缀路由 Cortico 与 Coopanion 两个仓，vtuber 不在里面），而 `check:extension` 判它失败：Cortico 的 `scripts/extension-check.ts:89` 那条 `fail` 逐字要求把 `cortico.api` 改成当前档位再来。两个结论：过渡层在 Cortico 下一个大版本删除后它必须升 world 6；新包一律用 `webUi` 系命名，抄它的命名就是抄旧契约。上一版过渡层「无活样本」那条 [未核验] 从此结案。(cortico-world-vtuber 的 package.json 与 world.ts @e455703，2026-11-16 实读)
+- 「api 5 在 check 里判失败」这句 2026-11-17 拿到实测退出码了，做法是自己造夹具而不是跑别人的包：在 Cortico `0.2.16` 的检出里复制自带 world 模板，把 `cortico.api` 改成 5、包名改掉，再跑 check。结果是退出码 1、`Failed checks: 1.`，两条逐字文案如下，警告那条正是「warning + check 拒」这个说法的原文：警告 `⚠ The extension was written for world contract v5; this framework is at v6. It loads through a transition layer that the next major Cortico release removes.`；失败 `✗ cortico.api 5 is the previous world contract; this check requires v6.`，同一句还给出 UPGRADING_URL 与「set cortico.api to 6, and run the check again」。头部 `Contracts:` 行仍打 world v6 / provider v6 / bot v7。
 - 装载器给上一版包一条 `previousContract` 警告，文案带 UPGRADING_URL。随后 `renamePreviousManifestFields(m)` 改 manifest 旧字段名。(02-ext-manifest §4 步7、§6)
 - 改名只发生在上一版契约分支。新旧都写时取新名，旧名剥离后不再出现在产物里。(02-ext-manifest §6)
 - 当前契约的包若仍写 `consoleClient`：解析器不读它、不报错、不警告，产物里没有 `webUiClient`。面板不发，包照常加载。(02-ext-manifest §6)
@@ -815,6 +816,8 @@ curl -s http://127.0.0.1:17788/api/extensions
 8. 面板产物指向 TS：webUiClient 必须指预构建 .js/.mjs；带 webUiStyle 不带 webUiClient 同样拒。(02-ext-manifest §4 步10、步11)
 
 ### B. 被装载器拒（装了不加载，或页面显示「需要升级」）
+
+上一版契约那两条文案（装载时的 ⚠ 与 `check:extension` 的 ✗）已实测取到原文，逐字引文见 2.6 第二条。
 
 1. api 与内建契约不等 → 拒载并提示升级。上一版是唯一过渡例外。(02-ext-manifest §2、§6)
 2. id 撞内建 → 拒；扩展间重名 → 保留先加载者，后来者报「World id 已被占用,扩展未加载」。(03-world-contract §4，逐字出处 src/extensions.ts:402)

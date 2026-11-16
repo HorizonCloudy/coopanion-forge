@@ -1,6 +1,6 @@
 {
   "name": "coopanion-forge",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Coopanion / Cortico 插件制造专家团（1 主理人 + 13 专家）：契约先行 + TDD + 安全门禁 + 宿主破坏性变更影响审计 + 双风格文档门禁；Cortico 与 Coopanion 平台契约以 profile 内置，覆盖 world / provider / bot 三类扩展与第四类交付物形象包（figure pack）。",
   "author": {
     "name": "云朵",
