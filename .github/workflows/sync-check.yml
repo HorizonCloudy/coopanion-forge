@@ -44,15 +44,18 @@ jobs:
         env:
           AUDIT_ALLOW: skills/coopanion-forge/scripts/security_audit.py,scripts/profile_drift.py,tools/sync_kernel.py,platform/deltas.json
         run: python skills/coopanion-forge/scripts/security_audit.py . --allow "$AUDIT_ALLOW"
-      - name: 'Report only: 审计两个非阻塞旗标（盲区 / 占位符严格档，不阻塞）'
-        continue-on-error: true
+      - name: '审计两个严格档旗标（盲区 / 占位符，阻塞）'
+        # 2026-11-17 起改成阻塞步（仓主定「warning 当 error」）。两条都不再带 || true。
+        # 本机实测两步都退 0，所以这不是把已知红灯放进来，是把「以后悄悄多出盲区」这条路堵掉。
         env:
           AUDIT_ALLOW: skills/coopanion-forge/scripts/security_audit.py,scripts/profile_drift.py,tools/sync_kernel.py,platform/deltas.json
         run: |
-          python skills/coopanion-forge/scripts/security_audit.py . --allow "$AUDIT_ALLOW" --fail-unclear || true
-          python skills/coopanion-forge/scripts/security_audit.py . --allow "$AUDIT_ALLOW" --strict-placeholder || true
-      - name: 'Report only: profile 锚点漂移探针（不阻塞）'
-        continue-on-error: true
+          python skills/coopanion-forge/scripts/security_audit.py . --allow "$AUDIT_ALLOW" --fail-unclear
+          python skills/coopanion-forge/scripts/security_audit.py . --allow "$AUDIT_ALLOW" --strict-placeholder
+      - name: 'profile 锚点漂移探针（阻塞）'
+        # 同上改成阻塞。退 1 = 真有锚点漂了。退 2 = 上游取不到（限流、断网、仓改名），
+        # 现在也算失败：拿不到证据不许当「没问题」放行。要放宽就改回 continue-on-error，
+        # 但那等于把假绿重新请回来，先跟仓主确认。
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: python scripts/profile_drift.py --strict

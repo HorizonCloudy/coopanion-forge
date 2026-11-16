@@ -3,7 +3,11 @@
 上游件：`.github/workflows/sync-check.yml`。
 
 保留上游新加的三件事：`profile_drift.py` 进 py_compile、Drift probe self-test 步骤、
-两个非阻塞旗标（`--fail-unclear`、`--strict-placeholder`）与漂移探针的 report-only 步骤。
+两个严格档旗标（`--fail-unclear`、`--strict-placeholder`）与漂移探针。
+
+本仓自 2026-11-17 起把这三步从 report-only 改成阻塞（仓主定「warning 当 error」）。
+上游那份仍是 `continue-on-error: true`，所以这三行是本仓与上游 CI 的一处真实差异，
+不是漏搬。改的理由与代价写在 override 文件的注释里：探针退 2（上游取不到）现在也算失败。
 
 平台改写：按本仓文件集重写编译清单与豁免表。
 - 本仓有的脚本：`scripts/generate_roster_tables.py`、`scripts/profile_drift.py`、

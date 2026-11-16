@@ -49,12 +49,23 @@
 | 353 | catalog.json `packages` 条目数 = `packages/` 一文件一扩展清单数，全库比例的分母 | 00 §2；c04 §1；11 §6 |
 | 333 | kind=world 的包数，333/353 = 94.3%（bot 11、provider 9） | c01 结论；c02 §1；c04 §1；c06 §1 |
 | 313 | 带对象形 `describe` 的包数，313/353 = 88.7%（另 40 包 describe=null） | 11 §6；c04 §1；c07 §1 |
-| 398 | 快照 `comments/`（104 个文件）实存评论条数，所有比例一律用它当分母 | c05 §1、§2 |
-| 628 | 各评论文件声明的 `total` 字段之和；实存 398，398/628 ≈ 63.4%，快照按分页截断 | c05 §1；_GAPS A.14 |
+| 398 | 快照 `comments/`（104 个文件）里 `comments[]` 数组的条目数。所有旧比例用它当分母 | c05 §1、§2 |
+| 628 | 同一批文件声明的 `total` 字段之和。旧文写「398/628 ≈ 63.4%，快照按分页截断」——那句解释错了，见下面 3.2 第一条 | c05 §1；_GAPS A.14 |
 | 88–90 | Coo 生态耦合包数：字段并集 88/353 = 24.9%；再加维护者专授 `coopanion` 标签 90/353 = 25.5% | c09 结论；_PROFILE-DRAFT §Coo生态 |
 | 2052 | `describe.tools` 工具实例数，跨包重复计 | c07 §1；11 §6；03 前缀节 |
 | 1797 | 去重后的工具名数 | c07 §1 |
 | 864 | 去重后的事件 type 数 | c07 §1；c07 §5 |
+
+### 3.2 六条老结论被本轮实测改掉（2026-11-17，快照 `245d61164`）
+
+这些不是转引，是本会话在自己克隆的树上数出来或读脚本读出来的。旧说法留在括号里，方便对账。
+
+1. 评论差不是抓取截断，是嵌套。`comments/` 104 个文件里 `comments[]` 有 405 条顶层评论，`replies` 里另有 233 条，两者相加 638，与该批文件 `total` 字段之和 638 完全相等（逐文件求和，脚本 `tools/c05_comments.py` 同口径）。上游 `scripts/discussions.mjs:67` 就是按 `1 + replies.length` 累加出 `total` 的，所以这个定义从写入那天就定了。（旧说法：398/628 ≈ 63.4%，快照按分页截断。那条现已作废。）
+2. 后果：c05 与各报告里所有「评论数」都只数了顶层。真实语料规模比这些数大 57%（233/405）。要按全量算比例，先把 `replies` 展平，别沿用旧分母。
+3. 索引仓标签词表是 29 个词，取自 `TAGS.md` 表格首列，与 `index.json` 的 `tags` 字段条数一致：apps、browser、companion、computer-use、coopanion、corti、creative、diagnostics、experimental、external-setup、game、high-cost、im、injection-risk、internal-state、internet、local、memory、pal-ai-world、qq、real-world、requires-extension、requires-key、sensitive-data、streaming、unofficial-api、unsafe、video、voice。`TAGS.md` 另有六节：不予接受、怎么挑、谁来加减、官方标记、普通标签、notice 与 warning 标签。（旧说法：词表全集未取枚举。）
+4. 封禁名单现在取得到，共 18 个包、0 个发布者，全在 `index.json` 的 `blocked.packages`，每条带中英双语理由。理由集中在三类：改写宿主程序文件或替换内部方法（12 个，如 coo-control、ellen-page-patch、localvision、perch）、冒名与下架申请（tat-connect 冒 Pal AI Lab、tat-connect-next 与 humanize 作者自请下架）、借别人的 key（vtube 未填 key 时从各服务 .env 借一把）。`blocked.publishers` 是空字典，所以「同一作者两次拉黑会连账号一起封」这条只有规则文本，没有实例。（旧说法：18 条完整名单不在任何报告里。）
+5. `official` 有两种东西，别混。`index.json` 的 `official` 是判据（maintainers 里含 phantivia、githubOwner 是 Pal-AI-Lab、或显示名命中 Pal AI Lab / Cortico / Coopanion），是 3 个键；catalog 里 `official: true` 的包是它的结果，`245d61164` 上有 7 个：cortico-provider-coo、cortico-world-bilibili、coocowork、minecraft、qq、qqbot、websearch。`certified` 17 个、`overrides` 148 条、`newDays` 14。（旧说法把 7 与 3 混成过一回事。）
+6. 维护者回复按包算是 22/104 有、82/104 没有（78.8%），官方账号回复涉及 5 个包。回复条数是 64 与 5。旧表那组 24/80 与 76.9% 是 353 时点同一脚本同规则的结果，口径没变，数随 sync 漂。
 
 ### 3.1 2026-11-16 与 11-17 的现算分母（索引仓三次 auto-sync）
 

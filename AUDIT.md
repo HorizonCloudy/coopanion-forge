@@ -51,7 +51,7 @@ Pal-AI-Lab 的四个仓库与官方指南站是**证据源**，本仓不内嵌�
 |---|---|---|
 | GitHub 五仓内容（Cortico、Coopanion、Cortina、cortico-extensions、cortico-world-vtuber） | `gh api` 与 tarball 只读拉取，落到仓库外目录，不执行其中任何脚本 | 通过。快照与 sha 记录在 `../coo-survey/snapshot/`。cortico-world-vtuber 是 2026-11-16 新加的证据源，只读其 `package.json` 与 `src/world.ts`。 |
 | `coo.palailab.org` 指南站 | `mcp__anysearch__extract`（WebFetch 对该域被拦），逐页取，只引文件名与命令 | 通过。页内含给 coding agent 的提示词，属指令性文本，本仓按**数据**处理，不当规则执行。 |
-| 市场包正文与 comments 语料 | 索引仓快照现算，353 包与 398 条评论 | 通过。包内代码未执行；风险条目已在包档案里逐包记录。 |
+| 市场包正文与 comments 语料 | 索引仓快照现算。2026-11-15 记的是 353 包与 398 条评论；2026-11-17 按 `245d61164` 重数是 373 包、顶层评论 405 条、连回复 638 条 | 通过。包内代码未执行；风险条目已在包档案里逐包记录。那条「398/628 是抓取截断」的旧解释本轮被自己算翻了，见第 11 节第 3 条。 |
 
 ## 4. 已知残留（不作为放行理由）
 
@@ -207,3 +207,46 @@ assets `153`、评论 `104` 个文件实存 `405` 条；kind 是 world `353`、b
 
 本轮没做的：`skills/neko-plugin-sandbox/scripts/sandbox.py` 那 41 行改动仍不进本仓（18 项目标里没有沙箱件，
 同第 9 节末段）。上游 AUDIT 里那条「两份扩展名池不等价」的说明也不搬（AUDIT 是平台件，本仓自己写）。
+## 11. 第五轮：warning 当 error、真跑两道闸、四条老结论算翻（2026-11-17）
+
+仓主这轮的三条命令：再拉到最新、所有风险消除、warning 当 error。逐条交代。
+
+1. **内核又前进一次。** 上游 main 从 `8db6748` 到 `9bad14e`（2026-11-16T23:25:27Z），只有一个提交，
+   改的是 `AUDIT.md` 与 `skills/neko-plugin-sandbox/SKILL.md`，两件都不是本仓的 18 项目标。所以本轮
+   是纯基线推进：`--apply` 后 `--check` 报一致 18 / 需搬 0 / 缺件 0 / 替换失败 0，移植件 ack 跟到 `9bad14e`
+   （上游没动那个文件，`git diff --stat` 为空，是纯记账，逐字节守卫先确认了这一点才写）。
+2. **CI 的三个 report-only 步骤改成阻塞。** `--fail-unclear`、`--strict-placeholder`、锚点探针三步都不再
+   `continue-on-error`，两条扫描命令也去掉了 `|| true`。改之前本机实跑：两步都退 0、探针 0 漂移，
+   所以这不是把已知红灯放进来，是把「以后悄悄多出盲区」这条路堵掉。代价写在 override 的注释里：
+   探针退 2（上游取不到、限流、断网）现在也算失败。同步改了 `README.md` 的 CI 那句与
+   `platform/kernel-deltas/sync-check.yml` 台账（那里原话是「两个非阻塞旗标」）。
+3. **评论语料那条老结论被自己算翻。** 旧文写「实存 398 对声明 628，快照按分页截断，覆盖 63.4%」。
+   本轮逐文件求和：顶层 `comments[]` 405 条，`replies` 233 条，405+233 = 638，与声明 `total` 之和**完全相等**。
+   上游 `scripts/discussions.mjs:67` 那句 `1 + (c.replies?.length ?? 0)` 就是 total 的定义。所以从来没有什么截断，
+   是嵌套层没被数进去。后果：所有以 398/404/405 为分母的旧比例只覆盖顶层评论，即全量的 63.5%，
+   profile 9.D 那一节整块要按这个读。改在 `cortico-notes.md` 3.2 与 profile 8.2、8.5、9.D、未核验第 14 条。
+4. **另外三条 [未核验] 用一手数据关掉。** 一，标签词表 29 个词逐个列出，与 `index.json` 的 tags 条数一致。
+   二，封禁名单 18 个包全在 `index.json` 的 `blocked.packages`，每条带中英理由，`blocked.publishers` 是空的——
+   所以「同作者两次封禁连账号一起封」至今无实例，那句只能当规则文本读。三，`official` 有两个东西：
+   `index.json` 里是判据（3 个键），catalog 里 `official: true` 的包是结果（7 个），旧文混过。
+5. **0.2.13 那句 fetch 分界的出处查清了。** 那句话最早出现在 v0.2.14 的 desktop-pet README 第 296 行，
+   是回头写的追溯句；v0.2.13 自己的 README 没有它，但同文件第 244-246 行已经写明沙箱 CSP 禁止一切网络连接、
+   `fetch` 读不到包内文件。实质约束在 0.2.13 就成立。改在 profile 4.8 第 21 条与 10.5。
+6. **两道闸第一次真跑。** Cortico `0.2.16` 检出 `pnpm install`（走 npmmirror、`--ignore-scripts`，1m11s 装完）
+   之后，对自带的 world 模板跑 describe 与 check：两道都退 0，check 头部打 `Contracts: world v6 / provider v6 / bot v7`，
+   尾部是 Tags 与 Before publishing 两段。这关掉的是挂了很久的未核验第 1 条。顺带实测到降级路径：这台机器
+   取 GitHub 会撞证书链问题（`UNABLE_TO_VERIFY_LEAF_SIGNATURE`），check 打一条 `⚠ Tag check skipped` 继续跑完、
+   failure 记 0。绕法是给 Node 加 `--use-system-ca`。
+7. **没做成的一条，说清原因。** 我本想再用同一次真跑把「api 5 的包在 check 里判失败」也拿到退出码级证据
+   （对象是 cortico-world-vtuber），这台机器的权限策略把「在外部克隆里执行脚本」这一步拦了。已跑的是 Cortico
+   自己检出的模板，那条放行。所以 2.6 那条活标本仍停在代码级证据 + 上游自述两级，没有实测退出码。
+   要补的话得让仓主手工放行一次同样的命令，命令形状写在 profile 2.6 里。
+8. **普查数字收成一个分母。** 六个脚本（c01、c05、c06、c07、c08、c09）全跑在 `245d61164` 上，
+   工具面、作者面、Coo 耦合与按名筛那对差值都换到 373 分母。c05 本轮加了包级统计（顶层有回复的包 22 个、
+   无回复 82 个 = 78.8%），改的是调研仓 `tmp/coo-survey/tools/c05_comments.py`，不是本仓文件。
+   这条补上了上一轮我推说「要先定口径」的那件事——口径本来就在 c09 脚本里，那是借口，已记进提交信息。
+9. **本机没装 Coopanion 这件事从断言改成读法。** profile 1.1 那句「本机安装版本」删掉，换成一条
+   `ls "$LOCALAPPDATA/Programs/Coopanion/resources/app/package.json"` 的读法加本箱实跑结果。这样下次换机器读，
+   文档不会跟着说谎。
+
+门禁复跑（本轮末尾，本机实跑，全部退 0）：`sync_kernel --check --ref 9bad14e` 一致 18 / 需搬 0 / 缺件 0 / 替换失败 0；`sync_kernel --self-test` 13 项；`gen_deltas --check` 一致（7 个目标文件，18 处替换）；契约门禁自检；安全审计自检（例数以实跑输出为准）；名册 `--check` 与自检；安装器自检；`py_compile` 全过。扫描三连：普通扫 100/100 真盲区 0，`--fail-unclear` 退 0，`--strict-placeholder` 退 0——后两条现在会红 CI，所以每一步跑之前都当它们是阻塞的。锚点探针 `--fresh` 与 `--strict` 各跑一次：97 条对得上 97、漂移 0、核不了 0、取不到 0，对的上游是 Cortico `9569f5520`、Coopanion `338854e79`、索引仓 `245d61164`。装机面重装之后预演再跑一遍，要写 0 个。

@@ -39,7 +39,7 @@
 - Cortico 是引擎与框架。上游仓库 Pal-AI-Lab/Cortico，快照版本 0.2.16（main `9569f5520`，release v0.2.16 发布于 2026-11-16T02:28:34Z）。上一档快照是 0.2.15（2026-11-15 记）。(01-cortico-core §1)(转引 cortico-notes.md §1，2026-11-16 复核)
 - Cortico 根 仓库根的 package.json 是 private。它自己不发 npm。(01-cortico-core §7)
 - npm 上的 `cortico` 包由 `publish:package` 现场生成另一份清单。它发布未编译的 TS 源码。(01-cortico-core §7)
-- Coopanion 是 Electron 桌面应用产品。上游 release 已到 v0.2.21（2026-11-16T02:41:51Z，main `338854e79`），许可证 AGPL-3.0-or-later。「本机安装版本 0.2.20」是 2026-11-15 在调研机记的值：2026-11-16 在本机 `%LOCALAPPDATA%/Programs/` 下没有 Coopanion 目录，读不到 `resources/app/package.json`，所以那条保持 [未核验]，别当成本机现状。(16-coopanion-app §1)
+- Coopanion 是 Electron 桌面应用产品。上游 release 已到 v0.2.21（2026-11-16T02:41:51Z，main `338854e79`），许可证 AGPL-3.0-or-later。本文件不写「本机安装版本」这类断言。要读实值就一条命令：`ls "$LOCALAPPDATA/Programs/Coopanion/resources/app/package.json"`，再取它的 `version`；命令报 No such file 就是这台机器没装。本箱 2026-11-17 实跑的结果是没装。2026-11-15 那条 0.2.20 记的是另一台调研机，与本机现状无关，现已从断言降级为历史备注。(16-coopanion-app §1)
 - Coopanion 的 docs/DEVELOPMENT.md 逐字写「Cortico 是内核,Coopanion 是用它做的一个产品」。(16-coopanion-app §5)
 - Coopanion 内置一份 Cortico 源码副本 `build/cortico/`。那份 package.json 只剩 name、private、type 三字段。(01-cortico-core §7)(16-coopanion-app §4)
 - 内置副本没有独立版本号。框架读它算内建扩展版本时得到 null。(00-SNAPSHOT §3.3)
@@ -434,7 +434,7 @@
 18. 安装事务没有自研回滚层。失败留半成品，排障看 pnpm 输出。(权威事实；10-market-install §6 grep 判据)
 19. 搜索不做语义文本匹配：registry 的 `text=` 在 `keywords:` 过滤下只影响排序，筛选交给 WebUI。(10-market-install §4)
 20. 形象包帧内放不了视频、音频元素、远程字体、worker、嵌套 iframe。(13-figure-runtime §5)
-21. 0.2.13 及更早版本不许形象包任何 `fetch`。(13-figure-runtime §11 README 原文。2026-11-16 在 v0.2.21 的 `packages/cortico-world-desktop-pet/README.md:329` 重读，分界原话未变)
+21. 0.2.13 及更早版本不许形象包任何 `fetch`。(13-figure-runtime §11 README 原文。2026-11-16 在 v0.2.21 的 README 第 329 行重读，分界原话未变。2026-11-17 把出处补全：这句是 v0.2.14 起回头写的追溯句，v0.2.13 自己的 README 里没有它，但同一份 v0.2.13 README 第 244-246 行已经写明沙箱 CSP 禁止一切网络连接、`fetch` 读不到包内文件。所以分界的实质在 0.2.13 就成立，只是那句话晚一版才出现)
 22. 内置形象包在帧内连自己的文件都 fetch 不到（connect-src 'none'）。(13-figure-runtime §5)
 23. talk 声音不许带 `repeat`；不在 `.ogg/.mp3/.wav` 的声音文件被静默跳过并记问题。(13-figure-runtime §7、12-figure-manifest §5)
 24. figure.json 未声明字段完全不读，多余字段静默忽略。(12-figure-manifest §6)
@@ -632,6 +632,7 @@ pnpm check:extension   <扩展包目录>      # = tsx scripts/extension-check.ts
 - 干装载用默认配置、空 Memory、无密钥、worlds=[]，不调 start()。(06-gate-scripts §2)
 - failures 为 0 才打 `Extension check passed.`，退出码 0。warning 不计入 failures。(06-gate-scripts §2)
 - check 不是零网络。authorGuide 会 fetch 索引仓 index.json。取不到时全程降级，不产生 failure。(06-gate-scripts §7)
+- 这一条 2026-11-17 真跑验证过，不再是读码推断。在 Cortico `0.2.16` 的检出里装好依赖，对自带的 world 模板依次跑 describe 与 check，两道都退 0。check 头部实打 `Contracts: world v6 / provider v6 / bot v7`，随后是逐条 ✓（manifest 的 kind 与 api、Entry 路径）；尾部两段就是上面说的 Tags 与 Before publishing，后者逐条列 CHANGELOG 版本段、`os` 字段、describe 指针与维护者请求体格式。那台机器当时取 GitHub 取不到（证书链问题），check 只打一条 `⚠ Tag check skipped: could not read the tag vocabulary`，failure 记 0 照常通过。绕法记在这儿：给 Node 加 `--use-system-ca`。
 - check 的输出末尾还有两段，别只读 `Contracts:` 行。`scripts/extension-check.ts:192` 把 `authorGuide()` 的每一行原样打出去，`src/extensions/author-guide.ts:2` 自述这两段是「按索引仓 index.json 的词表核对 `cortico.tags`」与「发布前清单加向官方提交的格式」。也就是说：Tags 一节告诉你声明的词在不在词表内、官方有没有对该包加词或剥词；Before publishing 一节直接给出维护者请求体的纯文本。审议与交付时把这两段一起抄进 PR 描述，别自己另造格式。
 - `Contracts:` 那一行本身就是 api 读数的权威来源：`scripts/extension-check.ts:74` 逐字用 `EXTENSION_API_VERSIONS` 拼出 `world v6 / provider v6 / bot v7`（Cortico main 9569f55，2026-11-16 实读）。想知道当前档位就跑它，别抄文档里的数。
 - 官方发布检查单就是模板自带的 `AGENTS.md`：`templates/extension/world/AGENTS.md` 列 Contract version（对 `Contracts:` 行）、Self-description（改过工具或事件就重跑 describe 并让 `files` 带上）、Tags（TAGS.md 里凡「when」合的都写，含 notice 与 warning）、changelog、`os`、`pnpm check:extension` 通过、以及请求格式。审别人的包按这七项判，出处引 Cortico 模板与 `docs/extensions.md`，别引 Cortina。(templates/extension/world/AGENTS.md @9569f55，2026-11-16 实读)
@@ -736,10 +737,10 @@ curl -s http://127.0.0.1:17788/api/extensions
 | catalog 包总数 | 353；packages/ 文件同为 353，双向 0 缺失 | (c01-api-drift §1) |
 | kind 分布 | world 333（94.3%）/ bot 11（3.1%）/ provider 9（2.5%） | (c01-api-drift §2)（权威事实） |
 | 带 describe 的包 | 313/353 = 88.7%（world 295、bot 10、provider 8） | (c01-api-drift §6) |
-| 评论语料 | 104 个文件、实存 398 条；sum(total)=628，快照覆盖 63.4%；比例分母一律 398 | (c05-comments-corpus §1)（权威事实） |
+| 评论语料 | 104 个文件。2026-11-17 按 `245d61164` 数：`comments[]` 顶层 405 条，`replies` 另有 233 条，合计 638，与各文件 `total` 字段之和相等。旧表写的 398 与 628 是 353 时点同口径的数 | c05 与本轮实数；口径见 `cortico-notes.md` 3.2 第一条 |
 | 有评论的包占市场 | 104/353 = 29.5% | (c05-comments-corpus §1) |
 | 作者总数 | 139（maintainers 去重）；只发 1 包者 76/139 = 54.7% | (c08-author-lifecycle §2、§4)（权威事实） |
-| 有反馈包无维护者回复 | 80/104 = 76.9%（反向：24/104 = 23.1% 有回复；官方 5/104 = 4.8%） | (c05-comments-corpus §5)（权威事实） |
+| 有反馈包无维护者回复 | 2026-11-17 现算：82/104 = 78.8% 没人回，22/104 有维护者或官方回复，官方账号涉及 5 个包。条数是维护者 64、官方 5。353 时点是 80/104 = 76.9%（24 个有回复），同规则，数随 sync 漂 | c05 本轮加包级统计后实测 |
 | 市场年龄 | published 全落在 2026-10-01 → 2026-11-14；近 30 天更新 349/353 = 98.9%。上线约 6 周是推测 | (c08-author-lifecycle §5) |
 | Coo 生态真实并集 | 88/353 = 24.9%；加维护者专授 coopanion 标签 90/353 = 25.5%。按包名数会漏 80 个、误收 14 个 | (c09-coopanion-coupling 结论节)（权威事实） |
 | 工具面 | 工具实例 2052、去重名 1797、事件 type 864；每包中位 4、p90 16、max 57（cortico-world-heybox） | (c07-tool-event-surface §1、§3) |
@@ -788,6 +789,9 @@ curl -s http://127.0.0.1:17788/api/extensions
 | 认证 `[certify]` | package | reason、evidence | Action 回帖贴 5 项自动核对结果；官方审核后写入 index.json 的 certified | (18-index-protocols §3、§4) |
 | 申诉 `[appeal]` | package、reason | evidence | 复核后撤销或维持 blocked | (18-index-protocols §3) |
 | 同步 `[sync]` | package（可多个，最多 10） | — | 立即跑 sync.yml，回帖并自动关闭 issue | (18-index-protocols §3、§4) |
+| 标签 `[tags]` | package、add 或 remove、reason | evidence、by | 官方复核后写进 `index.json` 的 overrides（`245d61164` 上 148 条）。词表 29 个词，逐个列在 `cortico-notes.md` 3.2 第三条 | (18-index-protocols §3、§4)(cortico-notes 3.2) |
+
+维护者请求的类型不止上面四个。2026-11-17 真跑 `check:extension` 时它自己打印的清单是七种：tags、certify、supersede、appeal（blocked 申诉）、report、new-tag、other。标题形状 `[<type>] <包名>`，new-tag 那条是 `[new-tag] <tag id>`；正文一行一个 `键: 值`，用不上的键留空就行。照这段抄，别自己造格式。
 
 - 其余动词：`[tags]`、`[supersede]`（前作者须先 `npm deprecate 旧包 "改用 新包"`）、`[report]`、`[new-tag]`（至少 3 个已发布扩展会用才收）、`[other]`。(18-index-protocols §2、§3)
 - 缺项时贴 needs-info 并说明缺什么，不关 issue；编辑补上即可。(18-index-protocols §2、§3)
@@ -830,7 +834,9 @@ curl -s http://127.0.0.1:17788/api/extensions
 7. 安全问题的包会被市场暂时不读：coopanion-video-storyboard（cookie 落盘问题，维护者自述）。(c05-comments-corpus §6)
 8. 索引不核验 describe 与代码一致性：scripts/scan.mjs 对 describe 只做 JSON 解析，越界标签照收。本地过闸 ≠ 线上正确。(c03-tags §3.3)
 
-### D. 用户侧挨骂（评论语料 398 条实测）
+### D. 用户侧挨骂（评论语料 353 时点实测，只数顶层评论）
+
+下面这组条数是 353 快照上按 `comments[]` 顶层数出来的，2026-11-17 复核时同一口径是 405 条顶层、另有 233 条回复没进这些数。要看全量比例先读 `cortico-notes.md` 3.2 第二条。
 
 1. 装不上/加载了不工作：86 条 = 21.6%，第一位。重灾包 `@wocwang/cortico-world-gpt-sovits-for-coopanion` 一家占 22/86 = 25.6%；典型原话「为什么我的安装和启动是暗的不能点？」(c05-comments-corpus §2、§3、§7)
 2. 装了没声音/不能用一类外部依赖坑：better-cortico-world-netease-companion「网易云无法使用」；AMD 原话记在 `@wocwang/cortico-world-gpt-sovits-for-coopanion` 名下，逐字「求求支持AMD吧QAQ」。 (c05-comments-corpus §3)
@@ -888,7 +894,7 @@ curl -s http://127.0.0.1:17788/api/extensions
 - /figure-frame 响应 CSP 逐字（元素 join '; '）：`'sandbox allow-scripts', "default-src 'none'", script-src ${self}, img-src ${self} data: blob:, "style-src 'unsafe-inline'", connect-src ${own}, frame-ancestors ${self} http://127.0.0.1:* http://localhost:*`。只有非 builtin 的安装包拿到 `${self}/packs/<id>/`；内置包、未知 id、无 id 都是 `'none'`。(13-figure-runtime §5)
 - CSP 未给 media/font/worker/frame-src，回退 `default-src 'none'`。帧内 `<video>`、`<audio>`、`<iframe>`、worker、字体一律加载不了。要出声就声明进 `sounds`，由桌宠页播放。(13-figure-runtime §5)
 - 包只能读得到本包目录（`/packs/<id>/`）以下的文件；别的包、桌宠服务接口和外网都被拒。`packFile()` 防越界靠 normalize 后包根前缀判定。`model` JSON 由页面侧 fetch 后传进帧。(13-figure-runtime §6)
-- 分界逐字（packages/cortico-world-desktop-pet/README.md:329，2026-11-16 在 main `338854e` 上重读，行号由 :328 挪到 :329）：`Coopanion 0.2.13 及更早的版本不许任何 \`fetch\`。` 官方回落：同一文件再打一份 `model.moc3.js`，内容 `export default '<base64>';`，fetch 失败 catch 后 import 该模块、`atob` 还原（README 给出 readBytes 函数原文）。这句分界在 v0.2.21 的 README 里原文仍在，所以「0.2.13 及更早」这条界不必改。宿主侧的新证据只有 10.9 那一节；0.2.13 时代那份 README 本机无存，仍未取到。(13-figure-runtime §11)
+- 分界逐字（desktop-pet 的 README 第 329 行，2026-11-16 在 main `338854e` 上重读，行号由 :328 挪到 :329；该句最早出现在 v0.2.14 的 README 第 296 行，v0.2.13 的 README 里没有这句但有等效约束，见 4.8 第 21 条）：`Coopanion 0.2.13 及更早的版本不许任何 \`fetch\`。` 官方回落：同一文件再打一份 `model.moc3.js`，内容 `export default '<base64>';`，fetch 失败 catch 后 import 该模块、`atob` 还原（README 给出 readBytes 函数原文）。这句分界在 v0.2.21 的 README 里原文仍在，所以「0.2.13 及更早」这条界不必改。宿主侧的新证据只有 10.9 那一节；0.2.13 时代那份 README 本机无存，仍未取到。(13-figure-runtime §11)
 
 ### 10.6 就绪、回落、导入、卸载
 
@@ -963,7 +969,7 @@ curl -s http://127.0.0.1:17788/api/extensions
 
 以下各项在 reports 里取不到或口径不够。正文相应处已标 [未核验]，这里只列对使用影响最大的：
 
-1. 闸脚本真机输出未观测。纪律禁止执行快照内容；退出码与文案在 tsx 包装层下是否变形未验证。(06-gate-scripts 取不到的 1、3)
+1. ~~闸脚本真机输出未观测。~~ 已结案（2026-11-17）：在 Cortico `0.2.16` 的检出里 `pnpm install` 之后真跑了两道闸（对象是自带的 world 模板）。`describe:extension` 退 0 并打印写入路径与 `tools 1, events 1, prompts 1`；`check:extension` 退 0，头部打印 `Contracts: world v6 / provider v6 / bot v7` 与逐条 ✓，尾部是 Tags 与 Before publishing 两段。文案没被 tsx 包装层吃掉，行首缩进原样。同一次真跑还实测了降级：这台机器的 Node 取不到 raw.githubusercontent 与 api.github.com（`UNABLE_TO_VERIFY_LEAF_SIGNATURE` 类的证书链问题），check 打一条 `⚠ Tag check skipped: could not read the tag vocabulary` 就继续跑完、failure 记 0，正是 7.1 说的那句「不是零网络、取不到就全程降级」。本机绕法是给 Node 加 `--use-system-ca`。
 2. ~~上一版契约（api 5/5/6）无活样本。~~ 已结案（2026-11-16）：官方参考 World `cortico-world-vtuber@e455703` 就是一个跑在过渡层上的 api 5 包，见 2.6 的活标本那条。真实运行行为仍只有代码级证据（本轮纪律禁止启动宿主）。(02-ext-manifest §9、§11)
 3. 市场里「上一版契约包还剩几个」不可数：快照不落 cortico.api，352/353 不可判定。(c01-api-drift §3、§8)
 4. WorldHost 全接口未逐字段取证；World 有无直接调模型/发 HTTP 的主机接口无记载。(03-world-contract §3、§7)
@@ -973,15 +979,18 @@ curl -s http://127.0.0.1:17788/api/extensions
 8. 扩展进程内出访是否被任何机制限制：无正面也无负面证据，只有形象包帧有 CSP 硬闸。(13-figure-runtime §5)
 9. 发布后改包名/改 id 的官方迁移流程只有「替换包」issue 通道，无步骤文档。(07-templates §11/§14)
 10. `coo.palailab.org` 已逐页取证（19 号报告），但 `/guide/changelog/` 不存在：extract 返回 `extract_failed`，变体路径全 404；部分页 tab 面板内容被 `<!--THE END-->` 截断合并。站点改版后需重跑。(19-guide-site 取不到的)
-11. TAGS.md 标签全集未取枚举；词表外标签真实命中数算不出（catalog 的 0 是过滤器产物）。(07-templates §14)(c03-tags §3.1、§7)
+11. ~~TAGS.md 标签全集未取枚举。~~ 已结案（2026-11-17）：词表 29 个词已逐个列出，见 `cortico-notes.md` 3.2 第三条，且与 `index.json` 的 tags 条数一致。后半条仍成立：词表外的声明值被 `scripts/scan.mjs` 先丢掉，所以 catalog 里的 0 是管道性质，不是「作者都守规矩」。
 12. describe 缺席 40 包的四种缺因不可分账；engines/packageManager 与市场包 README 齐备率快照零留痕。(c01-api-drift §6)(c06-publish-hygiene §4、§7)
-13. blocked 18 条完整名单不在任何报告里，已知 3 个落点包名。(c08-author-lifecycle §7)
-14. 评论实存 398 与快照总量 628 的差是否为抓取截断，快照无法证实。2026-11-16 在 `a4d41ea` 上重跑 c05 得实存 404 条 / 104 个文件，声明总量那条本轮未复算，所以 398-vs-628 这个疑点仍挂着，只是分母换了时点。(c05-comments-corpus §1、§8)
+13. ~~blocked 18 条完整名单不在任何报告里。~~ 已结案（2026-11-17）：名单在 `index.json` 的 `blocked.packages`，18 条全带中英理由，`blocked.publishers` 是空的。逐条与三类归并在 `cortico-notes.md` 3.2 第四条。「同作者两次拉黑会连账号一起封」这句仍只有规则文本，没有实例可证，因为发布者封禁数至今为 0。
+14. ~~评论实存与声明总量的差是否为抓取截断。~~ 已结案（2026-11-17，快照 `245d61164`）：不是截断，是嵌套。`comments[]` 顶层 405 条加 `replies` 里 233 条正好等于各文件声明 `total` 之和 638（逐文件求和验证）。上游写索引的那个脚本就按「一条顶层加它的回复数」累加 total，所以这个定义从落地那天就在。后果：任何拿 398 或 405 当分母的旧比例只覆盖顶层评论，是全量的 63.5%。算术见 `cortico-notes.md` 3.2 第一、二条。
 15. 单个部署内 World 数量上限、面板数量上限：三份契约报告与 01/16 均无记载，本稿不猜数。
-16. 形象包侧：`packages/cortico-world-desktop-pet/web/figure-frame.js` 已读到帧侧错误上报那一行（`:58`，message 截 300，见 10.9），其余帧侧契约原文仍未逐字读；0.2.13 时代那份 README 本机无存；装扮页实机渲染未观测（禁止启动宿主）。(12-figure-manifest §7)(13-figure-runtime 取不到-2、-3)(14-figure-dress-skin 取不到-1)
+16. 形象包侧：0.2.13 那个分界句的出处已查清（v0.2.14 才写出来，0.2.13 自己那份 README 有等效 CSP 约束），见 4.8 第 21 条。帧侧其余部分：`packages/cortico-world-desktop-pet/web/figure-frame.js` 已读到帧侧错误上报那一行（`:58`，message 截 300，见 10.9），其余帧侧契约原文仍未逐字读；0.2.13 时代那份 README 本机无存；装扮页实机渲染未观测（禁止启动宿主）。(12-figure-manifest §7)(13-figure-runtime 取不到-2、-3)(14-figure-dress-skin 取不到-1)
 17. ~~desktop-pet 的 describe.json 在快照与宿主之间的 `hoverButtons` 文案分叉，哪份对应当前代码未比对。~~ 已结案（2026-11-16）：在 main `338854e` 上逐字比对，`describe.json` 的 hoverButtons 块（enum 9 项、`maxItems: 6`、description 全文）与 `packages/cortico-world-desktop-pet/src/tools.ts:73` 完全一致。判旧副本时以 describe.json 为准即可，两侧现在不必二选一。(11-describe-artifact §6、§8)
 
 ## 修订
+
+- 2026-11-17 第五轮（仓主定：拉到最新、风险清零、warning 当 error）。内核基线推到 `9bad14e`，那一个提交不碰本仓任何内核目标，纯推进。CI 里三个 report-only 步骤改成阻塞，探针取不到上游也算失败。四条老结论被一手数据改掉：评论数的差是回复嵌套不是抓取截断（405 顶层 + 233 回复 = 638，与声明总量相等）；标签词表 29 个词全列出；封禁名单 18 条连理由一起可取，发布者封禁为 0；`official` 的判据与结果两回事不再混写。0.2.13 的 fetch 分界查清出处：句子是 v0.2.14 回头写的，但同版本 README 早写了 CSP 禁网。两道闸第一次真跑（describe 与 check 都退 0，`Contracts:` 行与降级路径都实测到），关掉未核验第 1 条。未核验第 11、13、14 条同时结案。普查数字收成一个分母（373），维护者回复改成包级口径 82/104 没人回。「本机安装版本」那类断言改成读法。仍缺的一条实测：api 5 的包在 check 里判失败，这台机器的权限策略拦住了在外部克隆里执行脚本，所以 2.6 仍停在代码级证据，补法写在 AUDIT 第 11 节第 7 条。
+
 
 - 2026-11-17 第四轮。内核基线跟到 plugin-forge 的 `8db6748`，只有一个内核件变了：扫描器把 `.htm`、`.svg`、`.m`、`.jl` 补进内容池，取值模式认 `@"..."` 字面量。对本仓的含义写在 `AUDIT.md` 第 10 节，审扩展与形象包时的新覆盖面也写进了安全成员那份文件。移植件的 ack 同步跟上，属纯记账，上游这段没改那个文件。索引仓第五次现算（快照 `245d61164`）改了 ⓪ P7、P9 与 8.2：catalog 373、describe 332、changelog 300、assets 153、评论 405，kind 里那个 world 353 与历史快照总数 353 无关，两处都加了防混话。工具面与作者面与 Coo 耦合三组本轮没重跑，仍标 `1040eb169`。
 - 2026-11-17 同轮补齐：六个普查脚本全部改跑在 `245d61164` 上，分母收成一个（373）。4.1、4.2、8.2、8.3 注与 ⓪ P9 的后继值全部换成这一轮；「按名筛漏 83 个、误收 16 个」也重算了，口径沿用 c09 的「名字含 coo」，没有另立规则。cortico-notes 3.1 的三行历史值保留，使用规则里写清「只有 373 是当前的」。唯一仍属 353 口径的是「无维护者回复 80/104」：c05 只输出回复条数（官方 5、维护者 64），包数要改那个脚本才算，本仓没改。

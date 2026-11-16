@@ -87,7 +87,7 @@ N.E.K.O 平台插件不归本团。N.E.K.O 的插件工作走上游 HorizonCloud
 
 ## 自检命令
 
-在仓库根运行。CI（`.github/workflows/sync-check.yml`）跑的就是这些 `--self-test` 与 `--check`。内核基线门禁 `tools/sync_kernel.py --check` 要一份 plugin-forge 的本地检出（`--upstream` 或 `FORGE_UPSTREAM`），CI 里没有那份检出，所以 CI 不含内核漂移这一步，它只在本地跑。
+在仓库根运行。CI（`.github/workflows/sync-check.yml`）跑的就是这些 `--self-test` 与 `--check`。内核基线门禁 `tools/sync_kernel.py --check` 要一份 plugin-forge 的本地检出（`--upstream` 或 `FORGE_UPSTREAM`），CI 里没有那份检出，所以 CI 不含内核漂移这一步，它只在本地跑。 CI 里另有三步是阻塞的：两个严格档旗标（`--fail-unclear`、`--strict-placeholder`）与锚点漂移探针。探针连上游取不到也算失败，不给你「没查到所以当没事」的空子。这三步在 2026-11-17 之前是 report-only。
 
 ```
 python scripts/generate_roster_tables.py --self-test

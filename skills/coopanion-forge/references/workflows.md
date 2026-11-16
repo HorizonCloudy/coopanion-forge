@@ -40,7 +40,7 @@
 
 - 轮 1 仓库：Pal-AI-Lab/Cortico 的 `templates/extension/` 与 `docs/`；Pal-AI-Lab/Coopanion 的 `packages/`；索引仓 Pal-AI-Lab/cortico-extensions 的 `packages/*.json` 与 `TAGS.md`。
 - 轮 2 包生态：npm 关键词 `cortico-world` / `cortico-provider` / `cortico-bot`。这是收录门槛，市场 353 个包 100% 带本类关键词（普查 c02，2026-11-15）；索引仓 catalog 同一批 353 个；官方指南 `coo.palailab.org/guide/make-extension` 与 `make-figure`，页内含给 coding agent 的整段提示词。
-- 轮 3 人问过没：索引仓的 discussions 与 `comments/*.json`（104 个文件、实存 398 条，2026-11-15）。反馈里已有同类功能请求就先做增量，别开新工程。
+- 轮 3 人问过没：索引仓的 discussions 与 `comments/*.json`（2026-11-17 按 `245d61164` 数：104 个文件、顶层评论 405 条、连回复共 638 条。`total` 字段含回复，只数 `comments[]` 会少三成）。反馈里已有同类功能请求就先做增量，别开新工程。
 - 判决落点：Join 是给 Cortico 或 Coopanion 提 PR；Extend 是挂在桌宠 World 的接缝上做扩展；Fork 是分叉既有 npm 包并保持同步；Build 是自建，第一行写不可复用原因。
 - 先判交付物类型再检索：换身体、加表情词表、配音属于形象包（`figure.json`，manifest 2 / api 2），不是 Cortico 扩展。按包名筛 Coo 生态会同时漏 80 个、误收 14 个（普查 c09），所以候选清单按字段与内容判，不按名字判。
 - 上架是独立动作：发到 npm 不等于进市场。收录、认证、标签走索引仓的 `[tags]` 与 `[certify]` issue，见 `references/cortico-notes.md`。
