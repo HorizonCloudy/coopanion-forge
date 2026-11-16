@@ -96,11 +96,11 @@ Pal-AI-Lab 的四个仓库与官方指南站是**证据源**，本仓不内嵌�
 
 待办（本批未做，逐条给触发条件）：
 
-- `tools/sync_kernel.py` 比对前不做行尾归一。本仓克隆是 `core.autocrlf=true`，所以上游带 CRLF 的那件在本地工作树也是 CRLF，比对恰好对上；换到 `autocrlf=input` 或 `false` 的克隆上，同一条会变成假漂移。触发：下一次有人报出与内容无关的漂移。本批留了一个实例：`skills/coopanion-forge/references/task-size-routing.md` 的工作树有 31 处 CRLF，因为上游同一件的 blob 就带 31 处 CRLF（实测 `git show HEAD:` 两侧），而本仓 blob 存的是 LF。做归一时要连 `--apply` 的落盘一起定（写 LF 还是原样），别只改比对。
-- `--port-done` 守卫不加 sha 校验，见第 4 节第 6 条末段。
+- ~~`tools/sync_kernel.py` 比对前不做行尾归一。~~ 已做（2026-11-16）：加 `same_eol()`，verbatim 与 delta 两处比较都先剥行尾差异，落盘仍按上游原字节。反向对照两次：把 `task-size-routing.md` 工作树全改成 CRLF（31 处）→ `--check` 仍报一致 18 / 漂移 0；改回 LF 也一样。真差异吃不掉：自检里 `same_eol(b"a\nb\n", b"a\nc\n")` 为假，写成第 13 条检查项。以前那种「上游 blob 带 31 处 CRLF、本仓 blob 存 LF」的写法差异不再会变成假漂移。
+- ~~`--port-done` 守卫不加 sha 校验。~~ 已做（2026-11-16）：`--port-done` 先把 `-kernel-incoming/` 里的原文与 `git show <ref>:<路径>` 逐字节比，不等就拒写并退 1。反向对照实测：把 ac9af4d 的原文（18958 字节）当 2d658a7（18937 字节）放进去，`--port-done` 报「incoming 与上游原文不一致」并退 1，`port-ack.json` 保持原值；换回正确原文后同一条命令退 0。留下的窄口子写在代码注释里：`--apply` 只在 ack 落后时刷新 incoming，所以手动改坏 incoming 时得自己重取。
 - ~~figure.json 进不进保护面：等仓主（HorizonCloudy）拍板。~~ 已决（2026-11-16，仓主选「加，走本仓 delta」）：`platform/deltas.json` 的 `check_contract_approval.py` 键加第 4 条，把 `figure.json` 补进上游 `MANIFEST_NAMES`（锚在 `:63` 那行，唯一命中）。实测 `is_protected` 现在对根目录与嵌套的 `figure.json` 都返回 True，门禁自检 PASS，`README.md` 仍 False（没把范围扩宽）。这条是本仓自加改写：上游哪天自己加上，锚点会失配、`--apply` 报错退出，那时撤掉这条，别留双重添加。
 - `profile-coopanion.md:28` 的「本机安装版本」这条在调研机上读不到实值（`%LOCALAPPDATA%/Programs/Coopanion` 空扫）。保持 `[未核验]`，拿到 `resources/app/package.json` 的 version 再改。
-- 市场普查的分母现在有三套：353（`f6d6ef5` 历史快照）、367（`a4d41ea`）、368（`1040eb169`）。Coo 耦合 88-90、工具面 2052/1797/864、作者 139 这几项没在新分母上重跑，只属 353 口径。该仓按小时 sync，所以这条会一直活着：引用前先跑 ⓪ P9，别凑。
+- 市场普查的分母现在有三套：353（`f6d6ef5` 历史快照）、367（`a4d41ea`）、368（`1040eb169`）。2026-11-16 已在 `1040eb169` 上重跑六个脚本（c01、c05、c06、c07、c08、c09），新数字落在 `references/cortico-notes.md` 3.1 与 profile 8.2、4.1、4.2。只有两项仍属 353 口径没重算：「按名筛漏 80 误收 14」那对差值（要先定「按名命中」的规则，本轮没做），和「有反馈包无维护者回复 80/104」（本轮 c05 只回回复条数：官方 5、维护者 63，包数要改脚本才算）。该仓按小时 sync，所以这条会一直活着：引用前先跑 ⓪ P9，别凑。
 
 ## 6. 同日第二轮：重新克隆六个仓（2026-11-16 午后）
 

@@ -336,7 +336,8 @@
 - Core 保留帧名共 1 个：`external_event_frame`。session 工具注册同名被拒。(05-bot-contract sessions、03-world-contract §4)
 - `tags` 为空数组只 warn，不参与任何 tag 过滤；`tags` 非数组是干跑 failure。(03-world-contract §4)
 - 运行期出现未声明进 `describe.tools` 的工具名时，照常生效，每个名字记一条 warn。(03-world-contract §4、05-bot-contract 运行期)
-- 市场实态：303 个带 `describe.tools` 的包里共 2052 个工具名，带合规前缀的 2049 个（99.9%），不合规 3 个：`surface`、`sh`、`stroll`。(03-world-contract §4)
+- 市场实态（353 时点）：303 个带 `describe.tools` 的包里共 2052 个工具名，带合规前缀的 2049 个（99.9%），不合规 3 个：`surface`、`sh`、`stroll`。(03-world-contract §4)
+- 市场实态（2026-11-16 现算，`1040eb169`，分母 368）：带 describe 的包 `327` 个，其中工具非空的 `288` 个（空工具包 39 个）。工具实例 `2171` 个，snake 写法 `2168` 个 = 99.9%，不带下划线的仍是 `3` 个（c07 那份输出只给数量，这轮没逐个列名）。`qq` 前缀 `143` 次，仍排第一。被两个以上包定义的工具名 `164` 个。(c07 现算，2026-11-16)
 - 包数口径提醒：分母三个值并存，引用前先统一。「带 `describe.tools` 的包」= 303（03 §4 口径）；「describe 产物在包内的包」= 313（c01-api-drift §6 口径）；「describe 在包内且工具非空」= 313 − 0 工具包 39 = 274（c07-tool-event-surface §1、§3 口径）。三个值出自三份脚本、三个判定条件，未互相核对。[口径未统一]
 - `qq` 前缀在扩展里出现 142 次，而 `qq` 同时是内建 World 的 id。撞名判定因此是运行时硬门槛。(03-world-contract §4)
 
@@ -351,7 +352,9 @@
 - 主循环在一批之内的轮次边界接收新事件：工具全部返回后，或 preempt、interrupt 取消模型轮后。(03-world-contract §3)
 - 仓内 World 没有任何一处把 `preempt` 或 `interrupt` 当字面量传给 `trigger:`（50 处中 0 处）。(03-world-contract §3)
 - 官方参考 World 的实操写法（cortico-world-vtuber@e455703 实读，裸文件名写法是故意的——探针不路由这个仓）：该仓 `world.ts:3262` 推 `vtuber.act.outcome` 时逐字写 `origin: 'external'` 与 `tags: ['speak']`，同一条 pushEvent 的第二参数给 `{ trigger: 'flush' }`（:3267）。外部事件按本节的缺省本该 debounce，它显式提档到 flush，为的是演出结果当轮就进模型。该仓另有 4 处 `flush`（:1745、:3246、:3378 与 :3267）。这是「外部事件不必一直等缺省」的一个官方先例，不是新规则。
-- 市场实态：952 条声明事件里 539 条（56.6%）不写档位走缺省；显式声明里 flush 223、debounce 135、piggyback 47、preempt 6、interrupt 2。(c04-capability-usage §3)
+- 市场实态（353 时点）：952 条声明事件里 539 条（56.6%）不写档位走缺省；显式声明里 flush 223、debounce 135、piggyback 47、preempt 6、interrupt 2。(c04-capability-usage §3)
+- 市场实态（2026-11-16 现算，`1040eb169`）：声明事件合计 `986` 条，其中 `561` 条（56.9%）不写档位走缺省。显式声明里 flush `227`、debounce `139`、piggyback `49`、preempt `7`、interrupt `3`。preempt 与 interrupt 两处样本数仍是个位数，本节上面那句「仓内 World 没有一处把 preempt 或 interrupt 当字面量传给 trigger」是仓内口径，市场里这 10 条属于第三方包。(c07 现算，2026-11-16)
+- 同一轮还数出标签实态：13 个不同 tag 值按实例排是 read `1047`、write `693`、act `353`、snapshot `166`、speak `132`、flow `32`，其余七个各不到 10。审议时判「该不该带某个 tag」可以先看这个分布。(c07 现算，2026-11-16)
 - Bot 侧 `eventDelivery` 只有 2 档：`'tool'`（默认，进保留的 external_event_frame 调用/回执对）与 `'user'`（进 user 消息，排在内部文本之后）。(05-bot-contract sessions)
 
 ### 4.3 UI 面板与路由
@@ -745,6 +748,8 @@ curl -s http://127.0.0.1:17788/api/extensions
 - 2026-11-16 二次刷新：上游 main 已到 `a4d41ea84184e33ce9879b8a805eb67c99666030`（08:58:52Z），比 3e02384 又多 27 个提交。上表整套数字仍是 `f6d6ef5` 快照时点（353 分母），一个字没改。新分母在下一条。
 - 现算分母（2026-11-16，快照 `a4d41ea`）：主理人会话把同一对脚本 `c01_api_drift.py` 与 `c06_publish_hygiene.py` 指向该 sha 的解包目录重跑，得 catalog `367`、packages 记录文件 `367`（双向 0 缺失）、kind 分布 `world 347 / bot 11 / provider 9`（347+11+9=367 自洽）、带 describe `326`（world 308、bot 10、provider 8）、CHANGELOG `294`（80.1%）、assets 目录 `152`、comments `104` 个文件实存 `404` 条。引用比例时必须声明分母：353 是历史快照，367 是现值，两套不得互换。Coo 耦合 88-90、工具面 2052/1797/864、作者 139 这三项本会话没重跑，仍是 353 口径。(c01 与 c06 对 `a4d41ea` 重跑，2026-11-16)
 - 再一次现算（2026-11-16 午后，快照 `1040eb169`，全新克隆）：该仓隔 41 分钟又 sync 一次，多一个包。catalog `368`、记录文件 `368`、kind `world 348 / bot 11 / provider 9`（348+11+9=368）、带 describe `327`（88.9%，缺 41）、CHANGELOG `295`（80.2%）、assets `153`、icon 齐 `153` 缺 `215`、`os` 声明 `103` 缺 `265`、comments 仍 `104` 文件 `404` 条。所以本仓现在有三套分母并存：353（`f6d6ef5`）、367（`a4d41ea`）、368（`1040eb169`）。引用时只准挑一套并标 sha。要新值就重跑 ⓪ P9，别拿旧表凑。逐项数字见 `cortico-notes.md` 3.1。
+- 上面 8.2 与 8.3 表里那几行 353 口径的数字，本轮已经有了实测后继。工具面：实例 `2171`、去重名 `1915`、事件 type `898`（旧记 2052 / 1797 / 864）。每包中位 `4`、p90 `16`、最大 `57`、空工具包 `39`。`qq` 前缀 `143` 次（旧记 142），不带下划线的工具名仍 `3` 个。作者：`144` 人，只发 1 包 `79` 人 = 54.9%（旧记 139 / 76 / 54.7%）。Coo 耦合：字段并集 `91/368` = 24.7%，加专授标签 `93/368` = 25.3%（旧记 88-90/353 = 24.9%-25.5%）。deprecated `22`、blocked `18`（其中 17 个还在 catalog）、certified `17`、official `7`。(c07、c08、c09 对 `1040eb169` 现算，2026-11-16)
+- 两项没重算，仍是 353 口径，别拿它们去除 368：「按包名数会漏 80 个、误收 14 个」那对差值，和「有反馈包无维护者回复 80/104」。后者的本轮 c05 只回回复条数（官方 5 条、维护者 63 条），包数要改脚本才能算。理由与口径差异写在 `cortico-notes.md` 3.1 第 4 条。
 - 索引仓许可证那条本会话核过，可以脱离 [未核验]：`1040eb169` 的全量克隆里没有 LICENSE 也没有 COPYING，REST 的 `license` 字段返回 null。本仓照旧只引用它的分类与统计事实，不内嵌其文本。
 - 本机缓存 catalog 是 351（写于 Nov 14 19:23）。353 与 351 是时点差，不是矛盾。(10-market-install §8、§9)
 
@@ -976,6 +981,7 @@ curl -s http://127.0.0.1:17788/api/extensions
 
 ## 修订
 
+- 2026-11-16 同日第三轮：普查数字在新分母上重跑。c01、c05、c06、c07、c08、c09 六个脚本都指向 `1040eb169` 的全新克隆跑过。4.1 与 4.2 各加一条现算的市场实态（工具实例 2171、去重名 1915、事件 type 898、声明事件 986 里 561 条不写档位、标签分布 read 1047 / write 693 / act 353 / snapshot 166 / speak 132），8.2 加两条后继数字与两项未重算的说明，`cortico-notes.md` 3.1 从三套分母扩成整张现算表、使用规则改成四条。旧表一律保留并标 353 时点，不覆盖。工具侧闭两条待办：`sync_kernel` 比较做行尾归一（`same_eol`），`--port-done` 加 incoming 与上游原文的逐字节守卫，两处都做了反向对照，细节在 `AUDIT.md` 第 5 节待办里那两条划掉的条目。
 - 2026-11-16 同日第二轮（重新克隆六个仓之后）。内核基线不变，仍是 GitHub plugin-forge 的 `2d658a7`：v2.7.5 那个提交没发到 main，本仓不跟，仓口口径见 `AUDIT.md` 第 7 节。本轮动三块。一，rbb 从 v0.3.12 / `4a14fbd` 升到 v0.3.20 / `8388e27`，七处落点全改，其中 workflows.md 两处与 NOTICE 一处走 delta，撤回条件写在 `platform/kernel-deltas/`。二，索引仓又 sync 一次到 `1040eb169`，本仓自己的 c01/c05/c06 在新克隆上第三次现算，得 368 / 327 / 295 / 153 / 404，kind 348+11+9=368；icon 153/215 与 `os` 103/265 这两个以前只转引的值第一次实测；8.2 加分母三套并存那条，8.3 加「本节是 353 时点」的前言，⓪ P9 换成三次现算的并排。三，索引仓的许可证从 [未核验] 升成实测：`1040eb169` 无 LICENSE 无 COPYING，REST license 返回 null。同时撤掉上午自己写过头的一句话——P9 里那句「旧的两处冲突在新 main 上不复现」只有 kind 加和那一条成立，331-vs-333 那条属 353 时点本会话没复算，已改成写清边界。同日还改了锚点写法本身：本轮新写约三十四条 `file:line`，第一次跑探针就报 21 条漂移，全是自己写坏的——Coopanion 的文件裸写 `src/...` 被路由到 Cortico，`maxItems: 6` 与 `slice(0, 300)` 这类数字被当成前一个锚点的行号。改法就是文件头新增的「写锚点的四条规矩」。改完探针报对得上九十八条、漂移零、核不了零。探针覆盖不到的三类（vtuber 仓、Coopanion 根的 console 与 app 路径、目录级写法）写在 10.9 末「覆盖边界」里，不再假装被机器核过。
 - 2026-11-16 内核 2d658a7 轮 + 平台快照刷新。上游值：Cortico 0.2.15 → 0.2.16（main `9569f55`）、Coopanion v0.2.20 → v0.2.21（main `338854e`）、索引仓快照 `f6d6ef5` → 现算 `a4d41ea`，Cortina 与 cortico-world-vtuber 的 sha 复核未动与新增。契约档位实测未变（world 6 / provider 6 / bot 7，`manifest.ts:23-27` 的 blob 与 0.2.15 同一版），模板钉版本 `^0.2.15` → `^0.2.16`。第 1、2、3、7、8、10 章与 ⓪ 节相应更新，新增 10.9 一节。可复核锚新增：templates 三份 package.json 的 main/describe/files/api、world/tests/helpers/fake-host.ts:4、dry-mount 三个入口、vitest.config.ts 的完整 md5、Cortico markers.ts:27-44 回执字面量族、loop.ts:1420 与 :2186、types.ts:259-260 与 :276、server.ts:1487-1494、extension-check.ts:74、:89-90、:131、:192、author-guide.ts:2、extensions.ts:218、:235、Coopanion 的 server.ts:321、:324、world.ts:514、:546-548、:643-647、:652-653、:664、config.ts:16、:19、:202、:204、:301、:310、:369、:372-373、model-text.ts:67-68、:211-212、:325、figure-frame.js:58、gemini/wire.ts:48-69、:153-159、core-host.cjs:89-90、README.md:329（原 :328）。
 - 同日撤两条：未核验汇总第 2 条（api 5 无活样本）结案，第 17 条（describe.json 与 tools.ts 的 hoverButtons 分叉）结案。工单草稿那句「按 i18n 11 种句式配失败文案」作废，理由写在 10.9 归因口径第 2 条：MODEL_TEXT 只有 zh 与 en。

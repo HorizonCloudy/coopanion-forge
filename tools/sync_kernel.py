@@ -103,6 +103,15 @@ def port_state(ack, full):
     return ack == full
 
 
+def same_eol(a, b):
+    """比内容不比行尾。上游有些 blob 带 CRLF，克隆的 autocrlf 设置又会改工作树字节，
+    逐字节比就报出一个不存在的内容漂移。落盘仍按上游原字节，这里只放松比较。"""
+    if a is None or b is None:
+        return a is b
+    n = lambda s: s.replace(b"\r\n", b"\n") if isinstance(s, bytes) else s.replace("\r\n", "\n")
+    return n(a) == n(b)
+
+
 def git(ref, path=None):
     cmd = (["git", "-C", UP_REPO, "rev-parse", ref] if path is None
            else ["git", "-C", UP_REPO, "show", "%s:%s" % (ref, path)])
@@ -208,6 +217,8 @@ def _self_test():
         ck("norm_url(%s) 应为 %s，实得 %s" % (raw, want_u, norm_url(raw)),
            norm_url(raw) != want_u)
     ck("norm_url 不该吃掉空值", norm_url("") != "")
+    ck("同一内容只差行尾被判漂移", not same_eol(b"a\r\nb\n", b"a\nb\n"))
+    ck("行尾归一把真差异也吃掉", same_eol(b"a\nb\n", b"a\nc\n"))
     print("SYNC_KERNEL SELF-TEST: %s（%d 项，实算）" % ("PASS" if not bad else "FAIL", len(ran)))
     for b in bad:
         print("  FAIL: " + b)
@@ -257,7 +268,7 @@ def main():
         dest_full = os.path.join(REPO, dest)
         if how == "verbatim":
             want = NAME.sub(b"coopanion-forge", raw)
-            if read_b(dest_full) == want:
+            if same_eol(read_b(dest_full), want):
                 same.append(dest)
             else:
                 drift.append(("verbatim", dest, 0))
@@ -275,6 +286,8 @@ def main():
                 if a.apply:
                     write_b(dest_full, read_b(src))
         elif how == "port":
+            # shortcut: incoming 只在 ack 落后（真漂移）时才刷新。正常升级路径必走这支，
+            # 所以 --port-done 的守卫提示「先跑 --apply」是对的；手动把 incoming 改坏时它不动。
             ack = port_ack.get(dest)
             if port_state(ack, full):
                 same.append("%s（移植件已确认对到 %s）" % (dest, short))
@@ -296,7 +309,7 @@ def main():
                 continue
             prev_raw = git(old, up) if old else None
             moved = bool(old) and prev_raw is not None and prev_raw != raw
-            if read_t(dest_full) == merged:
+            if same_eol(read_t(dest_full), merged):
                 note = "（%d 处改写已重放%s）" % (len(pairs), "，上游本段有变动" if moved else "")
                 same.append(dest + note)
             else:
@@ -338,12 +351,14 @@ def main():
 
     if a.port_done:
         todo = [(up, dest) for up, dest, how in FILES if how == "port"]
-        unready = [dest for up, dest in todo
-                   if not os.path.isfile(os.path.join(INC, os.path.basename(up)))]
-        if unready:
-            print("\n拒写 ack：这些移植件在 -kernel-incoming/ 里没有上游原文可比对：%s"
-                  % ", ".join(unready))
-            print("先跑 python -I tools/sync_kernel.py --apply --ref %s 取原文。" % short)
+        # 守卫：incoming 必须已经是本次 ref 的上游原文。只查文件在不在会被旧原文骗过
+        # （实测过：旧 sha 的原文也能 ack 成功，于是台账说搬完了、文件却一个字没改）。
+        stale = [dest for up, dest in todo
+                 if read_b(os.path.join(INC, os.path.basename(up))) != git(full, up)]
+        if stale:
+            print("\n拒写 ack：%s 的 incoming 与上游 %s 的原文不一致或还没取下来。"
+                  % (", ".join(stale), short))
+            print("先跑 python -I tools/sync_kernel.py --apply --ref %s 取原文，手搬完再跑这条。" % short)
             return 1
         ack = dict(port_ack)
         for up, dest in todo:
