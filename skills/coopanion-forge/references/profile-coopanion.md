@@ -675,7 +675,10 @@ CORTICO_COMPANION_DATA=<空目录> pnpm run dev   # 宿主开发模式，干净�
 
 - 隔离变量清单：`CORTICO_HOME`、`CORTICO_EXTENSIONS_DIR`、`CORTICO_MARKET_INDEX_BASE`、`CORTICO_PORT`（dev 缺省 8848）。(_PROFILE-DRAFT §7.1)
 - 停宿主的口径（代码读实 2026-11-16，未实机）：上游没有停止脚本，停止就向 core 进程发 `SIGINT`（Ctrl+C 的形状），触发信号清单见 3.10。没停干净不会静默过去：端口被上一个实例占着时框架按 6.6 的规则顺延最多 5 个候选，并在 `src/web/server.ts:1487` 那个 `maxAttempts` 候选循环里打 warn，文案见同文件 `:1494`「端口 X 被占用或不可监听，改用 Y」，`:1492` 那句注释写的就是「便于发现预期端口被其他实例占用」。排障含义：残留的旧宿主占住 8848 时，你连上的可能是它，返回的是旧进程的 200 与旧数据，不是全 404。归因前先核对端口占用，再怀疑扩展本身。等待上限取 6.1 的 `SHUTDOWN_GRACE_MS = 95000`、`EXTENSIONS_WAIT_MS = 65_000` 与 stop 宽限 `35_000`，别照抄内核 sandbox 脚本里的 3 秒。本节整条 [未核验]：7.1 层 3 的既有纪律禁止本轮启动宿主。
-- 还有一条不启动宿主也能拿到动态证据的路子（2026-11-17 实测）：在 Cortico 检出里装好依赖后跑它自己的测试。`npx vitest run tests/extensions.test.ts tests/extension-removal.test.ts tests/boot.test.ts` 三项 74 条用例全绿、八秒级；全量 `npx vitest run` 是 291 个文件、5135 条，本机 5068 通过、63 失败、4 跳过、约十五分钟。失败集中在两类：`tests/web/` 下的浏览器 DOM 用例（feature-providers、feature-world-library、prompts-page 等）与 worlds/minecraft 的 bridge viewer 端口用例。两类都要特定环境（前者要 DOM 实现，后者要 Minecraft 侧），与被审扩展无关。所以拿到一片红先分清是哪一类，再判被测对象。这条比「读代码」强，比「启动宿主」轻，适合放在层 2 与层 3 之间用。
+- 还有一条不启动宿主也能拿到动态证据的路子（2026-11-17 实测）：在 Cortico 检出里装好依赖后跑它自己的测试。`npx vitest run tests/extensions.test.ts tests/extension-removal.test.ts tests/boot.test.ts` 三项 74 条用例全绿、八秒级；全量 `npx vitest run` 是 291 个文件、5135 条，本机 5068 通过、63 失败、4 跳过、约十五分钟。失败集中在两类，本机原因查到了。
+  一类是 `tests/web/` 下几个文件整文件红：core-pager 3/3、feature-providers 22/22、prompts-page 15/15。日志伴随一条 Node 实验警告：localStorage 不可用，因为没给 `--localstorage-file`。本机 Node 是 27.0.0-alpha，框架要求的运行时是 22.x 线。同目录 client-ui 的 115 条全绿，所以红的判据是「依赖 localStorage 的那批」，不是 web 用例全坏。
+  另一类是 worlds/minecraft 的 bridge 里有 1 条 viewer 端口用例失败，那要 Minecraft 侧环境。
+  给本团的规则：整文件红先查环境与 Node 版本，零星红才查被测对象。跑之前先 `node -v`；拿 27 alpha 的结果去判一个声明 22 线的框架，得到的结论不成立。这条比「读代码」强，比「启动宿主」轻，适合放在层 2 与层 3 之间用。
 - 官方作者流程：复制模板目录到仓外，改名，`corepack pnpm install`，包内 `pnpm typecheck && pnpm test`，仓根 `pnpm check:extension <包目录>`，再从 WebUI「扩展」页手动安装填绝对路径并重启。(07-templates §12)
 - 装前预检走 `POST /api/extensions/check`。它只读 manifest，不导入包代码。(10-market-install §5)
 - 官方指南页替这条背了书：原话是「扩展页安装前也会检查包的声明，不合格的会被拒绝」，同页还写明想马上被收录就在索引仓开 `[sync] 包名`、以及给 coding agent 的提示词里明写「不要替我发布到 npm」「不要读取或上传隐私数据和 API Key」。取该页只能用服务端 extract 通道，本机直连会 TLS 超时或 403（见未核验汇总第 10 条）。(coo.palailab.org/guide/make-extension/，2026-11-17 取回全文)
