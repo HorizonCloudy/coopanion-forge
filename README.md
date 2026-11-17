@@ -36,7 +36,7 @@
 - Cortico 扩展。扩展是 npm 包，声明写在它 `package.json` 的 `cortico` 块里。kind 只有三种：world、provider、bot，没有第四类。开发用 TypeScript，装依赖用 pnpm。
 - Coopanion 形象包。形象包不是第四类 Cortico 扩展。figure.json 的 manifest 2 / api 2，装在数据目录 `figures/<id>/`，由桌宠 World 扫描加载，不过扩展两道闸。
 
-Cortico 是引擎与框架，上游仓库 Pal-AI-Lab/Cortico，快照版本 0.2.15。Coopanion 是 Electron 桌面应用，本机安装版本 0.2.20。写扩展时对象是 Cortico 契约；Coopanion 只是它的一个宿主实例。
+Cortico 是引擎与框架，上游仓库 Pal-AI-Lab/Cortico，快照版本 0.2.16（main `9569f55`，2026-11-16 核）。Coopanion 是 Electron 桌面应用；本机装的是哪一档不写死在这里，读 `<HOST>/resources/app/package.json` 的 `version`，取 `<HOST>` 的办法见 `skills/coopanion-forge/references/profile-coopanion.md` §1.1。写扩展时对象是 Cortico 契约；Coopanion 只是它的一个宿主实例。
 
 N.E.K.O 平台插件不归本团。N.E.K.O 的插件工作走上游 HorizonCloudy/plugin-forge。平台差异清单见 `platform/kernel-deltas/`。
 
