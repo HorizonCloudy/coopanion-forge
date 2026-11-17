@@ -116,12 +116,18 @@ python -I tools/sync_kernel.py --self-test
 
 ## 目录
 
+新扩展一律从 `templates/<kind>/` 复制起步。模板逐字取自上游，不改内容；
+怎么验收、怎么随上游升级，写在 `templates/TEAM.md`。
+
 ```
 agents/                          人设文件；编制唯一来源是 roster.json
 skills/coopanion-forge/references/  宪法、工作流手册、平台契约 profile-coopanion.md、风格与自检清单
 skills/coopanion-forge/scripts/     check_contract_approval.py（契约门禁）、security_audit.py（安全扫描）
 scripts/                         generate_roster_tables.py（名册表生成）
-tools/                           sync_kernel.py（内核基线同步）、install_hosts.py（装到各宿主）
+tools/                           sync_kernel.py（内核基线同步）、install_hosts.py（装到各宿主）、
+                                 check_templates.py（模板与来源清单的一致性）
+templates/                       world / provider / bot 三份扩展骨架：上游 Cortico 的逐字副本
+                                 PROVENANCE.json 记来源与逐文件 sha256，TEAM.md 是本团口径
 platform/kernel-deltas/          与上游内核的平台差异清单
 .claude-plugin/                  plugin.json、marketplace.json
 .github/workflows/               sync-check CI：名册漂移、门禁自检

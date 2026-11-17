@@ -1087,9 +1087,9 @@ def main():
     if dec_n or dec_b:
         print("提醒: 本轮 %d 处点位声明不计分、%d 处声明畸形或已过期；逐条看 --json 的 "
               "declared_ok_list 与 declared_bad。" % (dec_n, dec_b))
-    print("提醒: 这是分诊器。命中要逐条人工判定；本仓的豁免只走行尾点位声明"
-          "（`forge-declared: SEC-n 理由=… 出处=AUDIT.md… 复审=YYYY-MM-DD`），"
-          "不用整份文件豁免。")
+    print("提醒: 这是分诊器。命中要逐条人工判定。豁免优先走行尾点位声明"
+          "（`forge-declared: SEC-n 理由=… 出处=<审计记录>… 复审=YYYY-MM-DD`）；"
+          "整份文件的 --allow 只留给外部仓库与工具自身，每条仍要在审计记录里给依据。")
     return code
 
 

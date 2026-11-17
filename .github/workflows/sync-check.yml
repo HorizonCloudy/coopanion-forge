@@ -34,6 +34,10 @@ jobs:
         run: python scripts/profile_drift.py --self-test
       - name: Kernel sync ledger self-test
         run: python tools/sync_kernel.py --self-test
+      - name: 模板检查器自检
+        run: python tools/check_templates.py --self-test
+      - name: 模板与来源清单一致（模板被改过就退 1）
+        run: python tools/check_templates.py --check
       - name: Delta ledger matches its generator
         # platform/deltas.json 的唯一来源是 tools/gen_deltas.py。手改 JSON 而不改生成器，
         # 下一次重生成会静默抹掉那条改写（LICENSE 那条就是这么漏的，2026-11-16 才发现）。
