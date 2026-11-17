@@ -337,6 +337,8 @@
 - Core 保留帧名共 1 个：`external_event_frame`。session 工具注册同名被拒。(05-bot-contract sessions、03-world-contract §4)
 - `tags` 为空数组只 warn，不参与任何 tag 过滤；`tags` 非数组是干跑 failure。(03-world-contract §4)
 - 运行期出现未声明进 `describe.tools` 的工具名时，照常生效，每个名字记一条 warn。(03-world-contract §4、05-bot-contract 运行期)
+- 工具 handler 的第二个参数是 `ToolCallContext`，本文件以前没记它，是缺口。六个成员：`role`（Persona 的 session id，Core 只拿它做统计与日志关联）、`log`、可选 `queueExternalEvents`（把工具执行期间取到的外部事件交给主循环，在本轮工具结果之后投递，只有主循环提供）、可选 `callId`（session 内的 tool_call id，用来关联输出流与后续结果事件）、可选 `round`（主循环轮次，进程内递增，同轮工具共用；缺省时消费方不能施加基于轮次的限制）、可选 `signal`（AbortSignal）。定义起于 `src/core/types.ts:229`
+- `signal` 那条是审查硬点。触发它的来源写在上游注释里：关机、循环换代、跨进程代理超时，标了 `interruptible` 的工具还要在 interrupt 事件到达时触发。同一句注释逐字要求耗时工具「必须在提交外部副作用前检查此信号」。审扩展时看到长耗时工具不查 signal，按缺陷提，别按风格提。
 - 市场实态（353 时点）：303 个带 `describe.tools` 的包里共 2052 个工具名，带合规前缀的 2049 个（99.9%），不合规 3 个：`surface`、`sh`、`stroll`。(03-world-contract §4)
 - 市场实态（2026-11-17 现算，`245d61164`，分母 373）：带 describe 的包 `332` 个，其中工具非空的 `293` 个（空工具包 39 个）。工具实例 `2196` 个，snake 写法 `2193` 个 = 99.9%，不带下划线的仍是 `3` 个（c07 的输出只给数量，不逐个列名）。`qq` 前缀 `143` 次，仍排第一，前缀共 246 个不同值。被两个以上包定义的工具名 `166` 个。(c07 现算，2026-11-17)
 - tag 面（同一轮 c07）：13 个不同 tag 值，实例分布 read `1061`、write `700`、act `357`、snapshot `167`、speak `132`、flow `32`，其余六个各不到 10。带非空 tag 的工具 `2169` 个，tag 空或缺的 `27` 个。审议「这个 tag 该不该给」时先看这个分布，别看自己的直觉。
@@ -408,7 +410,8 @@
 ### 4.7 网络出访
 
 - 跨站写闸门：非 GET/HEAD/OPTIONS 且跨站 → `403`；Host 白名单不过 → `421`。监听与端口默认见 6.6。(09-webui-routes §1)
-- 扩展代码在 bot 进程内运行。证据没有记载限制扩展出访的网络沙箱。(10-market-install §7) [未核验]
+- 扩展代码在 bot 进程内运行，宿主不限制它出访。2026-11-17 在 Cortico `0.2.16` 的 `src/` 全量搜过 `undici`、`agent:`、`dispatcher`、`sandbox` 四类关键词：命中的三处全是 Web 响应头的沙箱，没有一处管扩展进程的出访。这条从 [未核验] 改成「实测无此机制」，搜法一起留着，上游加限制时按同样方式复查
+- 那三处沙箱本身值得记，它们容易被误当成「扩展被沙箱了」：`src/web/server.ts:1678` 给 Persona 后端交回的可执行类型加 `Content-Security-Policy: sandbox`，注释写明是让这类内容在新标签里也跑不了脚本；同文件 `:2067` 对 `image/svg+xml` 的图标加 `default-src 'none'; style-src 'unsafe-inline'; sandbox`。两条都只护浏览器侧，与扩展进程无关。
 - 市场侧出访目标固定三个域：`raw.githubusercontent.com`、`api.github.com`（含 GraphQL）、配置的 npm registry；索引源可经 `indexBase` 替换。(10-market-install §2、09-webui-routes §2.6)
 - 生态实态：14/353 个包在文本里写死 `127.0.0.1:<端口>`，`localhost:端口` 0 见；9880–9883 被多个语音包共用，无统一分配机制。(c04-capability-usage §5)
 - 形象包帧的 CSP 边界见第 10 章，不在扩展进程内。(13-figure-runtime §5)
@@ -444,6 +447,16 @@
 27. WebUI 写密钥后不读回。(08-deploy-env-storage environment-variables 节)
 28. 崩溃与非零退出不自动重启，只打印「未自动重启」；只有 restart 消息或标志文件才重新 fork。(08-deploy-env-storage launcher 节)
 29. `serviceTiers` 四个一手源里没找到一个非空实值样本；`device-code` auth 无任何模块声明；`audio`/`video` input 实值 0/8。类型允许，生态实值取不到。(04-provider-contract §9)
+
+### 4.10 World 兼容等级 L1 到 L4（桥接其他框架时的靶子）
+
+- 上游专有一页讲这件事：`docs/world-compatibility.md`。页头标明它的归属接口是 World、WorldHost、ToolDef、ToolCallContext、OutputTap 与 CognitionHost。等级按宿主提供的能力划，每一级包含前一级。
+- L1 工具：挂 `tools()` 按名调用，名字在一个 bot 内全局唯一、冲突拒挂；把 `envPromptVars()` 填进 `ENV_PROMPT.md` 模板放进 system 前缀，返回 null 就整段省略，前缀重建时重新取值；回执可带附件，模型不收该 MIME 时只发 `fallbackText`；handler 抛错、或返回值既不是字符串也不是带字符串 text 的对象，都转成失败回执；调 `start(host)` 与 `stop()`。
+- L2 事件流：`pushEvent` 保存并投递进上下文，没有用户发言时外部事件也能唤醒一轮模型；正文原样进上下文，宿主不改写不补写；`origin` 里 internal 只给来源可验证的内部通知；`barrierAfter`、`streamsOutput`、`endsTurn` 三条语义齐；一轮结束（自然结束、模型调用失败、轮数达硬上限）调 `onTurnEnded()`；宿主放弃一次工具调用时触发 `ToolCallContext.signal`；提供 modelFacts、`blob(handle)` 与 `reportUsage()`。
+- L3 投递语义：五档 trigger 各有实义——`preempt` 取消尚未产生外部输出的模型调用并立即投递，`interrupt` 停当前轮（含 `interruptible` 工具）并立即投递，`flush` 立即投递并带上积压，`debounce` 参与合批，`piggyback` 只排队随批投；`deliver: false` 只存储。`pushDeferred` 到投递时才调 `render`，返回 null、抛错或超时时不存储不投递。`pushCandidate` 先归档原始事件、投递时整批交给 World 选取。`ephemeral` 事件在下一批投递时从 session 移除，事件库保留。另需事件库读取、`drainPendingEvents(filter)`、工具执行期间的 `queueExternalEvents`、`withdrawPending`、`promotePending`，以及 `onEventsSettled` 与 `onHandoffEnded` 两个通知点。
+- L4 实时：`outputTap()` 把主 session 的模型输出流逐段交给 World，`externalizes` 返回 true 之后该轮不再被 `preempt` 取消；`cognition` 让 World 向 Persona 请求后台认知；`llmStalls(withinMs)` 报最近的失败与流中断次数；`onRunPhase(phase)` 在主循环进入投递、模型调用、工具执行、重试等待、交接、空闲以及工具起止时同步通知。
+- WebUI 面板与配置组不属于任何等级：没有 WebUI 的宿主由 World 的配置文件提供配置。上游还给了逐 World 的最低与完整对照表，例子里 websearch 只要 L1，console 与 qq 要 L3 起。低于完整等级时 World 仍可运行，缺的能力按那页右列降级。
+- 对本团的意义：做四框架桥时这一页就是靶子。先声明桥到 L 几，缺的级别照上表降级说明，不许宣称「等同 Cortico 宿主」。契约审议时，凡是拿桥当宿主的方案，都要在它的能力面一栏对上这个等级。
 
 ### 4.9 不支持能力的官方降级路径
 
@@ -493,7 +506,7 @@ HTTP 层（WebUI）：
 
 ### 5.2 throw 的允许与后果（哪些位置不许指望 throw）
 
-- 没有「全局禁止 throw」的成文清单；`core/README.md` 的钩子异常处理细则本次未逐行核。(05-bot-contract 取不到 #5) [未核验]
+- 「禁止 throw」没有一刀切的成文清单，但有逐钩子的成文规则：见本文件末未核验汇总第 5 条的结案内容（那份 README 2026-11-17 已逐行核过）。要点是 `stop()` 与五个通知钩子各有确定处置，其余交调用方，`loop-exit` 那条不停进程。
 - 已核到的硬要求：门禁干装载要求 `build()` 在假部署（默认配置、空 Memory、无密钥、`worlds=[]`）不抛错，抛了就是 failure「build() must succeed with this config.」。build/defaults 路径不许对缺密钥、缺 Memory 抛错。(05-bot-contract dry-mount、06-gate-scripts §2)
 - `preflight` 的 throw 是契约行为：「抛错 = 不能激活,错误信息原样给操作者」。(03-world-contract §2)
 - `create()` 抛错不是崩溃路径：该 World 移入 missing，不影响其他构造；mount 抛错时装配层回滚 `enabled:false`、重建实例、原样 rethrow。(03-world-contract §2、§9)
@@ -770,13 +783,23 @@ curl -s http://127.0.0.1:17788/api/extensions
 - 流程文件执行率（下载前 10、可核实 9 包）：模板式 vitest.config.ts 0/9、模板式 README 0/9、AGENTS.md/CLAUDE.md 1/9、packageManager 3/9；契约字段 main 指 TS 9/9、`cortico.describe` 指针 9/9、engines 9/9。(c10-template-vs-market §4)
 - 审查别人的包按「契约字段必须齐、流程文件可缺」判。(c10-template-vs-market §4)
 
+### 8.3b 市场包的契约档位实测（2026-11-17 抽样）
+
+旧表说「市场里上一版契约包还剩几个不可数」，理由是索引仓不落 `cortico.api`。这句现在改成抽样可数。
+
+- 做法：从 `245d61164` 的 catalog 里用固定种子随机抽 150 个包，按 catalog 记的版本号向 npm 镜像逐个取该版本的清单，读 `cortico.kind` 与 `cortico.api`。取到 149 个，1 个失败（见下）。方法可复跑，种子写在脚本名旁边。
+- 结果：world 且 api 6 有 133 个，world 且 api 5 有 1 个，bot 且 api 7 有 6 个，provider 且 api 6 有 4 个，另有 5 个包的清单里根本没有 cortico 块。非当前契约合计 6/149 = 4.0%，外推到 373 个包约 15 个，这是抽样量级，别当精确数引用。
+- 那 5 个没有 cortico 块的包全是 `cortico-world-shenshen-lib-1` 到 `-7` 里抽中的，对应 8.3 说的转 Gitee 那批：它们在 npm 上只剩空壳，装上也过不了装载器。审「市场实态」时要把这类剔掉再算比例。
+- 顺带抓到一条索引仓与 registry 不一致：catalog 记 `cortico-world-infinity` 有 0.6.3，registry 对该版本返回 404。这条属索引侧数据质量问题，走 8.5 的 `[report]` 通道，本仓不改它。
+
 ### 8.4 官方源
 
 - Cortico 框架仓：github.com/Pal-AI-Lab/Cortico（MIT，0.2.16，main `9569f5520` @2026-11-16）。docs/、templates/extension/ 三模板、bots/ 三只都在里面。(_PROFILE-DRAFT §8.4)(cortico-notes.md §1)
 - Coopanion 宿主仓：github.com/Pal-AI-Lab/Coopanion（AGPL-3.0-or-later，v0.2.21，main `338854e79` @2026-11-16）。桌宠与形象包代码在 packages/cortico-world-desktop-pet。(_PROFILE-DRAFT §8.4)(cortico-notes.md §1)
 - 官方参考 World：github.com/Pal-AI-Lab/cortico-world-vtuber（AGPL-3.0-or-later，main `e45570383` @2026-11-04）。它是「官方公开完整可读的 world 实现」之一，org 下 cortico-world-* 公开仓共 5 个（vtuber、cua、desktop-pet、coocowork、qqbot，2026-11-16 `gh api` 实跑）。可以抄它的写法，别抄它的契约档位：它钉 api 5，见 2.6 的活标本那条。(cortico-notes.md §1)
 - 索引仓：github.com/Pal-AI-Lab/cortico-extensions。定位逐字「这里只放官方维护的分类、认证与覆盖项」；扩展本体仍发 npm。(18-index-protocols §2, README.md:3-4)
-- 升级文档：`UPGRADING_URL` = github.com/Pal-AI-Lab/Cortico/blob/main/docs/upgrading.md（src/extensions/previous-contract.ts:34）。(06-gate-scripts §5)
+- 升级文档：`UPGRADING_URL` 指 github.com/Pal-AI-Lab/Cortico/blob/main/docs/upgrading.md。(06-gate-scripts §5)
+- 兼容等级页：github.com/Pal-AI-Lab/Cortico/blob/main/docs/world-compatibility.md。它是「别的框架要挂 Cortico World 得做到哪一级」的成文靶子，本团 4.10 就按它写。同目录另有 `deployment.md`（含磁盘迁移一节）、`extensions.md`、`providers.md`、`sessions.md`、`runs.md`、`runtimes.md`、`webui.md`、`windows.md`、`configuration.md`、`environment-variables.md`、`personas.md`、`development.md`，共十二页，2026-11-17 列过一遍，以前本文件只引其中四页。
 - 官方中文指南站：coo.palailab.org/guide/。19 号报告已于 2026-11-15 逐页取证，内容以 19 为准。该域只能走 `mcp__anysearch__extract`，WebFetch 对 coo.palailab.org 被拦。站点改版需重跑 19。(19-guide-site 全文)
 - Cortina 是文本提示件，不是工具、不是扩展脚手架。TINA 既不是人物格式也不是扩展格式。两者都不许当扩展规范引用。(17-cortina-tina)(权威事实) 可引范围补一句：作者流程、验证步骤与发布步骤那部分可以引 Cortina main `244b2d05d`（2026-10-22，该仓无 tag 也无 release，只能钉 sha，「v0.2.0」只是提交标题不是发布）。2026-11-16 实读该仓确认它不含扩展模板代码，扩展契约与命名前缀仍只认 Cortico（Cortina README.md:113 `@244b2d05` 逐字：规则缺失时它建议向 Cortico 提；`state/cortico/` 只是它开发期取的 Cortico 副本，README.md:106）。规范引用一律换成 Cortico 的 file:line，引到 Cortina 原文之前保持 [未核验]。(cortico-notes.md §1，2026-11-16 复核)
 
@@ -891,6 +914,17 @@ curl -s http://127.0.0.1:17788/api/extensions
 - kit 路线：`createBody(host, opts)` 就是 api 2 契约盖在 `createPet` 上；`opts.figure` 必填。(13-figure-runtime §2)
 - 走路超时 `WALK_TIMEOUT_MS = 30_000`：默认目标回执 `walkTimeout`、自带目标回执 `moveTimeout`。`pet_move_to` 是 21 个工具里唯一 `interruptible: true` 的。(20-pet-tool-catalog §2.1、§3)
 
+### 10.4b 帧侧消息协议逐字（2026-11-17 整份读完那个 127 行的帧脚本）
+
+以前本节只记了「帧错误 message 截三百」。完整协议如下，出处都是同一个文件 `packages/cortico-world-desktop-pet/web/figure-frame.js`。
+
+- 出站消息共五种：`loaded`（脚本末尾无条件发一条，代表帧脚本本身跑起来了，不代表身体就绪）、`ready`（带 z 与过滤过的字符串数组 words）、`frame`（每次 tick 发 layout、events、sounds、z，发完清空两个数组）、`scheme`（带 seq 与 z）、`error`（带 message，截三百）。
+- 入站消息共十五种：`windows`、`init`、`tick`、`scheme`、`do`、`walk`、`move`、`stop-walk`、`pointer`、`drop`、`shift`、`place`、`set`、`cue`、`talk`。身体还没就绪时除 `init` 与 `windows` 外全部直接返回，不报错也不排队。
+- `init` 是唯一会 import 包代码的一条：它拿 entry 与 export 名动态导入，再调工厂，参数给 base（URL 对象）、model、scheme、kit、loadImage、asset 与 host。工厂返回值缺 step、layout、do 三个方法里的任何一个，直接抛 figure.missingMethod，身体不成立。所以「必选三方法」是运行时硬闸，不是文档约定。
+- `walk` 与 `move` 的返回值是布尔。返回 false 时帧自己补一条 `interrupted` 事件、detail 里带 walkId 与 by=busy，再随下一个 frame 发出。作者想让这两个方法有返回值就别只 return 身体对象了事。
+- 消息处理开头有一句来源守卫：`e.source !== parent` 或已销毁就丢弃。所以别的 iframe 冒充宿主发指令这条路被堵着。
+- loadImage 走 `crossOrigin = 'anonymous'`，失败报 figure.imageFailed 并带上 URL。加载图片的失败原因因此能追到具体地址。
+
 ### 10.5 沙箱、CSP 与 fetch 边界
 
 - iframe 属性逐字：`frame.setAttribute('sandbox', 'allow-scripts');`。没有 allow-same-origin，帧是 opaque origin。(13-figure-runtime §5)
@@ -974,20 +1008,20 @@ curl -s http://127.0.0.1:17788/api/extensions
 
 1. ~~闸脚本真机输出未观测。~~ 已结案（2026-11-17）：在 Cortico `0.2.16` 的检出里 `pnpm install` 之后真跑了两道闸（对象是自带的 world 模板）。`describe:extension` 退 0 并打印写入路径与 `tools 1, events 1, prompts 1`；`check:extension` 退 0，头部打印 `Contracts: world v6 / provider v6 / bot v7` 与逐条 ✓，尾部是 Tags 与 Before publishing 两段。文案没被 tsx 包装层吃掉，行首缩进原样。同一次真跑还实测了降级：这台机器的 Node 取不到 raw.githubusercontent 与 api.github.com（`UNABLE_TO_VERIFY_LEAF_SIGNATURE` 类的证书链问题），check 打一条 `⚠ Tag check skipped: could not read the tag vocabulary` 就继续跑完、failure 记 0，正是 7.1 说的那句「不是零网络、取不到就全程降级」。本机绕法是给 Node 加 `--use-system-ca`。
 2. ~~上一版契约（api 5/5/6）无活样本。~~ 已结案（2026-11-16）：官方参考 World `cortico-world-vtuber@e455703` 就是一个跑在过渡层上的 api 5 包，见 2.6 的活标本那条。真实运行行为仍只有代码级证据（本轮纪律禁止启动宿主）。(02-ext-manifest §9、§11)
-3. 市场里「上一版契约包还剩几个」不可数：快照不落 cortico.api，352/353 不可判定。(c01-api-drift §3、§8)
-4. WorldHost 全接口未逐字段取证；World 有无直接调模型/发 HTTP 的主机接口无记载。(03-world-contract §3、§7)
-5. 「钩子异常处理」无成文禁 throw 清单；`core/README.md` 细则未逐行读。(05-bot-contract 取不到 #5)
+3. ~~市场里上一版契约包还剩几个不可数。~~ 已结案（2026-11-17，抽样实测）：索引仓确实不落 `cortico.api`，所以绕道 registry 抽 150 个包逐个读，得非当前契约 6/149 = 4.0%，外推约 15 个，其中 world api 5 只有 1 个。方法与两条附带发现见 8.3b。别把「外推约 15 个」当精确数引用。
+4. ~~WorldHost 全接口未逐字段取证。~~ 已结案（2026-11-17，Cortico `0.2.16` 检出逐行读）：那个接口叫 `WorldHost`，定义起于 `src/core/types.ts:687`，共十三个成员：pushEvent、pushDeferred、可选 pushCandidate、store、drainPendingEvents、可选 withdrawPending、可选 promotePending、modelFacts、blob、reportUsage、可选 llmStalls、可选 cognition、log。第二问也有答案了：主机接口里没有任何「调模型」或「发 HTTP」的成员。modelFacts 只读当前模型的能力，reportUsage 只记账，Core 不管 World 自有模型的运行时。所以 World 要自己出访只能用自己的 fetch，且宿主不加限制，见 4.7。
+5. ~~「钩子异常处理」无成文禁 throw 清单。~~ 已结案（2026-11-17 逐行读了那份 README 的相关段）：成文规则是逐个钩子各定一条，不是一刀切禁 throw。`stop()` 失败或超时记下来并继续卸载；`onOpening`、`onDelivery`、`onBatchEnd`、`onTurnEnded`、`onIdle` 异常记 warn；`onHandoff` 异常记 error 并改用默认交接策略；其余钩子的异常由调用方处理；读 `webUi()` 失败就省略该 World 的环境段、继续拼前缀；主循环异常退出记一条 event 为 `loop-exit` 的 error 并停定时器，进程不退出，宿主按这个 event 决定是否重启；未捕获的进程异常由启动器接管并走关机流程。审查口径跟着改：看到钩子 throw 不再一律算缺陷，看它落在上面哪一条。
 6. 所有超时/限流/TTL 只有静态代码证据，宿主未启动。(03-world-contract §10.7)(10-market-install §9)
 7. `pnpm add` 失败时 pnpm 自身是否原子回滚未验证，不在取证通道内。(10-market-install §9)
-8. 扩展进程内出访是否被任何机制限制：无正面也无负面证据，只有形象包帧有 CSP 硬闸。(13-figure-runtime §5)
-9. 发布后改包名/改 id 的官方迁移流程只有「替换包」issue 通道，无步骤文档。(07-templates §11/§14)
+8. ~~扩展进程内出访是否被任何机制限制。~~ 已结案（2026-11-17，负面证据）：Cortico `0.2.16` 的 `src/` 里搜不到任何针对扩展进程的出访控制，命中的沙箱全在 Web 响应头上（可执行类型的 `sandbox`、SVG 图标的 `default-src 'none'`）。详见 4.7 那两条。形象包帧的 CSP 硬闸仍是唯一真沙箱。
+9. 改包名与改 id 的官方流程：2026-11-17 把 `docs/` 全量翻过一遍，能找到的只有 `docs/deployment.md` 的「迁移」一节，它管的是磁盘布局改名，附一个脚本，默认只列计划、加 `--apply` 才动，且明确「`config.json` 先备份再原子替换，事件库、session 与游标不碰」。npm 包改名或扩展 id 变更的用户侧迁移步骤仍无文档，只有上面 8.5 表里那条「替换包」issue 通道。所以这条留着，但范围缩小了：缺的是包级迁移指引，不是所有迁移指引。
 10. `coo.palailab.org` 已逐页取证（19 号报告），但 `/guide/changelog/` 不存在：extract 返回 `extract_failed`，变体路径全 404；部分页 tab 面板内容被 `<!--THE END-->` 截断合并。站点改版后需重跑。(19-guide-site 取不到的)
 11. ~~TAGS.md 标签全集未取枚举。~~ 已结案（2026-11-17）：词表 29 个词已逐个列出，见 `cortico-notes.md` 3.2 第三条，且与 `index.json` 的 tags 条数一致。后半条仍成立：词表外的声明值被 `scripts/scan.mjs` 先丢掉，所以 catalog 里的 0 是管道性质，不是「作者都守规矩」。
 12. describe 缺席 40 包的四种缺因不可分账；engines/packageManager 与市场包 README 齐备率快照零留痕。(c01-api-drift §6)(c06-publish-hygiene §4、§7)
 13. ~~blocked 18 条完整名单不在任何报告里。~~ 已结案（2026-11-17）：名单在 `index.json` 的 `blocked.packages`，18 条全带中英理由，`blocked.publishers` 是空的。逐条与三类归并在 `cortico-notes.md` 3.2 第四条。「同作者两次拉黑会连账号一起封」这句仍只有规则文本，没有实例可证，因为发布者封禁数至今为 0。
 14. ~~评论实存与声明总量的差是否为抓取截断。~~ 已结案（2026-11-17，快照 `245d61164`）：不是截断，是嵌套。`comments[]` 顶层 405 条加 `replies` 里 233 条正好等于各文件声明 `total` 之和 638（逐文件求和验证）。上游写索引的那个脚本就按「一条顶层加它的回复数」累加 total，所以这个定义从落地那天就在。后果：任何拿 398 或 405 当分母的旧比例只覆盖顶层评论，是全量的 63.5%。算术见 `cortico-notes.md` 3.2 第一、二条。
-15. 单个部署内 World 数量上限、面板数量上限：三份契约报告与 01/16 均无记载，本稿不猜数。
-16. 形象包侧：0.2.13 那个分界句的出处已查清（v0.2.14 才写出来，0.2.13 自己那份 README 有等效 CSP 约束），见 4.8 第 21 条。帧侧其余部分：`packages/cortico-world-desktop-pet/web/figure-frame.js` 已读到帧侧错误上报那一行（`:58`，message 截 300，见 10.9），其余帧侧契约原文仍未逐字读；0.2.13 时代那份 README 本机无存；装扮页实机渲染未观测（禁止启动宿主）。(12-figure-manifest §7)(13-figure-runtime 取不到-2、-3)(14-figure-dress-skin 取不到-1)
+15. ~~单个部署内 World 数量上限、面板数量上限无记载。~~ 已结案（2026-11-17，Cortico `0.2.16` 检出实测）：这类上限不存在。全仓搜 `MAX` 类常量，与 World 或面板相关的只有常量 `MODULE_LAMP_MAX = 7`（每 World 状态灯七盏），定义在 `src/core/types.ts:845`。代码对「一个 World 都没挂」只打一条 warn，不拦。别在方案里替上游发明上限，也别宣称有；要复查就用同一条搜法，上游加常量很容易。
+16. 形象包侧：0.2.13 那个分界句的出处已查清（v0.2.14 才写出来，0.2.13 自己那份 README 有等效 CSP 约束），见 4.8 第 21 条。帧侧契约原文已整份读完（127 行，出入站消息、必选三方法、来源守卫全在 10.4b）。剩下的两项：装扮页实机渲染未观测（禁止启动宿主）（`:58`，message 截 300，见 10.9），其余帧侧契约原文仍未逐字读；0.2.13 时代那份 README 本机无存；装扮页实机渲染未观测（禁止启动宿主）。(12-figure-manifest §7)(13-figure-runtime 取不到-2、-3)(14-figure-dress-skin 取不到-1)
 17. ~~desktop-pet 的 describe.json 在快照与宿主之间的 `hoverButtons` 文案分叉，哪份对应当前代码未比对。~~ 已结案（2026-11-16）：在 main `338854e` 上逐字比对，`describe.json` 的 hoverButtons 块（enum 9 项、`maxItems: 6`、description 全文）与 `packages/cortico-world-desktop-pet/src/tools.ts:73` 完全一致。判旧副本时以 describe.json 为准即可，两侧现在不必二选一。(11-describe-artifact §6、§8)
 
 ## 修订
