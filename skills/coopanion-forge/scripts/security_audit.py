@@ -13,7 +13,10 @@
   管道喂给解释器、不安全反序列化。
   SEC-4 静默下载：网络取回与包安装点位；每处须对应"已声明用途"，未声明即静默。
   SEC-5 清单形状（不计分）：安装期钩子、依赖直连远端包、package.json 缺必填字段（含 cortico 块）。
-  盲区另记两本账：skips（没读的文件）与 unclear（疑似压缩混淆，行级规则读不动）。
+  盲区另记两本账：skips（设计内不读：构建目录、文档、--allow 豁免、素材归档）
+  与 unclear（真盲区：该读却没读到，或扩展名不在任何名单里、疑似压缩混淆）。
+  「扩展名未分类」记在真盲区那本账上（工单 W05）：名单漏了一个后缀时，报告要响，
+  不许静默当成放行。判池前先剥一层备份后缀，settings.py.bak 按 .py 读。
 
 默认只扫代码与配置文件（文档不参与评分）；--include-docs 把 md/txt/rst 也纳入
 （.html 与 .htm 属代码池，不用这个旗标：宿主真加载的页，门禁也当受保护文件）
@@ -50,10 +53,43 @@ CODE_EXTS = {".py", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".vue", ".svel
              # 2026-11-17 再补：.html 以前只在 DOC_EXTS 里，于是门禁当它是受保护代码、
              # 扫描器却不读内容，宿主真加载的面板页成了两边都不管的缝（终检 sweep 第 12 条）。
              # .vbs 与 .ksh 与 .mk 同理：门禁名单里没有，扩展名判据一条都盖不住。
-             ".htm", ".html", ".svg", ".m", ".jl", ".vbs", ".ksh", ".mk"}
-CONFIG_EXTS = {".json", ".yaml", ".yml", ".toml", ".ini", ".cfg", ".conf", ".env", ".properties"}
+             ".htm", ".html", ".svg", ".m", ".jl", ".vbs", ".ksh", ".mk",
+             # 工单 W05：Windows 脚本宿主（.wsf/.wsh/.vbe）、网页脚本（.asp/.jsp/.cfm）与
+             # MSBuild/配置载体（.xml/.csproj）以前两边名单都没有。一条 ghp_ 写进 report.wsf
+             # 就是 SEC-2=0、--fail-unclear 不响。这些都是宿主或浏览器真加载执行的形态。
+             ".wsf", ".wsh", ".vbe", ".asp", ".aspx", ".jsp", ".jspx", ".cfm", ".xml",
+             ".csproj"}
+CONFIG_EXTS = {".json", ".yaml", ".yml", ".toml", ".ini", ".cfg", ".conf", ".env",
+               ".properties",
+               # 工单 W05：这些是纯文本载体，行级规则读得动，以前却因为不在池里整个不读。
+               # uv.lock / pnpm-lock 的摘要、导出的 .csv、误提交的 .log 都在这一类。
+               ".csv", ".tsv", ".lock", ".sum", ".log", ".diff", ".patch"}
 # .html 已进 CODE_EXTS（宿主真加载的页），这里不再列它：一个名字只归一处。
-DOC_EXTS = {".md", ".markdown", ".txt", ".rst"}
+DOC_EXTS = {".md", ".markdown", ".txt", ".rst", ".llm"}
+# 备份与临时副本的后缀：真扩展名藏在它们前面。settings.py.bak 要按 .py 判。
+BACKUP_EXTS = {".bak", ".backup", ".orig", ".rej", ".new", ".old", ".save", ".swp",
+               ".tmp", ".test", ".disabled", ".sample", ".example"}
+# 素材与归档：内容不是文本，行级规则无从下手。这是设计内排除，不是漏检，
+# 所以措辞里要带 BY_DESIGN_KEYS 的词；未分类的那一类反过来必须记成盲区。
+ASSET_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".webp", ".avif",
+              ".tiff", ".mp3", ".mp4", ".webm", ".wav", ".ogg", ".flac", ".m4a",
+              ".mov", ".avi", ".woff", ".woff2", ".ttf", ".otf", ".eot", ".icns",
+              ".pdf", ".zip", ".tar", ".gz", ".tgz", ".bz2", ".xz", ".7z", ".rar",
+              ".whl", ".jar", ".war", ".nupkg", ".exe", ".dll", ".so", ".dylib",
+              ".bin", ".class", ".pyc", ".pyo", ".o", ".a", ".lib", ".pdb",
+              ".sqlite", ".sqlite3", ".db", ".pack", ".idx"}
+
+
+def _pool_ext(fn):
+    """判池用的扩展名：先剥一层备份/临时后缀，再取真扩展名。
+
+    shortcut: 只剥一层（settings.py.bak 认，a.py.bak.bak 不认）；出现双层再升级。
+    """
+    name = fn[:-1] if len(fn) > 1 and fn.endswith("~") else fn
+    ext = os.path.splitext(name)[1].lower()
+    if ext in BACKUP_EXTS:
+        ext = os.path.splitext(os.path.splitext(name)[0])[1].lower()
+    return ext
 MAX_BYTES = 2 * 1024 * 1024
 CHECKS = ("SEC-1", "SEC-2", "SEC-3", "SEC-4")
 # 点位级声明：
@@ -348,12 +384,17 @@ def _utf8():
         pass
 
 
-def iter_files(root, include_docs, allow, skips=None):
+def iter_files(root, include_docs, allow, skips=None, unclear=None):
     """产出 (rel, full)。skips 收集被排除的条目和原因：审计报告要能说明自己没看什么，
     而不是让"0 发现"读起来像全覆盖。
+
+    unclear 是另一本账：真盲区。扩展名不在任何名单里的文件记到这里，不记 skips——
+    名单漏一个后缀时报告要响（工单 W05）。
     """
     if skips is None:
         skips = []
+    if unclear is None:
+        unclear = []
     allow = norm_allow(allow)
     def _walk_error(err):
         # os.walk 默认吞掉不可读目录，那样「扫完了」是假的。
@@ -375,19 +416,26 @@ def iter_files(root, include_docs, allow, skips=None):
                 skips.append(rel + "（--allow 豁免）")
                 continue
             ext = os.path.splitext(fn)[1].lower()
+            scan_ext = _pool_ext(fn)
             pool = CODE_EXTS | CONFIG_EXTS | (DOC_EXTS if include_docs else set())
             # 无扩展名文件（Dockerfile / Makefile / 无后缀脚本）和 .env* 也进池：明文密钥最常
             # 落在这两类里，旧版只按扩展名过滤，等于对它们失明。
             low = fn.lower()
             # 密钥材料：不读内容，但要记在真盲区那本账上，所以措辞里不能出现 BY_DESIGN_KEYS 的词。
-            if ext in SECRET_FILE_EXTS or low in SECRET_FILE_NAMES:
+            if scan_ext in SECRET_FILE_EXTS or low in SECRET_FILE_NAMES:
                 skips.append(rel + "（密钥材料文件 " + (ext or low) + "，内容不读）")
                 continue
             # 清单文件无条件进池：requirements.txt 属 DOC_EXTS，不加 --include-docs 就读不到，
             # 而 git+ 直连依赖最常写在这个文件里。
-            if (ext and ext not in pool and fn not in MANIFEST_NAMES
+            if (scan_ext and scan_ext not in pool and fn not in MANIFEST_NAMES
                     and not low.startswith(".env") and not low.endswith(".env")):
-                skips.append(rel + "（扩展名 " + ext + " 不在扫描池）")
+                if scan_ext in ASSET_EXTS or scan_ext in DOC_EXTS:
+                    skips.append(rel + "（扩展名 " + scan_ext + " 不在扫描池）")
+                else:
+                    # 工单 W05：白名单永远可以漏下一个后缀。未分类不能再记成设计内排除，
+                    # 否则真盲区恒 0，--fail-unclear 对「藏在没见过的扩展名里」形同无物。
+                    # 默认变响：漏一个后缀的代价是 CI 红一次，不是凭据被藏住。
+                    unclear.append(rel + "（扩展名 " + scan_ext + " 未分类：这类文件内容没读）")
                 continue
             try:
                 if os.path.getsize(full) > MAX_BYTES:
@@ -440,7 +488,7 @@ def scan(root, include_docs, allow, declared=None):
     skips = []
     unclear = []
     adv = []
-    for rel, full in iter_files(root, include_docs, allow, skips):
+    for rel, full in iter_files(root, include_docs, allow, skips, unclear):
         scanned += 1
         try:
             with open(full, encoding="utf-8", errors="replace") as f:
@@ -831,7 +879,7 @@ def _self_test():
             return r.returncode, json.loads(r.stdout)
         except ValueError:
             return r.returncode, {}
-    for mk in ("empty", "secret", "blind"):
+    for mk in ("empty", "secret", "blind", "pool"):
         d = tempfile.mkdtemp(prefix="forge-audit-exit-" + mk + "-")
         try:
             if mk == "secret":
@@ -866,6 +914,50 @@ def _self_test():
                     helper_bad.append("超大文件没进未读账：%s" % h_ledger[:160])
                 if rc_h != 3:
                     helper_bad.append("有真盲区时 --fail-unclear 应退 3，实得 %s" % rc_h)
+            elif mk == "pool":
+                # 工单 W05 的四种形状：每种都要有自己的判据，缺一条就回到静默放行
+                with open(os.path.join(d, "ok.py"), "w", encoding="utf-8") as f:
+                    f.write("print(1)" + chr(10))
+                tok = "ghp_" + "B" * 36
+                # (1) 备份后缀：真扩展名在里面，必须按 .py 读到内容
+                with open(os.path.join(d, "settings.py.bak"), "w", encoding="utf-8") as f:
+                    f.write('API_KEY = "' + tok + '"' + chr(10))
+                rc, body = _run([], d)
+                hits = body.get("findings", {}).get("SEC-2") or []
+                if rc != 2 or not any("settings.py.bak" in h.get("file", "")
+                                      for h in hits if isinstance(h, dict)):
+                    helper_bad.append("备份后缀里的 token 没被 SEC-2 抓到：rc=%s 命中 %s"
+                                      % (rc, str(hits)[:90]))
+                os.remove(os.path.join(d, "settings.py.bak"))
+                # (2) Windows 脚本宿主：进代码池，同一条 token 要抓到
+                with open(os.path.join(d, "report.wsf"), "w", encoding="utf-8") as f:
+                    f.write('<job><script language="VBScript">' + chr(10)
+                            + 'API_KEY = "' + tok + '"' + chr(10) + '</script></job>' + chr(10))
+                rc, body = _run([], d)
+                hits = body.get("findings", {}).get("SEC-2") or []
+                if rc != 2 or not any("report.wsf" in h.get("file", "")
+                                      for h in hits if isinstance(h, dict)):
+                    helper_bad.append("名单外脚本家族的 token 没被 SEC-2 抓到：rc=%s 命中 %s"
+                                      % (rc, str(hits)[:90]))
+                os.remove(os.path.join(d, "report.wsf"))
+                # (3) 未分类后缀：内容读不了就得记真盲区，--fail-unclear 要响
+                with open(os.path.join(d, "notes.qqq"), "w", encoding="utf-8") as f:
+                    f.write("nothing to see" + chr(10))
+                rc, body = _run([], d)
+                rc_f, body_f = _run(["--fail-unclear"], d)
+                ledger = " ".join([str(x) for x in (body_f.get("unclear") or [])])
+                if rc_f != 3 or "notes.qqq" not in ledger:
+                    helper_bad.append("未分类扩展名没记成真盲区（默认 rc=%s，--fail-unclear rc=%s，"
+                                      "账上：%s）" % (rc, rc_f, ledger[:120]))
+                os.remove(os.path.join(d, "notes.qqq"))
+                # (4) 素材与归档：设计内排除，不许把上面那条判据顶成常红
+                os.makedirs(os.path.join(d, "assets"), exist_ok=True)
+                with open(os.path.join(d, "assets", "icon.png"), "wb") as f:
+                    f.write(bytes([137, 80, 78, 71]) + bytes(range(256)) * 2)
+                rc_a, body_a = _run(["--fail-unclear"], d)
+                if rc_a != 0:
+                    helper_bad.append("素材文件被当成真盲区（应设计内排除）：rc=%s %s"
+                                      % (rc_a, str(body_a.get("unclear"))[:120]))
             else:
                 rc, body = _run([], d)
                 if (rc, body.get("scanned_files")) != (3, 0):

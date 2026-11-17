@@ -15,7 +15,14 @@
 规则
   - 拦「代码类」文件，四条判据（`is_protected`）：
     1 扩展名在 CODE_EXTS（含宿主真执行的 .html / .yml / .svg）；
-    2 文件名在 MANIFEST_NAMES / BUILD_FILE_NAMES（Makefile、Dockerfile）/ HOST_EXEC_NAMES（hooks.json）；
+    2 文件名在 MANIFEST_NAMES / BUILD_FILE_NAMES（Makefile、GNUmakefile、Dockerfile）/
+      BUILD_FILE_WHOLE（CMakeLists.txt、meson.build、BUILD、BUILD.bazel 这一类整名）/
+      HOST_EXEC_NAMES（hooks.json）。
+      明写不覆盖的构建家族（门禁不猜名字，要按名补）：meson_options.txt 与 meson 的其它
+      带前缀文件、settings.gradle 这类 *.gradle 子文件（只有 build.gradle 因 MANIFEST_NAMES
+      进名单）、Gemfile、Podfile、KBuild 的 Kconfig/Makefile.in 之外的变体；
+    2b 已知文档扩展名（.md .markdown .txt .rst .llm）在整名判据之后短路：
+      docs/Makefile.md 是散文，不是构建入口（工单 W06 的反向用例）；
     3 无扩展名，且所在目录命中 CODE_DIR_HINTS——按**项目根相对路径逐段**比对，
       上级目录叫 scripts/ 或 tools/ 不算证据；
     4 无扩展名，且文件第一行是 shebang（#!）。
@@ -51,8 +58,17 @@ CODE_EXTS = {".py", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".vue", ".svel
              # 2026-11-16 补（A571 第 1 条反向缺口）：SVG 可以内嵌 <script>，
              # 宿主与浏览器渲染它就会执行，不能当纯素材放过
              ".svg"}
-# 无扩展名的构建文件：docker build 与 make 真读它们，扩展名判据一条都盖不住。
-BUILD_FILE_NAMES = {"makefile", "dockerfile", "containerfile", "justfile"}
+# 构建入口文件名（取 base，也就是第一个点号之前那一段）：工具真读取并执行它们。
+# 带后缀的兄弟（Dockerfile.dev、Makefile.am）靠这一条一起进来，所以这一组只放
+# 「base 就是工具认的那个词」的名字。2026-11-17 工单 W06 补齐 GNU make / Rake / SCons / Bazel。
+BUILD_FILE_NAMES = {"makefile", "dockerfile", "containerfile", "justfile",
+                    "gnumakefile", "rakefile", "sconstruct", "sconscript", "workspace"}
+# 只认整名的构建文件：这几个点号后面的部分是文件名的一部分，不是扩展名。
+# 把它们塞进上面那组的话 base 会变成 build / meson / cmakelists，连 build.log 都要准奏。
+BUILD_FILE_WHOLE = {"cmakelists.txt", "meson.build", "build", "build.bazel",
+                    "workspace.bazel", ".bazelrc"}
+# 已知文档扩展名：讲构建文件的教程不是构建文件本身（工单 W06 的反向用例 docs/Makefile.md）。
+DOC_EXTS = {".md", ".markdown", ".txt", ".rst", ".llm"}
 # 带后缀的同一类构建文件：Dockerfile.dev、Makefile.am、dockerfile.mysql 都真被执行或被 make
 # 读进去。旧版按全名精确匹配，这类一个都不进门禁（终检 sweep 第 13 条）。
 # 名字即执行面：hooks.json 里每条命令宿主都会直接跑（.json 不在 CODE_EXTS，靠名字进名单）。
@@ -126,6 +142,12 @@ def is_protected(path, root=None):
     ext = os.path.splitext(name)[1]
     if ext in CODE_EXTS or name in MANIFEST_NAMES:
         return True
+    if name in BUILD_FILE_WHOLE:
+        return True
+    if ext in DOC_EXTS:
+        # 文档扩展名短路，排在整名之后、base 拆名之前：CMakeLists.txt 仍以整名进名单，
+        # 而 docs/Makefile.md 与 meson_options.txt 不再被 base 拆名误钉成受保护代码
+        return False
     base = name.split(".")[0]
     if base in BUILD_FILE_NAMES or name in HOST_EXEC_NAMES:
         return True
@@ -450,6 +472,18 @@ def _self_test():
         (J("build", "rules.mk"), True),
         # 反向：讲 Dockerfile 的文档不该被钉成受保护代码（base 拆名只认前缀那一头）
         (J("docs", "notes.dockerfile"), False),
+        # 工单 W06：这些构建入口以前一行准奏都不要（GNU make 那一条本机实跑过）
+        (J("GNUmakefile"), True), (J("src", "GNUmakefile"), True),
+        (J("Rakefile"), True), (J("SConstruct"), True), (J("SConscript"), True),
+        (J("WORKSPACE"), True), (J("CMakeLists.txt"), True),
+        (J("sub", "meson.build"), True), (J("BUILD.bazel"), True),
+        (J("pkg", "BUILD"), True), (J(".bazelrc"), True),
+        # 同一批 base 拆名的误杀反向用例：讲构建文件的文档不是构建文件
+        (J("docs", "Makefile.md"), False), (J("docs", "BUILD.bazel.md"), False),
+        (J("notes", "meson.txt"), False), (J("build.log"), False),
+        (J("build.png"), False),
+        # docstring 点名的不覆盖面，用期望值钉住：漏了不装覆盖，改了要同步改这条
+        (J("meson_options.txt"), False), (J("app", "settings.gradle"), False),
     ]
     for path, want in prot:
         if bool(is_protected(path, root)) != want:

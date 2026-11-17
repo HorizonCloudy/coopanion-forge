@@ -78,6 +78,8 @@ EXTRA_STOP = {"grep", "rollback", "include", "scripts", "docs", "tests", "packag
 # issue 号带 #、章节号带 §，都不会被吃进来。第四种必须跟在短标签后并以顿号或括号收尾，
 # 否则「见 4.2 与自查 5、6、8」这种句子编号会被当成行号——第一版探针就在这里报了 8 条假漂移。
 NUM_PATTERNS = (re.compile(r"(?<![\w.\-])(\d{1,5})(?=\s*行)"),
+                re.compile(r"(?<![\w.])(\d{1,5})\s*[-–]\s*(\d{1,5})(?=\s*行)"),
+                re.compile(r":(\d{1,5})\s*[-–]\s*(\d{1,5})(?![\d%])"),
                 re.compile(r":(\d{1,5})(?![\d%])"),
                 re.compile(r"[（(]\s*(\d{1,5}(?:\s*[/、,]\s*\d{1,5})*)"),
                 re.compile(r"(?<=[A-Za-z_] )(\d{1,5})(?=[、，,)）])"))
@@ -234,13 +236,17 @@ def where_symbol(lines, token):
 
 
 def window_nums(seg):
+    """每个捕获组都要收：区间的头尾是两个组，只读 group(1) 就永远丢掉尾号。"""
     out = []
     for pat in NUM_PATTERNS:
         for m in pat.finditer(seg):
-            for piece in re.split(r"[/、,]", m.group(1)):
-                piece = piece.strip()
-                if piece.isdigit() and 1 <= int(piece) <= 40000:
-                    out.append(int(piece))
+            for grp in m.groups():
+                if grp is None:
+                    continue
+                for piece in re.split(r"[/、,]", grp):
+                    piece = piece.strip()
+                    if piece.isdigit() and 1 <= int(piece) <= 40000:
+                        out.append(int(piece))
     return sorted(set(out))
 
 
@@ -281,7 +287,9 @@ def collect(text):
                             "text": line.strip()[:120]})
     seen, uniq = set(), []
     for an in anchors:
-        k = (an["path"], tuple(an["nums"]), an["weak"])
+        # 行号与符号都进 key（工单 W1 / 40 号 FG-4）：只按 (path, nums, weak) 去重的话，
+        # 同一号组的第二条锚点会被第一条吞掉，锚点总数不变，第二条从此没人核。
+        k = (an["line"], an["path"], tuple(an["nums"]), an["weak"], tuple(an["tokens"]))
         if k not in seen:
             seen.add(k)
             uniq.append(an)
@@ -387,6 +395,14 @@ def self_test():
         (window_nums("issue #3683 §4.2 自查 5、6、8"), []),
         (window_nums("（id 212、name 213）"), [212, 213]),
         (window_nums("覆盖率 95%"), []),
+        # 冒号区间的头尾两个号都要收（40 号 FG-5，本仓正文就是这个形状）
+        (window_nums("src/core/blobs.ts:14-36、:85"), [14, 36, 85]),
+        (window_nums("src/core/core.ts:500-503"), [500, 503]),
+        (window_nums("docs/worlds.md:60-61"), [60, 61]),
+        (window_nums("src/bot.ts:253-256 与 :1050"), [253, 256, 1050]),
+        (window_nums("旧行号 1055-1150、1693-2049 已失效"), []),
+        # 「NNN-NNN 行」这一式样以前也只剩尾号：单号形状要求紧跟「行」字，头那个号不收
+        (window_nums("实测为 105-113 行"), [105, 113]),
         # 本平台新增：路由表与锚形状
         (repo_for("src/web/server.ts"), CORICO),
         (repo_for("docs/upgrading.md"), CORICO),
@@ -406,6 +422,13 @@ def self_test():
         (anch("`src/x/packs.ts`:449 里 readManifest 返回错误字符串").get("weak"), False),
         (anch("见 src/web/server.ts:129 那一处。").get("tokens"), []),
         (anch("src/web/server.ts:129 里是 loadManifest 函数").get("weak"), False),
+        # FG-4：同 path 同号组的两条锚点都要留在账上。旧去重键 (path, nums, weak)
+        # 不分行号也不分符号，第二条（往往是编出来的那个）静默消失，总数不变、门禁全绿。
+        (len(collect("`src/core/blobs.ts`:14 EXT_BY_MIME" + chr(10)
+                     + "`src/core/blobs.ts`:14 GHOST")), 2),
+        # 区间的尾号要进号组（40 号 FG-5 的验收面）
+        (anch("见 `src/core/blobs.ts`:14-36 里 EXT_BY_MIME").get("nums"), [14, 36]),
+        (anch("见 `src/core/loop.ts`:7-9 fileLines").get("nums"), [7, 9]),
         # enclosing 要认 TS 的顶层定义：下一个定义关掉作用域时，记录行不算在域内
         (enclosing(["function handler() {", "  return 1", "}",
                     "export const WORLD = {", "  k: 1"], "handler", 5), False),
