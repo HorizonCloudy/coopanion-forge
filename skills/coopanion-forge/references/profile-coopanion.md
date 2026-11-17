@@ -997,6 +997,28 @@ curl -s http://127.0.0.1:17788/api/extensions
 - 本机 config 实据：`skin.figure = "whale-all"`、`scheme = "qwen-knit"`（轴组合串，不是 preset id）。四包 vocab 37 个 id 一致。装包来源查不到：core.log 关键词 grep 0 行命中，「外部导入或人工落盘」是推测。(21-local-runtime §6、§9)(20-pet-tool-catalog §5) [未核验]
 - 内置 coo 与 whale 在宿主只读目录 `resources/app/node_modules/cortico-world-desktop-pet/web/coo/` 与 `web/whale/`，包版本 0.2.0。(14-figure-dress-skin §5)(16-coopanion-app §2)
 
+### 10.7b 形象包清单接口的实测响应（2026-11-17，真宿主 0.2.21）
+
+`GET http://127.0.0.1:7797/api/figures` 是装扮页的数据源。本会话第一次真打到它，记下形状与当时的内容。响应是一个数组，本机当时五个元素，每个十六个字段。
+
+| 字段 | 含义与实测值 |
+|---|---|
+| `id`、`base`、`entry`、`export` | 包标识与加载四元组。内置两个的 base 是 `/web/coo/`、`/web/whale/`；安装进来的三个是 `/packs/<目录名>/` |
+| `removable` | 内置 false，安装进来的 true。判「能不能删」看这个字段，别看 base |
+| `name` | 多语言对象。见到 `zh`、`zh-Hant`、`en` 三键，缺哪种语言就不给哪种 |
+| `model` | 模型文件名或 null。coo 与 shenshen-maid-single 是 null，其余是 `model.json` |
+| `vocab`、`axes`、`presets` | 词表、轴、预设。数量本机分别是 37/37/37/121/37 与 5/2/1/1/2 与 0/8/0/1/9 |
+| `bubble` | 可为 null，也可以是带 `light.fill` 与 `light.text` 的对象（holo-whale 就有） |
+| `can`、`needs`、`thumb`、`sounds`、`effects`、`voice` | 能力位、依赖清单、缩略图路径、声音、特效、配音 |
+
+三个当场纠正的点：
+
+1. 本节 10.7 那条「本机装了 holo-whale 与 whale-all 两个」不完整。清单接口报五个：内置 coo 与 whale，加安装的 holo-whale、shenshen-maid-single、whale-all。当时 10.7 是从磁盘目录看的，看的是 `data/**/figures/`，那里只数得到安装进来的包，内置两个本来就不在那个目录。两边都对，但别再拿磁盘数当「装了几个形象包」。
+2. `shenshen-maid-single` 是 10.7 与 8.3 都没出现过的新样本，词表 121 项，是本机最大的一份，且 `model` 为 null（单文件形态）。8.3 说 shenshen-lib 系列在 npm 上是转 Gitee 的空壳，这条说的是宿主里的手工安装件，两回事，别混。
+3. 路由拼法实测过，别猜。`GET /figure-frame` 命中（200，一段 557 字节的 HTML，带不带 `?id=` 都是它；包是靠后续 postMessage 的 `init` 传 entry 才加载的，不在这条 URL 上）。包内文件走 `/packs/<id>/<相对路径>`，本机实测 `GET /packs/holo-whale/figure.json` 回 200 与 15015 字节 JSON；内置包走 `/web/<id>/`，实测 `GET /web/coo/figure.js` 回 200 的 JS。反过来 `GET /web/figure-frame` 与裸 `/packs/` 都是 404，那两条路径不存在，别拿它们的 404 判「服务没起」。
+
+还没做的一半：像素级渲染（装扮页在屏幕上长什么样）没有浏览器工具可驱动，本团也没法在这台机器上看图判定。这条是工具边界，不是没试。数据面到上面为止都是实测。
+
 ### 10.8 兼容承诺、作者铁律与索引包边界
 
 - README :409-431 六条：manifest 只升不拒；同一 api 只做加法（新字段、可选方法、消息、kit 导出不升 api）；kit 随 api 冻结；旧应用不认识项跳过并记问题，只有缺必需字段、类型不对、路径出包才拒整包；用户存的打扮不失效（选项没了退回该维第一个）；CI 守着（`tests/fixtures/api2-pack/` 冻结、`packages/cortico-world-desktop-pet/tests/packs.test.ts` 读 manifest、`figure-frame-contract.test.js` 跑身体）。(13-figure-runtime §11)
