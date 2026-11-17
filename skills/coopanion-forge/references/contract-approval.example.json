@@ -1,7 +1,7 @@
 {
   "schema": "coopanion-forge/contract-approval@1",
   "task": "给 Coo 做一个每日天气播报 World（示例）",
-  "platform": "cortico@0.2.15",
+  "platform": "cortico@0.2.16",
   "decision": "approved",
   "verdict": "裁决：准奏。cortico.kind=world 且 api 必须精确等于 6，写成上一版 5 时装载走过渡层但 pnpm check:extension 判失败 [FACT] profile §2.2；工具名要带唯一前缀且不与内建撞，否则闸拒 [FACT] §4；事件用 host.pushEvent 主动推，origin 记 internal [FACT] §3.2；配置组 defaults 是活引用，热改即生效 [FACT] §3.2。风险：拉取外部天气需本机 HTTP 出访，属 SEC-4 申报面；定时档位不在契约里，降级为 bot 侧轮询触发。",
   "plan_file": "PLAN.md",
