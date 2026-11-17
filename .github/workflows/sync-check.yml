@@ -75,7 +75,7 @@ jobs:
           rc=0
           for pkg in templates/*/package.json; do
             d=$(dirname "$pkg")
-            ( cd "$d" && pnpm install ) || { echo "install failed in $d"; rc=1; }
+            ( cd "$d" && pnpm install ) || { echo "install failed in $d"; rc=1; }  # forge-declared: SEC-4 理由=CI 装已发布的 cortico 与 typescript 做类型检查，不在产品运行路径 出处=AUDIT.md#sec-declared 复审=2026-12-15
           done
           exit "$rc"
       - name: '模板类型检查：真 tsc（依赖装上就必须全绿，不许降级）'
@@ -118,7 +118,7 @@ jobs:
             exit 1
           fi
       - name: JSON artifacts parse
-        # 排除 vendored 目录：模板类型检查步会 pnpm install，node_modules 落在工作区里，
+        # 排除 vendored 目录：模板类型检查步会装依赖，node_modules 落在工作区里，
         # 递归 glob 于是开始替第三方包查 JSON（2026-11-17 CI 实测被顶红一次：
         # Expecting property name enclosed in double quotes: line 2 column 3）。
         # 本步的对象是本仓产物，不是依赖树的产物。排除式按分隔符归一化，

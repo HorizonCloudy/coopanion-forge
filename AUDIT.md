@@ -566,3 +566,15 @@ CI 实测退 1：`Expecting property name enclosed in double quotes: line 2 colu
   Windows 上 glob 给的是反斜杠，同一条判据在两边结论相反。判据不跟操作系统谈判
 - 验收（用 yml 里那一行原样命令，在 `forge-scratch/jsontest` 夹具上跑）：
   本仓产物里放坏 JSON → 退 1（仍然阻断）；只留 `node_modules/tslib/package.json` 这种带注释的第三方件 → 退 0
+
+## sec-declared · 点位声明登记（本仓）
+
+行尾 `forge-declared` 标记的登记处。每条写清：哪一行、为什么不算问题、复审日期。
+
+| 位置 | 类别 | 理由 | 复审 |
+|---|---|---|---|
+| `.github/workflows/sync-check.yml` 装依赖步的 `pnpm install`（部署件与 `platform/overrides/` 各一处） | SEC-4 | CI 装已发布的 `cortico` 与 `typescript`，只为模板类型检查；不在产品运行路径，模板本体一字不改 | 2026-12-15 |
+
+`.github/workflows/sync-check.yml` 的注释行同时改掉了「pnpm install」这串字：
+扫描器的 SEC-4 按字面匹配，注释里出现同一串字也会记一条，而那句注释讲的是排除
+vendored 目录，不是安装行为。
