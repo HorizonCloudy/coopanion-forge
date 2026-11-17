@@ -142,6 +142,28 @@ def api(url):
         return None, "net"
 
 
+def raw_url(repo, head, path):
+    """raw 端点的地址。contents API 对 1MiB 以上的文件不给正文，那种文件只能走这里。
+    2026-11-17 从内核 7137346 搬来：以前本仓把这种文件报成「取不到」，锚点永远核不了。"""
+    return "https://raw.githubusercontent.com/%s/%s/%s" % (repo, head, path)
+
+
+def get_raw(url):
+    """取纯文本。返回 (bytes, 故障)。api() 只解 JSON，读不到 JSON 不等于读不到文件。"""
+    import urllib.error
+    import urllib.request
+    req = urllib.request.Request(url, headers={"Accept": "text/plain"})
+    if os.environ.get("GITHUB_TOKEN"):
+        req.add_header("Authorization", "token " + os.environ["GITHUB_TOKEN"])
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            return r.read(), None
+    except urllib.error.HTTPError as e:
+        return None, classify(e.code)
+    except (TimeoutError, OSError, ValueError):
+        return None, "net"
+
+
 def resolve_head(repo, use_cache=True, max_age=HEAD_TTL):
     """取某个上游仓当前默认分支的 sha。缓存超过 max_age 秒就重取，否则「当前 main」不成立。"""
     import time
@@ -185,6 +207,17 @@ def upstream_lines(repo, path, head):
     if err:
         return None, err
     state = body_state(data)
+    if state == "missing":
+        return None, "missing"
+    if state == "big":
+        # 文件在，只是 contents API 不返回正文。走 raw 端点取回来，别报「取不到」。
+        blob, rerr = get_raw(raw_url(repo, head, path))
+        if rerr or blob is None:
+            return None, "big"
+        text = blob.decode("utf-8", "replace")
+        with open(fn, "w", encoding="utf-8", newline=NL) as f:
+            f.write(text)
+        return text.split(NL), None
     if state:
         return None, state
     try:
@@ -379,6 +412,12 @@ def self_test():
         (enclosing(["def handler():", "    return 1", "def other():", "    pass"],
                    "handler", 4), False),
         (enclosing(["def handler():", "    x = 1", "    return x"], "handler", 3), True),
+        # 1MiB 以上的文件走 raw 端点：地址形状与状态分类都钉住，别把「读不到正文」说成「文件没了」
+        (raw_url("Pal-AI-Lab/Cortico", "abc1234", "src/core/loop.ts"),
+         "https://raw.githubusercontent.com/Pal-AI-Lab/Cortico/abc1234/src/core/loop.ts"),
+        (body_state({"content": None}), "big"),
+        (body_state({"content": "aGk="}), None),
+        (body_state(None), "missing"),
     ]
     bad = [(i, got, want) for i, (got, want) in enumerate(cases) if got != want]
     for i, got, want in bad:

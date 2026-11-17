@@ -2,4 +2,3 @@ __pycache__/
 *.pyc
 
 .drift-cache/
-__pycache__/

@@ -3,8 +3,9 @@ Third-party attribution and credit
 
 This product is licensed under the MIT License (see LICENSE). The entries below
 are attributions and design credits. They add no conditions to that license and
-grant no rights beyond it. LICENSE carries only the MIT text so that automated
-license scanners recognise the grant; this file carries the rest.
+grant no rights beyond it. LICENSE holds the MIT text plus a two-line pointer
+back to this file; the pointer adds no condition. Keeping the grant text in LICENSE
+is what lets automated license scanners recognise it.
 
 Provenance for every entry is recorded with its check date in AUDIT.md. Where an
 entry says the provenance is not established, treat it as unsettled, not as free

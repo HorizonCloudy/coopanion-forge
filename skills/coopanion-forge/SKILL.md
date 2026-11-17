@@ -91,7 +91,10 @@ TDD、极简工程、安全门禁和运行时验证把交付物钉死在"真的�
 2. **先搜后建不可跳**：写任何新代码前先过 rbb 门禁。三轮检索后必须给判决，四档取一：
    加入上游（Join）/ 做官方扩展（Extend）/ 分叉并保持同步（Fork）/ 自建（Build，附不可复用的具体理由）。
    判定先过可改性硬闸：绿才 Join，黄只 Extend，红禁止 Join。小改动走快速档：3 条检索串加三行
-   Reused / Change / Risk，但「有没有人做过」这一问不豁免。
+   Reused / Change / Risk，但「有没有人做过」这一问不豁免。纯改文案与文档不算写代码，不触发 1a。
+   断网或仓库读不到时不豁免：改成交检索串清单并标「未核验」，由用户决定联网重跑还是补候选。
+   判决为 Join 或 Fork 时要对外发 issue、PR 或评论，每一次单独确认，不许拿上一次的同意续用。
+   （这三句与 `references/workflows.md` 第 1a 节同源；2026-11-17 跟上内核 7137346。）
    权威本体是上游插件 `reuse_before_build`（作者 1-dcjiang，仓库 1-dcjiang/neko-reuse-before-build，
    MIT，v0.3.20 / commit 8388e27，2026-11-16 经 API 解引用核对）。本团只引用、不内嵌。
    本平台三轮检索的落点见 `references/workflows.md` Workflow A 第 1a 节。

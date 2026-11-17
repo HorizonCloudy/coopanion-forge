@@ -14,7 +14,8 @@
   SEC-5 清单形状（不计分）：安装期钩子、依赖直连远端包、package.json 缺必填字段（含 cortico 块）。
   盲区另记两本账：skips（没读的文件）与 unclear（疑似压缩混淆，行级规则读不动）。
 
-默认只扫代码与配置文件（文档不参与评分）；--include-docs 把 md/html/txt 也纳入
+默认只扫代码与配置文件（文档不参与评分）；--include-docs 把 md/txt/rst 也纳入
+（.html 与 .htm 属代码池，不用这个旗标：宿主真加载的页，门禁也当受保护文件）
 （SEC-1/SEC-2 文档残留检查）。--allow 用于"已复核且已声明"的豁免文件，前缀匹配，
 每条豁免必须写进 AUDIT.md。这是分诊器，不是裁判：命中仍要逐条人工判定。
 
@@ -24,10 +25,12 @@
 设计参照：清单形状检查与「盲区不得当作放行」两点取自 jusspound-netizen/dsh-plugin-scanner
 （bb8dc7cd，2026-11-14；该仓库无 LICENSE 文件，本文件为独立实现，未复制其代码）。
 """
-import sys, os, re, json, argparse, tempfile, shutil
+import sys, os, re, json, argparse, tempfile, shutil, subprocess
 
+# 上游源码镜像（漂移探针的缓存）。这些文件是别人仓库的正文，扫它们等于把上游的
+# 示例 token 记到本仓库头上：--include-docs 一开就被 314 个镜像文件淹没。
 SKIP_DIRS = {".git", "node_modules", "__pycache__", ".venv", "venv", "dist",
-             "build", ".pytest_cache", ".mypy_cache", ".tox"}
+             "build", ".pytest_cache", ".mypy_cache", ".tox", ".drift-cache"}
 # 这份扩展名池定义「什么算代码」，只服务于内容扫描。契约门禁另有一份 CODE_EXTS，
 # 那份的用途是「什么算受保护文件」。两处用途不同，成员也不等价：门禁还管无扩展名文件、
 # shebang 文件、hooks.json 与构建文件，本池还管 .ipynb 与各类脚本。
@@ -41,9 +44,13 @@ CODE_EXTS = {".py", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".vue", ".svel
              # 2026-11-17 补：这四类门禁早就当受保护文件，扫描器却不读它们的内容，
              # 密钥与 eval 写在里面就等于不存在（A571 第 1 条那个反向缺口的另一半）。
              # .svg 可带 <script>，.htm 是 .html 的另一半，.m 是 Objective-C，.jl 是 Julia。
-             ".htm", ".svg", ".m", ".jl"}
+             # 2026-11-17 再补：.html 以前只在 DOC_EXTS 里，于是门禁当它是受保护代码、
+             # 扫描器却不读内容，宿主真加载的面板页成了两边都不管的缝（终检 sweep 第 12 条）。
+             # .vbs 与 .ksh 与 .mk 同理：门禁名单里没有，扩展名判据一条都盖不住。
+             ".htm", ".html", ".svg", ".m", ".jl", ".vbs", ".ksh", ".mk"}
 CONFIG_EXTS = {".json", ".yaml", ".yml", ".toml", ".ini", ".cfg", ".conf", ".env", ".properties"}
-DOC_EXTS = {".md", ".markdown", ".html", ".txt", ".rst"}
+# .html 已进 CODE_EXTS（宿主真加载的页），这里不再列它：一个名字只归一处。
+DOC_EXTS = {".md", ".markdown", ".txt", ".rst"}
 MAX_BYTES = 2 * 1024 * 1024
 CHECKS = ("SEC-1", "SEC-2", "SEC-3", "SEC-4")
 
@@ -669,24 +676,51 @@ def _self_test():
         xf = {os.path.join("assets", "icon.svg"): '<svg><script>fet' + 'ch("/api/market", {method:"POST"});</script></svg>\n',
               "page.htm": "var h = ev" + "al(location.hash);\n",
               os.path.join("src", "run.jl"): "run(`cur" + "l -s http://x`)\nconst val PASS = \"Sup3rS3" + "cretPass\"\n",
-              os.path.join("src", "App.m"): "#import <Foundation/Foundation.h>\n@implementation Demo\n@end\n"}
+              os.path.join("src", "App.m"): "#import <Foundation/Foundation.h>\n@implementation Demo\n@end\n",
+              # 2026-11-17 终检 sweep 第 12/13 条：这四类以前两边都不读
+              "page.html": "var h = ev" + "al(location.hash);\n",
+              os.path.join("tools", "legacy.vbs"): "h = ev" + "al(input)\n",
+              os.path.join("sh", "install.ksh"): "ev" + "al \"$1\"\n",
+              os.path.join("mkdir", "rules.mk"): "all:\n\tev" + "al $(SRC)\n"}
         for rel, body in xf.items():
             p = os.path.join(px, rel)
-            os.makedirs(os.path.dirname(p), exist_ok=True)
+            os.makedirs(os.path.dirname(p) or px, exist_ok=True)
             with open(p, "w", encoding="utf-8") as f:
                 f.write(body)
         _s5, _f5, _k5, _u5, _a5 = scan(px, False, [])
         if _s5 != len(xf):
-            helper_bad.append("四类扩展名应读进 %d 个文件，实得 %d（池子里缺哪一类？）"
+            helper_bad.append("八类扩展名应读进 %d 个文件，实得 %d（池子里缺哪一类？）"
                               % (len(xf), _s5))
         for cid, fname in (("SEC-4", "assets/icon.svg"), ("SEC-3", "page.htm"),
-                           ("SEC-2", "src" + "/" + "run.jl")):
+                           ("SEC-2", "src" + "/" + "run.jl"), ("SEC-3", "page.html")):
             if not any(x["file"] == fname for x in _f5[cid]):
                 helper_bad.append("%s 没在 %s 上报出来，那类文件在池子里读不到内容" % (cid, fname))
+        if ".html" in DOC_EXTS:
+            helper_bad.append(".html 同时在两个池子里：一个名字要归一处，否则读没读说不清")
     except OSError as e:
         helper_bad.append("池子覆盖面用例没跑成：" + type(e).__name__)
     finally:
         shutil.rmtree(px, ignore_errors=True)
+    # 探针的上游源码镜像必须整目录跳过：那些文件是别人仓库的正文，
+    # 里面的示例 token 会记到本仓库头上（终检 sweep 第 21 条）。
+    pd_ = tempfile.mkdtemp(prefix="forge-audit-cache-")
+    try:
+        for rel, body in ((os.path.join("scripts", ".drift-cache", "settings.py"),
+                           "var h = ev" + "al(upstream)\n"),
+                          ("leak.html", "var h = ev" + "al(mine)\n")):
+            p = os.path.join(pd_, rel)
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            with open(p, "w", encoding="utf-8") as f:
+                f.write(body)
+        _s6, _f6, _k6, _u6, _a6 = scan(pd_, False, [])
+        if _s6 != 1:
+            helper_bad.append(".drift-cache 没被整目录跳过：应只读 1 个文件，实读 %d" % _s6)
+        if not all(not x["file"].startswith("scripts/") for x in _f6["SEC-3"]):
+            helper_bad.append(".drift-cache 里的内容还是被报了")
+    except OSError as e:
+        helper_bad.append(".drift-cache 用例没跑成：" + type(e).__name__)
+    finally:
+        shutil.rmtree(pd_, ignore_errors=True)
     # Cortico 扩展清单必填：cortico 块 + type=module，与装载器同口径
     no_block = '{"name":"x","version":"1.0.0","type":"module","license":"MIT","repository":"u/x"}'
     if not any("cortico" in m for m, _l in manifest_gaps("package.json", no_block)):
@@ -713,6 +747,93 @@ def _self_test():
         helper_bad.append("严格档仍应把 example_key 这类明显示例当占位符")
     STRICT_PLACEHOLDER = False
 
+    # 评分档与退出码：以前自检从不跑 score()，而清单里那张表就是从 score() 抄的。
+    # 2026-11-17 终检 sweep 第 2/5 条——文档写的 25/0 两档其实还有中间的 10 分档。
+    def _f(sec2=0, sec1=0, sec3=0, sec4=0):
+        return {c: [("x", i) for i in range(n)] for c, n in
+                (("SEC-1", sec1), ("SEC-2", sec2), ("SEC-3", sec3), ("SEC-4", sec4))}
+    for n2, want2, want_total, want_code in ((0, 25, 100, 0), (1, 10, 85, 2), (2, 10, 85, 2),
+                                             (3, 0, 75, 2)):
+        s2, t2, v2, c2 = score(_f(sec2=n2))
+        if (s2["SEC-2"], t2, c2) != (want2, want_total, want_code):
+            helper_bad.append("SEC-2 %d 处应得 (%s, %s, 退出 %s)，实得 (%s, %s, %s)"
+                              % (n2, want2, want_total, want_code, s2["SEC-2"], t2, c2))
+    for n1, want1 in ((0, 25), (3, 20), (4, 10), (10, 10), (11, 0)):
+        s3 = score(_f(sec1=n1))[0]
+        if s3["SEC-1"] != want1:
+            helper_bad.append("SEC-1 %d 处应得 %d 分，实得 %d" % (n1, want1, s3["SEC-1"]))
+    # 50–89 这一段是「修完再放」（退出 1）：SEC-1 与 SEC-3 各 5 处 → 10+10+25+25=70
+    mid = score(_f(sec1=5, sec3=5))
+    if (mid[1], mid[3]) != (70, 1):
+        helper_bad.append("总分 70 应判「修完再放」退 1，实得 %s/%s" % (mid[1], mid[3]))
+    # 退出码走真进程：main() 的映射（空扫描=3、--fail-unclear=3）不在 score() 里，
+    # 只测 score() 就还会有一格假绿。密钥形状在夹具里拼写，本文件不自扫自阻断。
+    def _run(extra, target):
+        r = subprocess.run([sys.executable, os.path.abspath(__file__), target, "--json"] + extra,
+                           capture_output=True, text=True, timeout=180)
+        try:
+            return r.returncode, json.loads(r.stdout)
+        except ValueError:
+            return r.returncode, {}
+    for mk in ("empty", "secret", "blind"):
+        d = tempfile.mkdtemp(prefix="forge-audit-exit-" + mk + "-")
+        try:
+            if mk == "secret":
+                with open(os.path.join(d, "leak.py"), "w", encoding="utf-8") as f:
+                    f.write('KEY = "' + "ghp_" + "A" * 36 + '"' + chr(10))
+                rc, body = _run([], d)
+                hits = body.get("findings", {}).get("SEC-2") or []
+                if rc != 2 or not hits:
+                    helper_bad.append("夹具里放一条 GitHub token 形状：应 SEC-2 阻断退 2，实得 rc=%s 命中 %d"
+                                      % (rc, len(hits)))
+            elif mk == "blind":
+                with open(os.path.join(d, "ok.py"), "w", encoding="utf-8") as f:
+                    f.write("print(1)" + chr(10))
+                with open(os.path.join(d, "nul.py"), "wb") as f:
+                    f.write(b"x = 1" + bytes([0]) + b"y = 2")
+                rc, body = _run([], d)
+                rc_f, body_f = _run(["--fail-unclear"], d)
+                if rc != 0 or rc_f != 3:
+                    helper_bad.append("含 NUL 的 .py：默认应退 0，--fail-unclear 应退 3，实得 %s/%s"
+                                      % (rc, rc_f))
+                ledger = " ".join(body_f.get("skips", []) + body_f.get("unclear", [])
+                                  + [x.get("file", "") if isinstance(x, dict) else str(x)
+                                     for x in body_f.get("unclear", [])])
+                if "nul.py" not in ledger:
+                    helper_bad.append("没读动的文件没在账上点名：%s" % ledger[:120])
+                # 超过 2 MiB 的文件同一条规矩：没读就要点名，不许只报一个总数
+                with open(os.path.join(d, "huge.py"), "wb") as f:
+                    f.write(b"# pad\n" * 400000)          # 约 3.2 MiB，过 MAX_BYTES
+                rc_h, body_h = _run(["--fail-unclear"], d)
+                h_ledger = " ".join(body_h.get("skips", []) + list(body_h.get("unread_files", [])))
+                if "huge.py" not in h_ledger:
+                    helper_bad.append("超大文件没进未读账：%s" % h_ledger[:160])
+                if rc_h != 3:
+                    helper_bad.append("有真盲区时 --fail-unclear 应退 3，实得 %s" % rc_h)
+            else:
+                rc, body = _run([], d)
+                if (rc, body.get("scanned_files")) != (3, 0):
+                    helper_bad.append("空目录应报「空扫描」退 3，实得 rc=%s scanned=%s"
+                                      % (rc, body.get("scanned_files")))
+        except OSError as e:
+            helper_bad.append("退出码用例（%s）没跑成：" % mk + type(e).__name__)
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+    # 文档与代码同步：清单里用反引号点名的每个常量都必须真在本文件里定义。
+    # 「判据分散在六处常量」这句话已经错过两次（实为八处、九处），所以不再让它数数，
+    # 改成让脚本自己核对名字。
+    try:
+        doc = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir,
+                                "references", "security-checklist.md"), encoding="utf-8").read()
+        src_txt = open(os.path.abspath(__file__), encoding="utf-8").read()
+        cited = set(re.findall(r"`([A-Z][A-Z0-9]*_[A-Z0-9_]+)`", doc))
+        defined = set(re.findall(r"^([A-Z][A-Z0-9]*_[A-Z0-9_]+)\s*=", src_txt, re.M))
+        for name in sorted(cited - defined):
+            helper_bad.append("清单点名了 %s，本文件里没有这个常量" % name)
+        if not cited:
+            helper_bad.append("清单里一个常量名都没点名，核对用例空转")
+    except OSError as e:
+        helper_bad.append("清单引用核对没跑成：" + type(e).__name__)
     for msg in helper_bad:
         print("SELF-TEST FAIL:", msg)
 
@@ -738,7 +859,7 @@ def main():
     ap.add_argument("--allow", action="append", default=[],
                     help="豁免的相对路径前缀。可重复传，也可逗号分隔（依据须记入 AUDIT.md）。"
                          "旧版是单值，重复传只认最后一个，会静默少豁免并报假阻断")
-    ap.add_argument("--include-docs", action="store_true", help="把 md/html/txt 也纳入扫描")
+    ap.add_argument("--include-docs", action="store_true", help="把 md/txt/rst 也纳入扫描（.html 已在代码池）")
     ap.add_argument("--json", action="store_true", help="机器可读输出")
     ap.add_argument("--quiet", action="store_true", help="只输出结论行")
     ap.add_argument("--self-test", action="store_true", help="内置自检（CI 用）")

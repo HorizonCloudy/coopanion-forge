@@ -1,7 +1,7 @@
 coopanion-forge 内核基线
 upstream repo=https://github.com/HorizonCloudy/plugin-forge
-ref sha=9bad14e
-full=9bad14e6d66136906759d2e6febcba4ce57d848e
+ref sha=7137346
+full=71373469f89a92e43876f2b85b4e357d344a6d85
 synced by tools/sync_kernel.py --apply
 平台改写清单 platform/deltas.json；整件覆盖 platform/overrides/；移植件对到哪个上游 sha 记在 platform/port-ack.json，上游原文落在仓库外的 -kernel-incoming/
 
@@ -14,7 +14,7 @@ synced by tools/sync_kernel.py --apply
   verbatim  .gitignore
   verbatim  LICENSE
   delta     NOTICE
-  verbatim  scripts/generate_roster_tables.py
+  delta     scripts/generate_roster_tables.py
   delta     skills/coopanion-forge/references/constitution.md
   delta     skills/coopanion-forge/references/workflows.md
   delta     skills/coopanion-forge/references/security-checklist.md

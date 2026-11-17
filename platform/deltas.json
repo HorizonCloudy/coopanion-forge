@@ -6,6 +6,23 @@
       "note": "来源行换成本仓出处"
     }
   ],
+  "scripts/generate_roster_tables.py": [
+    {
+      "find": "               # 2026-11-17 补：这份参考文档里写着「1 主理人 + 13 专家」，是活声明，\n               # 以前不在名单里，人数改了它不动，--check 照样退 0（终检 sweep 第 19 条）。\n               \"skills/coopanion-forge/references/neko/safe-dev-capabilities.md\"]",
+      "replace": "               # 上游这条指的是 references/neko/ 下一份带人数声明的文档。本包不发那个目录，\n               # 所以换成 marketplace.json：它现在没有人数声明，扫它是为了将来写进去时能被抓到。\n               # 本仓其余活人数声明都在 README、SKILL.md、lead 与 plugin.json 里，已在名单内。\n               \".claude-plugin/marketplace.json\"]",
+      "note": "COUNT_FILES 去掉本包不发的 neko 路径，改扫 marketplace.json"
+    },
+    {
+      "find": "COUNT_EXEMPT = [\"AUDIT.md\"]",
+      "replace": "COUNT_EXEMPT = [\"AUDIT.md\", \"platform/deltas.json\",\n                 \"BETTER-FIX.gate-code.2026-11-15.md\"]",
+      "note": "豁免表补两类：改写台账 deltas.json 与本仓带日期的整改账"
+    },
+    {
+      "find": "            if rel in COUNT_FILES or rel in COUNT_EXEMPT or rel.endswith(\"profile-dsh.md\"):",
+      "replace": "            if (rel in COUNT_FILES or rel in COUNT_EXEMPT\n                    or rel.startswith((\"platform/kernel-deltas/\", \"platform/overrides/\"))\n                    or rel.endswith((\"profile-dsh.md\", \"_GATE-PROFILE.md\"))\n                    or os.path.basename(rel).startswith((\"_draft-p\", \"BETTER-FIX.\"))):",
+      "note": "扫描跳过改写台账与 override（里面引的是锚点原文）、草稿与整改账（按日期记账），都不是活声明"
+    }
+  ],
   "skills/coopanion-forge/references/workflows.md": [
     {
       "find": "- 与契约门禁的分工：1a 判「该不该由本团做」，第 3 步判「平台能不能做到」。两道都不许跳，顺序也不能换——先确认不是重复造轮子，再花时间核能力面。",

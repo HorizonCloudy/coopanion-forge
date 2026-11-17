@@ -26,7 +26,7 @@ coopanion-forge · 名册表生成器（roster.json 为唯一来源）
   - 零第三方依赖（Python 3.8+）。只写上面三个被标记的文档，外加 .claude-plugin/plugin.json
     里的人数声明；其余文件一律不动。
 """
-import sys, os, re, json, glob, argparse
+import sys, os, re, json, glob, argparse, io, contextlib
 
 def _utf8_stdout():
     try:
@@ -65,7 +65,18 @@ COUNT_CLAIMS = [
     (r"共 (\d+) 人编制", "n_total"),
 ]
 COUNT_FILES = ["README.md", "skills/coopanion-forge/SKILL.md",
-               "agents/coopanion-forge-lead.md", ".claude-plugin/plugin.json"]
+               "agents/coopanion-forge-lead.md", ".claude-plugin/plugin.json",
+               # 上游这条指的是 references/neko/ 下一份带人数声明的文档。本包不发那个目录，
+               # 所以换成 marketplace.json：它现在没有人数声明，扫它是为了将来写进去时能被抓到。
+               # 本仓其余活人数声明都在 README、SKILL.md、lead 与 plugin.json 里，已在名单内。
+               ".claude-plugin/marketplace.json"]
+# 名单外的文件里出现人数声明 = 要么补进 COUNT_FILES，要么改成「以 roster.json 为准」。
+# 豁免只有两类：AUDIT.md 是带日期的历史账本（改历史数字等于造假），
+# references/neko/ 下那两份机器状态记录同样按日期记账。
+COUNT_EXEMPT = ["AUDIT.md", "platform/deltas.json",
+                 "BETTER-FIX.gate-code.2026-11-15.md"]
+# 这里是 endswith 的后缀表，不是 glob：写 "*.md" 就永远不会命中（本轮自己踩的）。
+COUNT_SCAN_SUFFIXES = (".md", ".markdown", ".json")
 
 def load_roster():
     with open(ROSTER_PATH, encoding="utf-8-sig") as f:
@@ -165,18 +176,58 @@ def apply_counts(text, vals):
         text = re.sub(pat, repl, text)
     return text, hits
 
+def stray_count_claims():
+    """名单之外还写着人数声明的文件。它们不在同步范围里，改编制时一定变陈旧。"""
+    pats = [re.compile(p) for p, _k in COUNT_CLAIMS]
+    found = []
+    for root, dirs, files in os.walk(ROOT):
+        dirs[:] = [d for d in dirs if d not in (".git", "__pycache__", ".drift-cache",
+                                                "node_modules", "venv", ".venv")]
+        for fn in files:
+            if not fn.endswith(COUNT_SCAN_SUFFIXES):
+                continue
+            rel = os.path.relpath(os.path.join(root, fn), ROOT).replace("\\", "/")
+            if (rel in COUNT_FILES or rel in COUNT_EXEMPT
+                    or rel.startswith(("platform/kernel-deltas/", "platform/overrides/"))
+                    or rel.endswith(("profile-dsh.md", "_GATE-PROFILE.md"))
+                    or os.path.basename(rel).startswith(("_draft-p", "BETTER-FIX."))):
+                continue
+            try:
+                text = read(os.path.join(root, fn))
+            except (OSError, UnicodeDecodeError):
+                continue
+            for rx in pats:
+                for m in rx.finditer(text):
+                    found.append((rel, m.group(0)))
+                    break
+    return found
+
+
 def sync_counts(members, do_write):
     problems = []
     vals = {"n_experts": sum(1 for m in members if m["role"] != "lead"),
             "n_total": len(members)}
+    # apply_counts 只回「数字不对」的那些；声明对不对都得先知道名单里还有没有声明，
+    # 所以这里单独数一遍命中（终检 sweep 第 19 条的另一半：声明整句被删掉时以前一片安静）。
+    total_claims = 0
     for rel in COUNT_FILES:
         path = os.path.join(ROOT, rel)
         orig = read(path)
+        total_claims += sum(1 for pat, _k in COUNT_CLAIMS for _m in re.finditer(pat, orig))
         new, hits = apply_counts(orig, vals)
         for old, want in hits:
             problems.append(f"{rel}: 「{old}」应为 {want}（{'已改' if do_write else '需 --write'}）")
         if do_write and new != orig:
             write(path, new)
+    # 声明整句被删掉时，上面两条都安静：0 处命中 = 0 个问题，--check 退 0。
+    # 那一格就是「人数改了没人知道」，所以这里要求名单里至少还有一处活声明。
+    if not total_claims:
+        problems.append("COUNT_FILES 里一处人数声明都没有：名单成了空转，请补回声明或换文件")
+    # 名单外的人数声明不是「陈旧」而是「根本没人管」，所以 --write 也不代替它改：
+    # 要么把文件补进名单，要么把那句话说成以 roster.json 为准。
+    for rel, snippet in stray_count_claims():
+        problems.append("%s: 名单外的人数声明「%s」，请补进 COUNT_FILES 或改成引用 roster.json"
+                        % (rel, snippet))
     return problems
 
 def _self_test():
@@ -199,17 +250,139 @@ def _self_test():
             ok = False
             print("SELF-TEST FAIL: %r → %r（命中 %d），应为 %r（命中 %d）"
                   % (src, got, len(hits), want, want_hits))
+    # --write 这条路径以前没有用例：它会改文件，却只靠 CI 的 --check 侧证（终检 sweep 第 10 条）。
+    # 下面这段在临时目录里造一份最小仓库，真写、真比对，跑完删掉。
+    import shutil
+    import tempfile
+    wd = tempfile.mkdtemp(prefix="roster-self-")
+    real_root = globals()["ROOT"]
+    real_targets = globals()["TARGETS"]
+    real_roster = globals()["ROSTER_PATH"]
+    real_counts = globals()["COUNT_FILES"]
+    real_exempt = list(globals()["COUNT_EXEMPT"])
+    try:
+        globals()["ROOT"] = wd
+        members = [{"agent_id": "a-lead", "role": "lead", "name_zh": "甲", "duty": "定方向",
+                    "when_to_dispatch": "开头", "max_turns": 8, "file": "agents/a-lead.md"},
+                   {"agent_id": "a-exp", "role": "expert", "name_zh": "乙", "duty": "写代码",
+                    "when_to_dispatch": "实现", "max_turns": 12, "file": "agents/a-exp.md"}]
+        os.makedirs(os.path.join(wd, "agents"), exist_ok=True)
+        # 表格里只写甲一行，roster 有两人 —— 这就是「不新鲜」的形状
+        old_table = ["| Agent ID | 角色 | 名号 | 职责 |", "|---|---|---|---|",
+                     "| a-lead | 主理人 | 甲 | 定方向 |"]
+        first = TARGETS[0][0]
+        for rel, marker, _subset, _cols in TARGETS:
+            p = os.path.join(wd, rel.replace("/", os.sep))
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            io.open(p, "w", encoding="utf-8", newline="").write(
+                "抬头" + chr(10) + "<!-- BEGIN " + marker + " -->" + chr(10)
+                + chr(10).join(old_table) + chr(10)
+                + "<!-- END " + marker + " -->" + chr(10) + "尾巴文字" + chr(10))
+        errs = []
+        drift = sync_tables(members, False, errs)
+        if not drift or errs:
+            ok = False
+            print("SELF-TEST FAIL(--check): 不新鲜的表格应报 drift 且不报 error，实得 %r / %r"
+                  % (drift, errs))
+        before = io.open(os.path.join(wd, first.replace("/", os.sep)), encoding="utf-8").read()
+        sync_tables(members, True, [])
+        after = io.open(os.path.join(wd, first.replace("/", os.sep)), encoding="utf-8").read()
+        if "| a-exp |" not in after or "抬头" not in after or "尾巴文字" not in after:
+            ok = False
+            print("SELF-TEST FAIL(--write): 重写没写进新成员，或吃掉了标记外的文字")
+        if after == before:
+            ok = False
+            print("SELF-TEST FAIL(--write): do_write 两条路内容一样，说明没真写")
+        if sync_tables(members, False, []):
+            ok = False
+            print("SELF-TEST FAIL(--write): 重写之后仍报不新鲜")
+        # 行尾必须跟随原文件：CRLF 的文档不能被 --write 改成 LF
+        crlf = os.path.join(wd, "crlf.md")
+        with open(crlf, "wb") as f:
+            f.write(b"a\r\nb\r\n")
+        write(crlf, "c" + chr(13) + chr(10) + "d" + chr(13) + chr(10))
+        if b"\r\n" not in open(crlf, "rb").read():
+            ok = False
+            print("SELF-TEST FAIL(行尾): CRLF 文件被写成了 LF")
+        # 缺标记 = 脚本修不了的 error，不许静默跳过
+        globals()["TARGETS"] = [(first, "no-such-marker", "all", real_targets[0][3])]
+        errs2 = []
+        sync_tables(members, False, errs2)
+        if not errs2 or "缺少标记" not in " ".join(errs2):
+            ok = False
+            print("SELF-TEST FAIL(标记): 缺标记没报 error，实得 %r" % (errs2,))
+        # main() 的退出码：roster 读不到要退 1，不许退 0 装绿
+        globals()["ROSTER_PATH"] = os.path.join(wd, "missing-roster.json")
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc_read = main(["--check"])
+        if rc_read != 1:
+            ok = False
+            print("SELF-TEST FAIL(退出码): roster 读不到应退 1，实得 %s" % rc_read)
+        # 重复 agent_id 必须在 load_roster 就炸
+        dup = os.path.join(wd, "dup.json")
+        io.open(dup, "w", encoding="utf-8", newline="").write(json.dumps(
+            {"members": [dict(members[0], agent_id="x"), dict(members[1], agent_id="x")]},
+            ensure_ascii=False))
+        globals()["ROSTER_PATH"] = dup
+        try:
+            load_roster()
+            ok = False
+            print("SELF-TEST FAIL(花名册): 重复 agent_id 没被拦住")
+        except ValueError:
+            pass
+        # 人数声明的覆盖面：名单内要报陈旧，名单外要报「没人管」，豁免要真豁免。
+        # 这一组的来源是终检 sweep 第 19 条：safe-dev-capabilities.md 里的编制人数
+        # 以前不在任何名单里，改了多少人都没人知道。
+        claim_dir = os.path.join(wd, "docs")
+        os.makedirs(claim_dir, exist_ok=True)
+        io.open(os.path.join(claim_dir, "live.md"), "w", encoding="utf-8", newline="").write(
+            "现有 1 主理人 + 9 专家。" + chr(10))
+        io.open(os.path.join(claim_dir, "stray.md"), "w", encoding="utf-8", newline="").write(
+            "调度 3 位专家。" + chr(10))
+        globals()["COUNT_FILES"] = ["docs/live.md"]
+        globals()["COUNT_EXEMPT"] = []
+        probs = sync_counts(members, False)
+        if not any("1 主理人 + 9 专家" in p for p in probs):
+            ok = False
+            print("SELF-TEST FAIL(人数): 名单内的陈旧声明没报出来，实得 %r" % (probs,))
+        probs2 = sync_counts(members, False)
+        if not any("名单外" in p for p in probs2):
+            ok = False
+            print("SELF-TEST FAIL(人数): 名单外的声明没报出来，实得 %r" % (probs2,))
+        globals()["COUNT_EXEMPT"] = ["docs/stray.md"]
+        if any("名单外" in p for p in sync_counts(members, False)):
+            ok = False
+            print("SELF-TEST FAIL(人数): 豁免名单没生效")
+        # 声明整句被删掉：0 处命中不能算「一致」，那是门禁空转
+        io.open(os.path.join(claim_dir, "live.md"), "w", encoding="utf-8", newline="").write(
+            "这里不再写编制人数。" + chr(10))
+        probs3 = sync_counts(members, False)
+        if not any("空转" in p for p in probs3):
+            ok = False
+            print("SELF-TEST FAIL(人数): 声明全部消失时没报空转，实得 %r" % (probs3,))
+    except Exception as e:
+        ok = False
+        print("SELF-TEST FAIL(写路径): 用例没跑成 %s: %s" % (type(e).__name__, e))
+    finally:
+        globals()["ROOT"] = real_root
+        globals()["TARGETS"] = real_targets
+        globals()["ROSTER_PATH"] = real_roster
+        globals()["COUNT_FILES"] = real_counts
+        globals()["COUNT_EXEMPT"] = real_exempt
+        shutil.rmtree(wd, ignore_errors=True)
+
     print("SELF-TEST:", "PASS" if ok else "FAIL")
     return 0 if ok else 1
 
-def main():
+def main(argv=None):
     _utf8_stdout()
     ap = argparse.ArgumentParser(description="从 roster.json 生成名册表格并同步人数声明")
     g = ap.add_mutually_exclusive_group(required=True)
     g.add_argument("--check", action="store_true", help="只校验，不改文件")
     g.add_argument("--write", action="store_true", help="重写表格与人数声明")
     g.add_argument("--self-test", action="store_true", help="内置自检（CI 用）")
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
     if args.self_test:
         return _self_test()
     try:

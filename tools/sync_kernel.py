@@ -56,7 +56,7 @@ FILES = [
     # 出处告示已挪进 NOTICE，那件走 delta：本包不发 references/neko/，告示改指上游内核包 NOTICE。
     ("LICENSE", "LICENSE", "verbatim"),
     ("NOTICE", "NOTICE", "delta"),
-    ("scripts/generate_roster_tables.py", "scripts/generate_roster_tables.py", "verbatim"),
+    ("scripts/generate_roster_tables.py", "scripts/generate_roster_tables.py", "delta"),
     (K + "/references/constitution.md", DEST + "/references/constitution.md", "delta"),
     (K + "/references/workflows.md", DEST + "/references/workflows.md", "delta"),
     (K + "/references/security-checklist.md", DEST + "/references/security-checklist.md", "delta"),

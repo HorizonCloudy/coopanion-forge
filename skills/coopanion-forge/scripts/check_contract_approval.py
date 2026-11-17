@@ -44,12 +44,15 @@ CODE_EXTS = {".py", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".vue", ".svel
              ".ex", ".exs", ".erl", ".dart", ".sh", ".bash", ".zsh", ".fish",
              ".ps1", ".psm1", ".bat", ".cmd", ".sql", ".ipynb",
              # 2026-11-15 补：宿主真执行的形态以前不在名单里
-             ".html", ".htm", ".yml", ".yaml", ".m", ".jl",
+             # 2026-11-17 与扫描器对齐：.vbs 是 Windows 上真执行的脚本，.ksh 与 .mk 同类。
+             ".html", ".htm", ".yml", ".yaml", ".m", ".jl", ".vbs", ".ksh", ".mk",
              # 2026-11-16 补（A571 第 1 条反向缺口）：SVG 可以内嵌 <script>，
              # 宿主与浏览器渲染它就会执行，不能当纯素材放过
              ".svg"}
 # 无扩展名的构建文件：docker build 与 make 真读它们，扩展名判据一条都盖不住。
 BUILD_FILE_NAMES = {"makefile", "dockerfile", "containerfile", "justfile"}
+# 带后缀的同一类构建文件：Dockerfile.dev、Makefile.am、dockerfile.mysql 都真被执行或被 make
+# 读进去。旧版按全名精确匹配，这类一个都不进门禁（终检 sweep 第 13 条）。
 # 名字即执行面：hooks.json 里每条命令宿主都会直接跑（.json 不在 CODE_EXTS，靠名字进名单）。
 HOST_EXEC_NAMES = {"hooks.json"}
 # 无扩展名的脚本（bin/build、tools/run）按两条旁证判：所在目录，或文件第一行的 shebang。
@@ -121,7 +124,8 @@ def is_protected(path, root=None):
     ext = os.path.splitext(name)[1]
     if ext in CODE_EXTS or name in MANIFEST_NAMES:
         return True
-    if name in BUILD_FILE_NAMES or name in HOST_EXEC_NAMES:
+    base = name.split(".")[0]
+    if base in BUILD_FILE_NAMES or name in HOST_EXEC_NAMES:
         return True
     if ext:
         return False
@@ -358,6 +362,12 @@ def _self_test():
         # A571 第 1 条的反向缺口：这四类以前不经准奏就能写
         (J("assets", "icon.svg"), True), (J("Makefile"), True),
         (J("deploy", "Dockerfile"), True), (J(".claude-plugin", "hooks.json"), True),
+        # 终检 sweep 第 13 条：带后缀的构建文件与三类脚本扩展名以前两边都不管
+        (J("deploy", "Dockerfile.dev"), True), (J("Makefile.am"), True),
+        (J("tools", "legacy.vbs"), True), (J("sh", "install.ksh"), True),
+        (J("build", "rules.mk"), True),
+        # 反向：讲 Dockerfile 的文档不该被钉成受保护代码（base 拆名只认前缀那一头）
+        (J("docs", "notes.dockerfile"), False),
     ]
     for path, want in prot:
         if bool(is_protected(path, root)) != want:
@@ -541,9 +551,99 @@ def _self_test():
             if not ({"tracked.py", "brand_new.py"} <= set(got)):
                 ok = False
                 print("SELF-TEST FAIL(--changed): 改动或未跟踪文件缺失", got)
+            # -z 的意义就在这里：非 ASCII 与空格的文件名，git 默认会加引号转义，
+            # splitlines 会把 "a\ b.py" 这种切碎。名单里必须是原样的名字。
+            odd = _mkrepo([u"中文 名 with space.py", "quote'name.py"], False)
+            got_odd = collect_git(odd, False, True)
+            for nm in (u"中文 名 with space.py", "quote'name.py"):
+                if nm not in got_odd:
+                    ok = False
+                    print("SELF-TEST FAIL(-z): 文件名 %r 没原样进名单，实得 %r" % (nm, got_odd))
         except Exception as e:
             ok = False
             print("SELF-TEST FAIL(git): 调用异常", type(e).__name__, e)
+    # load_approval 的五条拒绝路径与一条通过路径。门禁的全部意义在「无效准奏=没有准奏」，
+    # 这五条以前没有用例（终检 sweep 第 8 条）。
+    import contextlib
+    import io
+    ap_dir = tempfile.mkdtemp(prefix="forge-gate-ap-")
+    _tmp.append(ap_dir)
+
+    def _ap(name, obj_text):
+        p = os.path.join(ap_dir, name)
+        with open(p, "w", encoding="utf-8") as f:
+            f.write(obj_text)
+        return p
+    # decision 只认 "approved"：写成 "approve" 是本函数一开始的错，
+    # 它会让下面两条 main() 用例把拒绝当成通过。
+    good_ap = json.dumps({"schema": SCHEMA_ID, "decision": "approved", "task": "T",
+                          "platform": "N.E.K.O", "scope": ["src/**"],
+                          "issued_by": ISSUER, "issued_at": "2026-11-17T00:00:00Z"},
+                         ensure_ascii=False)
+    ap_cases = [
+        ("nope.json", None, True),                                   # 文件不存在
+        ("bad.json", "{不是 JSON", True),
+        ("list.json", "[1, 2]", True),                                # 顶层不是对象
+        ("wrongschema.json", json.dumps(dict(json.loads(good_ap), schema="x/y@1")), True),
+        ("noscope.json", json.dumps({k: v for k, v in json.loads(good_ap).items()
+                                     if k != "scope"}, ensure_ascii=False), True),
+        ("empty-scope.json", json.dumps(dict(json.loads(good_ap), scope=[]), ensure_ascii=False), True),
+        ("notask.json", json.dumps({k: v for k, v in json.loads(good_ap).items()
+                                    if k != "task"}, ensure_ascii=False), True),
+        ("good.json", good_ap, False),
+    ]
+    for name, text, want_fatal in ap_cases:
+        p = _ap(name, text) if text is not None else os.path.join(ap_dir, name)
+        data, fatal = load_approval(p)
+        if (fatal is not None) != want_fatal:
+            ok = False
+            print("SELF-TEST FAIL(准奏): %s 期望 fatal=%s，得到 %r" % (name, want_fatal, fatal))
+        if not want_fatal and data.get("schema") != SCHEMA_ID:
+            ok = False
+            print("SELF-TEST FAIL(准奏): 有效准奏没读回来")
+    # parse_ts：坏值必须给 None（= 按未到期处理），不能抛
+    for ts, want_none in (("", True), ("不是时间", True), ("2026-13-45", True),
+                          ("2026-11-17", False), ("2026-11-17T10:00", False),
+                          ("2026-11-17T10:00:00Z", False)):
+        got_ts = parse_ts(ts)
+        if (got_ts is None) != want_none:
+            ok = False
+            print("SELF-TEST FAIL(时间): parse_ts(%r) 得到 %r，期望 None=%s" % (ts, got_ts, want_none))
+    # 时区两种写法都要可比：带 Z 的是 UTC，裸时间按本地时区
+    if parse_ts("2026-11-17T10:00:00Z").tzinfo is None:
+        ok = False
+        print("SELF-TEST FAIL(时间): 带 Z 的字符串丢了时区信息")
+    # main() 的退出码与 WARN：无 expires_at 要出声，scope 外要退 1，缺文件要退 2。
+    # 准奏文件必须与目标同根：门禁按 dirname(approval) 当项目根，跨临时目录会判成「根外」。
+    mdir = tempfile.mkdtemp(prefix="forge-gate-main-")
+    _tmp.append(mdir)
+    with open(os.path.join(mdir, "a.py"), "w") as f:
+        f.write("x = 1" + chr(10))
+
+    def _map(text):
+        p = os.path.join(mdir, "contract-approval.json")
+        with open(p, "w", encoding="utf-8") as f:
+            f.write(text)
+        return p
+    no_exp = json.dumps(dict({k: v for k, v in json.loads(good_ap).items()
+                              if k != "expires_at"}, scope=["**"]), ensure_ascii=False)
+    only_src = json.dumps(dict(json.loads(good_ap), scope=["src/**"]), ensure_ascii=False)
+    out_buf = io.StringIO()
+    with contextlib.redirect_stdout(out_buf):
+        rc_no_exp = main([os.path.join(mdir, "a.py"), "--approval", _map(no_exp)])
+        _map(only_src)
+        rc_out = main([os.path.join(mdir, "b.py"), "--approval", os.path.join(mdir, "contract-approval.json")])
+        rc_usage = main(["--approval", os.path.join(mdir, "contract-approval.json")])
+    if rc_no_exp != 0 or "WARN" not in out_buf.getvalue():
+        ok = False
+        print("SELF-TEST FAIL(main): 缺 expires_at 应放行并打 WARN，实得 rc=%s" % rc_no_exp)
+    if rc_out != 1:
+        ok = False
+        print("SELF-TEST FAIL(main): scope 外的文件应退 1，实得 %s" % rc_out)
+    if rc_usage != 2:
+        ok = False
+        print("SELF-TEST FAIL(main): 没有任何待检查文件应退 2，实得 %s" % rc_usage)
+
     for _d in _tmp:
         _rm_tree(_d)
     left = [d for d in _tmp if os.path.exists(d)]
@@ -578,7 +678,7 @@ def collect_git(root, staged, changed):
     return sorted(set(out))
 
 
-def main():
+def main(argv=None):
     _utf8_stdout()
     ap = argparse.ArgumentParser(description="契约准奏门禁：无准奏不写码，scope 外不写码")
     ap.add_argument("targets", nargs="*", help="将要写入的文件路径（项目根相对或绝对）")
@@ -587,7 +687,7 @@ def main():
     ap.add_argument("--staged", action="store_true", help="检查 git 已暂存(ACMR)文件")
     ap.add_argument("--changed", action="store_true", help="检查 git 工作区未暂存改动 + 未跟踪的新文件")
     ap.add_argument("--self-test", action="store_true", help="内置自检（CI 用）")
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
     if args.self_test:
         return _self_test()
     targets = list(args.targets)

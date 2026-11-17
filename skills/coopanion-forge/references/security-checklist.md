@@ -35,9 +35,11 @@ python ${FORGE_HOME}/scripts/security_audit.py <repo> [--allow 前缀1,前缀2] 
   **共用同一份归一化结果**（`norm_allow` / `is_allowed`）。旧版只在 `iter_files` 里归一化，
   `--allow tests/fixtures/` 豁免得了内容、豁免不了夹具里的 `id_rsa`，于是假阻断。
 - 已知边界：把文件改名成 `foo.bin` 不覆盖；内容里没有明文头的加密容器不覆盖。
-- 判据分散在 `security_audit.py` 的六处常量，改一处要同步改其余：一票否决用 `SECRET_FILE_HARD`（扩展名）与
-  `SECRET_FILE_HARD_NAMES`、`SECRET_KEY_PREFIXES`（文件名）；按内容判用 `AUTH_GATED_NAMES` 加 `AUTH_MARKER_RE`；
-  只算盲区用 `SECRET_FILE_EXTS` 与 `SECRET_FILE_NAMES`。公钥排除是 `PUBLIC_KEY_SUFFIX`。
+- 判据分散在 `security_audit.py` 的一组长常量，改一处要同步改其余（名字写全，不写「几处」——
+  计数这句话已经错过一次）：一票否决用 `SECRET_FILE_HARD`（扩展名）与
+  `SECRET_FILE_HARD_NAMES`、`SECRET_KEY_PREFIXES`（文件名）；按内容判用 `AUTH_GATED_NAMES` 加 `AUTH_MARKER_RE`，
+  并用 `ENV_REF_RE` 放行 `${VAR}` 这种环境变量引用；只算盲区用 `SECRET_FILE_EXTS` 与 `SECRET_FILE_NAMES`；
+  公钥排除是 `PUBLIC_KEY_SUFFIX`。
 
 
 要求：仓库内不得出现任何可用凭据（token、API key、私钥、password 形态赋值）。
@@ -46,7 +48,8 @@ python ${FORGE_HOME}/scripts/security_audit.py <repo> [--allow 前缀1,前缀2] 
 URL 内嵌凭据一条同样过滤模板占位：`${DB_PASSWORD}`、`<password>` 不算真口令。
 已知边界：值不足 8 字符不报（`PASSWORD=myword` 6 位、`password = "abc"` 都漏）；`tokenizer` 这类同前缀词不误报；不含任何关键词的纯随机串扫不到，仍要人工抽查。纯字母且够长的右值仍会报（`db_password = secretvalue` 命中），所以「变量引用」的排除只针对属性路径、全大写常量、类型标注、纯数字、URL 与自引用这几种明确形态。占位值默认也被吃掉，`example1234567` 这种「占位词 + 数字」同样不报；要按真值对待就加 `--strict-placeholder`，它只收紧这一种情形，文档示例值会因此开始报。
 修法：改环境变量或宿主安全存储（对照 profile §6）；**已提交的凭据立即轮换**，并清理历史。
-判定：**任一真实命中 = 一票否决，直接阻断**，不参与总分。
+判定：**任一真实命中 = 一票否决，直接阻断**（退出码 2）。SEC-2 的分值同时进总分，
+但阻断不看总分——判据是「有没有真实命中」这一条，总分只是显示。
 
 ### SEC-5 清单形状（不计分）
 
@@ -70,10 +73,10 @@ URL 内嵌凭据一条同样过滤模板占位：`${DB_PASSWORD}`、`<password>`
 
 ## 评分与结论
 
-| 项 | 0 处 | 1–3 处 | 4–10 处 | >10 处 |
-|---|---|---|---|---|
-| SEC-1 / SEC-3 / SEC-4 | 25 | 20 | 10 | 0 |
-| SEC-2 | 25 | — | — | 0（任一真实命中直接阻断） |
+| 项 | 分值随处数变（照 `security_audit.py` 的 `score()` 写） |
+|---|---|
+| SEC-1 / SEC-3 / SEC-4 | 0 处 25；1–3 处 20；4–10 处 10；>10 处 0 |
+| SEC-2 | 0 处 25；1–2 处 10；3 处及以上 0。任一真实命中即阻断（退出码 2），分值同时计入总分 |
 
 总分 = 四项之和（满分 100）。豁免（--allow）文件不计发现。
 

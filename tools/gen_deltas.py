@@ -30,6 +30,37 @@ add(C, "> 本文件是全团最高行为准则（提炼自原 NEKO 团《执行�
     "> 本文件是全团最高行为准则。内核逐字取自 HorizonCloudy/plugin-forge，基线 sha 见仓库根 KERNEL-BASELINE.txt；11 条纪律未改一字。",
     "来源行换成本仓出处")
 
+# 2026-11-17：内核把 generate_roster_tables.py 从 verbatim 改成 delta。
+# 上游那版把一份 references/neko/ 下的文档列进 COUNT_FILES，本包不发那个目录，
+# --check 会 FileNotFoundError 直接崩（实测）。换成扫 marketplace.json：
+# 现在它没有人数声明，扫它是为了将来有人写进去时能被抓住。
+RT = "scripts/generate_roster_tables.py"
+RT_OLD = "\n".join([
+    "               # 2026-11-17 补：这份参考文档里写着「1 主理人 + 13 专家」，是活声明，",
+    "               # 以前不在名单里，人数改了它不动，--check 照样退 0（终检 sweep 第 19 条）。",
+    '               "skills/coopanion-forge/references/neko/safe-dev-capabilities.md"]',
+])
+RT_NEW = "\n".join([
+    "               # 上游这条指的是 references/neko/ 下一份带人数声明的文档。本包不发那个目录，",
+    "               # 所以换成 marketplace.json：它现在没有人数声明，扫它是为了将来写进去时能被抓到。",
+    "               # 本仓其余活人数声明都在 README、SKILL.md、lead 与 plugin.json 里，已在名单内。",
+    '               ".claude-plugin/marketplace.json"]',
+])
+add(RT, RT_OLD, RT_NEW, "COUNT_FILES 去掉本包不发的 neko 路径，改扫 marketplace.json")
+# 上游新加的「名单外人数声明」守卫在本仓误报两类文件，都要豁免：
+# 一、BETTER-FIX.<域>.<日期>.md 是带日期的整改账，改历史数字等于造假；
+# 二、platform/deltas.json 里那条 find 原文就写着「1 主理人 + 13 专家」，它是锚点不是声明。
+add(RT, 'COUNT_EXEMPT = ["AUDIT.md"]',
+    'COUNT_EXEMPT = ["AUDIT.md", "platform/deltas.json",\n'
+    '                 "BETTER-FIX.gate-code.2026-11-15.md"]',
+    "豁免表补两类：改写台账 deltas.json 与本仓带日期的整改账")
+add(RT, "            if rel in COUNT_FILES or rel in COUNT_EXEMPT or rel.endswith(\"profile-dsh.md\"):",
+    "            if (rel in COUNT_FILES or rel in COUNT_EXEMPT\n"
+    "                    or rel.startswith((\"platform/kernel-deltas/\", \"platform/overrides/\"))\n"
+    "                    or rel.endswith((\"profile-dsh.md\", \"_GATE-PROFILE.md\"))\n"
+    "                    or os.path.basename(rel).startswith((\"_draft-p\", \"BETTER-FIX.\"))):",
+    "扫描跳过改写台账与 override（里面引的是锚点原文）、草稿与整改账（按日期记账），都不是活声明")
+
 W = "skills/coopanion-forge/references/workflows.md"
 A1 = ("- 与契约门禁的分工：1a 判「该不该由本团做」，第 3 步判「平台能不能做到」。"
       "两道都不许跳，顺序也不能换——先确认不是重复造轮子，再花时间核能力面。")
