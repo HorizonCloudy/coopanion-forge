@@ -118,9 +118,36 @@ jobs:
             exit 1
           fi
       - name: JSON artifacts parse
-        # 排除 vendored 目录：模板类型检查步会装依赖，node_modules 落在工作区里，
-        # 递归 glob 于是开始替第三方包查 JSON（2026-11-17 CI 实测被顶红一次：
-        # Expecting property name enclosed in double quotes: line 2 column 3）。
-        # 本步的对象是本仓产物，不是依赖树的产物。排除式按分隔符归一化，
-        # 不然 Windows 上 glob 出来是反斜杠，同一句判据在两边结论相反。
-        run: python -c "import json,glob;SKIP=('.git/','dist/','build/');ok=lambda p:(lambda q:'/node_modules/' not in '/'+q and not q.startswith(SKIP))(p.replace(chr(92),'/'));fs=[p for p in glob.glob('**/*.json',recursive=True)+glob.glob('.claude-plugin/*.json') if ok(p)];[json.load(open(p,encoding='utf-8-sig')) for p in fs]"
+        # 对象是本仓产物，不是依赖树：模板类型检查步会装依赖，node_modules 落在工作区里，
+        # 递归 glob 不排除的话就在替第三方包查 JSON（2026-11-17 CI 实测被顶红一次）。
+        # tsconfig.json 属 JSONC：TypeScript 自己就按带注释的 JSON 读它，三份模板那几份是
+        # 逐字搬来的上游件（check_templates 锁哈希），不许为迁就本步去改它们。
+        # 失败时逐个打印路径与异常：前两次红只给一句「line 2 column 3」，没说文件。
+        # 路径先归一化分隔符，同一条判据在 Linux 与 Windows 上结论必须一致。
+        run: |
+          python - <<'PY'
+          import fnmatch, glob, json, os, sys
+          SKIP_DIR = ('.git/', 'dist/', 'build/')
+          JSONC = ('tsconfig.json', 'tsconfig.*.json', 'jsconfig.json')
+          def keep(p):
+              q = p.replace(chr(92), '/')
+              if '/node_modules/' in '/' + q:
+                  return False
+              if q.startswith(SKIP_DIR):
+                  return False
+              return not any(fnmatch.fnmatch(os.path.basename(q), g) for g in JSONC)
+          paths = [p for p in glob.glob('**/*.json', recursive=True) + glob.glob('.claude-plugin/*.json')
+                   if keep(p)]
+          bad = []
+          for p in paths:
+              try:
+                  json.load(open(p, encoding='utf-8-sig'))
+              except Exception as e:
+                  bad.append('%s: %s' % (p, e))
+          if bad:
+              print('JSON 产物解析失败 %d 处：' % len(bad))
+              for line in bad:
+                  print('  ' + line)
+              sys.exit(1)
+          print('JSON 产物 %d 个全部可解析（JSONC 与 vendored 目录不参与）' % len(paths))
+          PY
