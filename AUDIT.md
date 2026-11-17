@@ -489,3 +489,38 @@ plugin.toml 那一族用例，所以比内核的 130 少 4 例，不是没同步
 复跑 `profile_drift --strict` 111 条全对得上、漂移 0、核不了 0，退 0。
 这条也更正本文早前那句「本件与内核的判据差异目前没有证据会抓到本仓现有的漏」——
 证据现在有了，就是这两条。
+
+## 2026-11-17 深夜 · 工单 W6：四条 0.2.16 行为变更写进 profile，三处过期计数改掉
+
+写入面（全部本会话对 `v0.2.16` = `9569f5520` 的 tag blob 逐行数过，行号自数，不转引）：
+
+- **§4.2 事件 ts 重写**：`deploymentTs`（core.ts:500-503）改写点两处（:525 与 :560），
+  `pushDeferred`（:541）不经这一步；规范句在 `docs/worlds.md:60-61`。
+- **§4.2 minecraft 降档先例**：`trigger` 搭车档在 world.ts:3880，注释理由在 :3860-3861。
+  这里更正 31 号证据的一处转引：注释行是 3860-3861，不是它写的 3857-3859。
+- **§4.4 用量账本**：4 MiB 分块（usage-log.ts:7 `READ_CHUNK_BYTES`）、块间 `setImmediate`（:106，
+  不是 31 号说的 :39-42——那是别处的行）、`readAll`（:114）与 `clear`（:129）变异步、
+  `count()` 返回 `number | null`（:123）；消费面 bot.ts 的 `stat`（:253-256 首屏可能只给体积）、
+  `clear`（:258）、`aggregate`（:1050）。500 那一格补一句路由侧 `await part.clear()`（server.ts:1827）。
+- **§4.4 附件落盘名**：`EXT_BY_MIME` 21 项（blobs.ts:14-35），新增 10 项音视频类型，
+  剥参数那一行在 :85；旧附件不回改（无迁移脚本，commit `1f5c6617b75b…`）。
+- **§4.4 linkFile 正例**：world.ts:2555 写死 `minecraft-link.json`，读回在 :2769
+  （31 号转引的 :2755、:3889 是别的行，本会话数过：:2756 是写侧守卫，:3889 是 `serverWanted`）。
+- **M-2 分母**：旧句「50 处中 0 处」作废，换成三个口径各数一遍（49 / 57 / 60），0 命中部分仍成立。
+- **M-4**：291 个文件重数仍 291；5135 条本轮没重跑，句内标「沿用 2026-11-16 记录」。
+- **T-3**：文档清单补 `upgrading.md` 与 `worlds.md`，「共十二页」改成
+  `git ls-files docs/*.md | wc -l` = 15 的可复算写法（0.2.16 的 ts 规范恰好写在漏掉的那一页）。
+
+**uncertain 入账，不写成结论（31 号 B-3）**：宿主 `INLINE_MIMES` 收 avi / flv / mpg / wmv / 3gpp，
+core 的 21 项扩展名实测**没有**这五种（本会话把 `EXT_BY_MIME` 的值全列出来核过：
+`.aac .aiff .bmp .flac .gif .jpg .json .m4a .mov .mp3 .mp4 .mpeg .ogg .pdf .png .txt .wav .weba .webm .webp .zip`）。
+所以这五类附件在 core 侧仍落 `.bin`。会不会影响出访请求，取决于走哪条路径
+（core 组 BlobRef 时 `known?.mime ?? resolved?.mime ?? mimeOfHandle(...)`，World 自带 mime 就不吃反查）——
+本轮没实测这条，标 [未核实]，留给后续。
+
+**本条踩到的写法坑（已写进 SKILL §5 第 3 条）**：第一版把「（路径:行号，读于 sha）」折到下一行，
+探针逐行核锚，符号在前一行、锚在下一行 → 9 条判成 weak「核不了」。第二版把符号与锚并到同一物理行，
+并把区间尾号从 `:14-36`（尾上只有 `};`，无符号可核）改成 `:14-35`。
+
+复验：`profile_drift --strict` 锚点 111 → 124 条，对得上 124、漂移 0、核不了 0、取不到 0，退 0；
+`generate_roster_tables --check` 退 0。

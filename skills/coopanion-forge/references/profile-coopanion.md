@@ -371,7 +371,15 @@
 - deferred 与 candidate 两类排队项不持久化，不参与重启补投。(03-world-contract §3)
 - 隐藏的 World：pushEvent 归档为 archive-only，pushDeferred 直接丢弃，pushCandidate 原始事件仍归档、投影作废。(03-world-contract §8)
 - 主循环在一批之内的轮次边界接收新事件：工具全部返回后，或 preempt、interrupt 取消模型轮后。(03-world-contract §3)
-- 仓内 World 没有任何一处把 `preempt` 或 `interrupt` 当字面量传给 `trigger:`（50 处中 0 处）。(03-world-contract §3)
+- 仓内 World 没有任何一处把 `preempt` 或 `interrupt` 当字面量传给 `trigger:`。复算口径写全：
+  `git grep -c "trigger: '" v0.2.16 -- src/worlds` 得 49 处（v0.2.15 是 48），0.2.16 新增的那一处是
+  minecraft 的 `piggyback`；把 `src/core` 一起数得 57；按「行」数（含 `opts?.trigger` 这种非字面量）得 60。
+  三个口径都不等于旧文的「50」，所以旧那句作废。(03-world-contract §3；2026-11-17 三个口径各数一遍)
+- 事件 ts 由 Core 改写：`Date.parse` 认得的串换成部署时区的墙上时间加偏移，时刻不变，认不出的原样落库。(src/core/core.ts:500-503 的 `deploymentTs`，读于 9569f55)
+- 改写点只有两处：`pushEvent` 落库时重写，`pushCandidate` 对原始事件同样重写；`pushDeferred` 不经过这一步。(src/core/core.ts:525 的 `deploymentTs`，另见 :560，读于 9569f55)
+- 上游把这条规范写进文档：ts 由 nowIso 生成，`Z` 结尾的 UTC 串落库时换成部署时区，时刻不变。(docs/worlds.md:60-61 的 `nowIso`，读于 9569f55)
+- 官方内置 World 的降档先例：minecraft 从第 2 次起给重连失败事件带搭车档，第 1 次不带。(src/worlds/minecraft/world.ts:3880 的 `trigger`，读于 9569f55)
+- 同一处的注释写明理由：第一次掉线立即投递，之后每次重连没成就不单独触发投递，随下一批带上。(src/worlds/minecraft/world.ts:3860-3861 的 `piggyback`，读于 9569f55)
 - 官方参考 World 的实操写法（cortico-world-vtuber@e455703 实读，裸文件名写法是故意的——探针不路由这个仓）：该仓 `world.ts:3262` 推 `vtuber.act.outcome` 时逐字写 `origin: 'external'` 与 `tags: ['speak']`，同一条 pushEvent 的第二参数给 `{ trigger: 'flush' }`（:3267）。外部事件按本节的缺省本该 debounce，它显式提档到 flush，为的是演出结果当轮就进模型。该仓另有 4 处 `flush`（:1745、:3246、:3378 与 :3267）。这是「外部事件不必一直等缺省」的一个官方先例，不是新规则。
 - 市场实态（353 时点）：952 条声明事件里 539 条（56.6%）不写档位走缺省；显式声明里 flush 223、debounce 135、piggyback 47、preempt 6、interrupt 2。(c04-capability-usage §3)
 - 市场实态（2026-11-17 现算，`245d61164`）：声明事件合计 `1017` 条，其中 `586` 条（57.6%）不写档位走缺省。显式声明里 flush `227`、debounce `143`、piggyback `51`、preempt `7`、interrupt `3`。preempt 与 interrupt 两处仍是个位数。上面那句「仓内 World 没有一处把 preempt 或 interrupt 当字面量传给 trigger」是仓内口径，市场里这十条属于第三方包。被两个以上包发的事件 type 有 `56` 个。(c07 现算，2026-11-17)
@@ -396,6 +404,14 @@
 - World 的 `ctx.dataDir` 是部署级共享目录，同名文件会互相覆盖。文件名与 storage key 以 World id 开头是文档约定。(03-world-contract §8)
 - 实际偏差存在：`qq` 的存储 key 是 `vision`，不以 id 开头。干跑不查存储 key。(03-world-contract §8)
 - `GET /api/storage` 清单项含 `owner`；`POST /api/storage/clear` 的 key 与 owner 走 query 不走 body。(09-webui-routes §2.2、08-deploy-env-storage /api/storage 节)
+- 用量账本按 4 MiB 分块读，块与块之间让出事件循环，账本大小不再受 V8 最大串长限制。(src/core/usage-log.ts:7 的 `READ_CHUNK_BYTES`，另见 :106 的 `setImmediate`，读于 9569f55)
+- 三个方法换了形状：两个变 async，`count()` 返回 number 或 null；首次扫描完成前给 null，问一次就把扫描排上去。(src/core/usage-log.ts:114 的 `readAll`，另见 :123 的 `count`、:129 的 `clear`，读于 9569f55)
+- WebUI 的 usage 行首屏可能只给体积：`stat` 遇到 null 计数时直接返回字节数。(src/bot.ts:253-256 的 `stat`，读于 9569f55)
+- 同一块 aggregate 等异步读取完成，clear 按钮等异步清理返回的条数。(src/bot.ts:1050 的 `readAll`，另见 :258 的 `clear`，读于 9569f55)
+- 附件落盘名只看 MIME 的主类型，分号后面的参数不参与；表里共 21 项。(src/core/blobs.ts:85 的 `EXT_BY_MIME`，读于 9569f55)
+- 附件表新增 10 项音频与视频类型：`audio/ogg`、`audio/webm`、`audio/flac`、`audio/aac`、`audio/mp4`、`audio/aiff`、`video/mp4`、`video/webm`、`video/quicktime`、`video/mpeg`。(src/core/blobs.ts:14-35 的 `EXT_BY_MIME`，读于 9569f55)
+- 旧附件不回改：本区间没有迁移脚本，0.2.16 之前落成 `.bin` 的文件仍是 `.bin`，按句柄反查只能拿 `application/octet-stream`。(commit `1f5c6617b75b215fb6db192850b0a1f885810d7c`，在 0.2.15..0.2.16 区间内，2026-11-17 实读 git log 与 diff)
+- minecraft 是 dataDir 命名约定的正例：意图账本写死带 World id 前缀的文件名，重启读回。(src/worlds/minecraft/world.ts:2555 的 `linkFile`，另见 :2769 的 `externalWanted`，读于 9569f55)
 - `core-state.json` 里 World 侧只有 `worldVisibility` 一张表；`clear()` 只清 `persona` 与 `lastTruncateAt`，投递水位与可见性跨重置保留。常驻 session 落盘 `data/session-main.jsonl`，只追加。(03-world-contract §8)(05-bot-contract sessions)
 
 ### 4.5 密钥取用
@@ -556,7 +572,7 @@ HTTP 层（WebUI）：
 | 413 | prompts 内容 UTF-8 字节超 1MB | (09-webui-routes §2.7) |
 | 421 | Host 白名单不过 | (09-webui-routes §1) |
 | 428 | 未登录 GitHub 投票/发帖（含令牌被撤后删文件重定向到此码） | (10-market-install §7) |
-| 500 | 面板页内抛错；storage `clear()` 抛错 | (09-webui-routes §2.2、§2.8) |
+| 500 | 面板页内抛错；storage `clear()` 抛错。0.2.16 起 `usage` 这一项走 Promise 分支：路由里写 `await part.clear()`（src/web/server.ts:1827，读于 9569f55） | (09-webui-routes §2.2、§2.8) |
 | 502 | npm 搜索失败；registry 侧 provider 错误；GitHub GraphQL 其余错误；索引 schema 不认识 | (09-webui-routes §2.6、10-market-install §7) |
 | 503 | 能力未挂载（market、check、panel no-surface、path-picker 不可用）；关机中 `shuttingDown` | (09-webui-routes §2.6、§2.8、10-market-install §6) |
 
@@ -690,7 +706,7 @@ CORTICO_COMPANION_DATA=<空目录> pnpm run dev   # 宿主开发模式，干净�
 
 - 隔离变量清单：`CORTICO_HOME`、`CORTICO_EXTENSIONS_DIR`、`CORTICO_MARKET_INDEX_BASE`、`CORTICO_PORT`（dev 缺省 8848）。(_PROFILE-DRAFT §7.1)
 - 停宿主的口径（代码读实 2026-11-16，未实机）：上游没有停止脚本，停止就向 core 进程发 `SIGINT`（Ctrl+C 的形状），触发信号清单见 3.10。没停干净不会静默过去：端口被上一个实例占着时框架按 6.6 的规则顺延最多 5 个候选，并在 `src/web/server.ts:1487` 那个 `maxAttempts` 候选循环里打 warn，文案见同文件 `:1494`「端口 X 被占用或不可监听，改用 Y」，`:1492` 那句注释写的就是「便于发现预期端口被其他实例占用」。排障含义：残留的旧宿主占住 8848 时，你连上的可能是它，返回的是旧进程的 200 与旧数据，不是全 404。归因前先核对端口占用，再怀疑扩展本身。等待上限取 6.1 的 `SHUTDOWN_GRACE_MS = 95000`、`EXTENSIONS_WAIT_MS = 65_000` 与 stop 宽限 `35_000`，别照抄内核 sandbox 脚本里的 3 秒。本节整条 [未核验]：7.1 层 3 的既有纪律禁止本轮启动宿主。
-- 还有一条不启动宿主也能拿到动态证据的路子（2026-11-17 实测）：在 Cortico 检出里装好依赖后跑它自己的测试。`npx vitest run tests/extensions.test.ts tests/extension-removal.test.ts tests/boot.test.ts` 三项 74 条用例全绿、八秒级；全量 `npx vitest run` 是 291 个文件、5135 条，本机 5068 通过、63 失败、4 跳过、约十五分钟。失败集中在两类，本机原因查到了。
+- 还有一条不启动宿主也能拿到动态证据的路子（2026-11-17 实测）：在 Cortico 检出里装好依赖后跑它自己的测试。`npx vitest run tests/extensions.test.ts tests/extension-removal.test.ts tests/boot.test.ts` 三项 74 条用例全绿、八秒级；全量 `npx vitest run` 是 291 个文件、5135 条（文件数 2026-11-17 重数仍 291：`git ls-files | grep -cE '\.test\.(ts|tsx|js)$'`；5135 是 vitest 报告的实跑数，本轮没重跑，沿用 2026-11-16 记录），本机 5068 通过、63 失败、4 跳过、约十五分钟。失败集中在两类，本机原因查到了。
   一类是 `tests/web/` 下几个文件整文件红：core-pager 3/3、feature-providers 22/22、prompts-page 15/15。日志伴随一条 Node 实验警告：localStorage 不可用，因为没给 `--localstorage-file`。本机 Node 是 27.0.0-alpha，框架要求的运行时是 22.x 线。同目录 client-ui 的 115 条全绿，所以红的判据是「依赖 localStorage 的那批」，不是 web 用例全坏。
   另一类是 worlds/minecraft 的 bridge 里有 1 条 viewer 端口用例失败，那要 Minecraft 侧环境。
   给本团的规则：整文件红先查环境与 Node 版本，零星红才查被测对象。跑之前先 `node -v`；拿 27 alpha 的结果去判一个声明 22 线的框架，得到的结论不成立。这条比「读代码」强，比「启动宿主」轻，适合放在层 2 与层 3 之间用。
@@ -845,7 +861,10 @@ curl -s http://127.0.0.1:17788/api/extensions
 - 官方参考 World：github.com/Pal-AI-Lab/cortico-world-vtuber（AGPL-3.0-or-later，main `e45570383` @2026-11-04）。它是「官方公开完整可读的 world 实现」之一，org 下 cortico-world-* 公开仓共 5 个（vtuber、cua、desktop-pet、coocowork、qqbot，2026-11-16 `gh api` 实跑）。可以抄它的写法，别抄它的契约档位：它钉 api 5，见 2.6 的活标本那条。(cortico-notes.md §1)
 - 索引仓：github.com/Pal-AI-Lab/cortico-extensions。定位逐字「这里只放官方维护的分类、认证与覆盖项」；扩展本体仍发 npm。(18-index-protocols §2, README.md:3-4)
 - 升级文档：`UPGRADING_URL` 指 github.com/Pal-AI-Lab/Cortico/blob/main/docs/upgrading.md。(06-gate-scripts §5)
-- 兼容等级页：github.com/Pal-AI-Lab/Cortico/blob/main/docs/world-compatibility.md。它是「别的框架要挂 Cortico World 得做到哪一级」的成文靶子，本团 4.10 就按它写。同目录另有 `deployment.md`（含磁盘迁移一节）、`extensions.md`、`providers.md`、`sessions.md`、`runs.md`、`runtimes.md`、`webui.md`、`windows.md`、`configuration.md`、`environment-variables.md`、`personas.md`、`development.md`，共十二页，2026-11-17 列过一遍，以前本文件只引其中四页。
+- 兼容等级页：github.com/Pal-AI-Lab/Cortico/blob/main/docs/world-compatibility.md。它是「别的框架要挂 Cortico World 得做到哪一级」的成文靶子，本团 4.10 就按它写。同目录另有 `deployment.md`（含磁盘迁移一节）、`extensions.md`、`providers.md`、`sessions.md`、`runs.md`、`runtimes.md`、`webui.md`、`windows.md`、`configuration.md`、`environment-variables.md`、`personas.md`、`development.md`，再加 `upgrading.md` 与 `worlds.md`，
+  共 15 页。复算口径：`git ls-files docs/*.md | wc -l` 在 `9569f55` 上得 15（2026-11-17 实数）。
+  以前写「共十二页」是漏了这两页——0.2.16 新增的事件 `ts` 规范恰好就写在 `docs/worlds.md`，
+  契约档位的迁移说明在 `docs/upgrading.md`。以前本文件只引其中四页。
 - 官方中文指南站：coo.palailab.org/guide/。19 号报告已于 2026-11-15 逐页取证，内容以 19 为准。该域只能走 `mcp__anysearch__extract`，WebFetch 对 coo.palailab.org 被拦。站点改版需重跑 19。(19-guide-site 全文)
 - Cortina 是文本提示件，不是工具、不是扩展脚手架。TINA 既不是人物格式也不是扩展格式。两者都不许当扩展规范引用。(17-cortina-tina)(权威事实) 可引范围补一句：作者流程、验证步骤与发布步骤那部分可以引 Cortina main `244b2d05d`（2026-10-22，该仓无 tag 也无 release，只能钉 sha，「v0.2.0」只是提交标题不是发布）。2026-11-16 实读该仓确认它不含扩展模板代码，扩展契约与命名前缀仍只认 Cortico（Cortina README.md:113 `@244b2d05` 逐字：规则缺失时它建议向 Cortico 提；`state/cortico/` 只是它开发期取的 Cortico 副本，README.md:106）。规范引用一律换成 Cortico 的 file:line，引到 Cortina 原文之前保持 [未核验]。(cortico-notes.md §1，2026-11-16 复核)
 
