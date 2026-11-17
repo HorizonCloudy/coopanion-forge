@@ -99,7 +99,7 @@ Pal-AI-Lab 的四个仓库与官方指南站是**证据源**，本仓不内嵌�
 - ~~`tools/sync_kernel.py` 比对前不做行尾归一。~~ 已做（2026-11-16）：加 `same_eol()`，verbatim 与 delta 两处比较都先剥行尾差异，落盘仍按上游原字节。反向对照两次：把 `task-size-routing.md` 工作树全改成 CRLF（31 处）→ `--check` 仍报一致 18 / 漂移 0；改回 LF 也一样。真差异吃不掉：自检里 `same_eol(b"a\nb\n", b"a\nc\n")` 为假，写成第 13 条检查项。以前那种「上游 blob 带 31 处 CRLF、本仓 blob 存 LF」的写法差异不再会变成假漂移。
 - ~~`--port-done` 守卫不加 sha 校验。~~ 已做（2026-11-16）：`--port-done` 先把 `-kernel-incoming/` 里的原文与 `git show <ref>:<路径>` 逐字节比，不等就拒写并退 1。反向对照实测：把 ac9af4d 的原文（18958 字节）当 2d658a7（18937 字节）放进去，`--port-done` 报「incoming 与上游原文不一致」并退 1，`port-ack.json` 保持原值；换回正确原文后同一条命令退 0。留下的窄口子写在代码注释里：`--apply` 只在 ack 落后时刷新 incoming，所以手动改坏 incoming 时得自己重取。
 - ~~figure.json 进不进保护面：等仓主（HorizonCloudy）拍板。~~ 已决（2026-11-16，仓主选「加，走本仓 delta」）：`platform/deltas.json` 的 `check_contract_approval.py` 键加第 4 条，把 `figure.json` 补进上游 `MANIFEST_NAMES`（锚在 `:63` 那行，唯一命中）。实测 `is_protected` 现在对根目录与嵌套的 `figure.json` 都返回 True，门禁自检 PASS，`README.md` 仍 False（没把范围扩宽）。这条是本仓自加改写：上游哪天自己加上，锚点会失配、`--apply` 报错退出，那时撤掉这条，别留双重添加。
-- `profile-coopanion.md:28` 的「本机安装版本」这条在调研机上读不到实值（`%LOCALAPPDATA%/Programs/Coopanion` 空扫）。保持 `[未核验]`，拿到 `resources/app/package.json` 的 version 再改。
+- ~~本机安装版本读不到实值~~ 已结案（2026-11-17）：本机装着宿主，路径是 `E:/Users/54301/AppData/Local/Programs/Coopanion`，`resources/app/package.json` 的 version 为 0.2.21。此前两次「读不到 / 没装」都是搜错盘符的假阴性（只查了 C 盘的 `%LOCALAPPDATA%`）。教训与查法记在第 18 节第 1 条：先用 tasklist 找进程，再取它的 Path，别拼常量路径。
 - 市场普查的分母现在有三套：353（`f6d6ef5` 历史快照）、367（`a4d41ea`）、368（`1040eb169`）。2026-11-16 已在 `1040eb169` 上重跑六个脚本（c01、c05、c06、c07、c08、c09），新数字落在 `references/cortico-notes.md` 3.1 与 profile 8.2、4.1、4.2。只有两项仍属 353 口径没重算：「按名筛漏 80 误收 14」那对差值（要先定「按名命中」的规则，本轮没做），和「有反馈包无维护者回复 80/104」（本轮 c05 只回回复条数：官方 5、维护者 63，包数要改脚本才算）。该仓按小时 sync，所以这条会一直活着：引用前先跑 ⓪ P9，别凑。
 
 ## 6. 同日第二轮：重新克隆六个仓（2026-11-16 午后）
@@ -245,9 +245,10 @@ assets `153`、评论 `104` 个文件实存 `405` 条；kind 是 world `353`、b
    工具面、作者面、Coo 耦合与按名筛那对差值都换到 373 分母。c05 本轮加了包级统计（顶层有回复的包 22 个、
    无回复 82 个 = 78.8%），改的是调研仓 `tmp/coo-survey/tools/c05_comments.py`，不是本仓文件。
    这条补上了上一轮我推说「要先定口径」的那件事——口径本来就在 c09 脚本里，那是借口，已记进提交信息。
-9. **本机没装 Coopanion 这件事从断言改成读法。** profile 1.1 那句「本机安装版本」删掉，换成一条
-   `ls "$LOCALAPPDATA/Programs/Coopanion/resources/app/package.json"` 的读法加本箱实跑结果。这样下次换机器读，
-   文档不会跟着说谎。
+9. ~~本机没装 Coopanion，那条断言改成读法。~~ 这条当时就写错了：宿主装着，只是装在 E 盘。
+   「不写死版本、改成读法」这个动作仍然对，但理由要换成「别把盘符写进文档」，不是本机没装。
+   正确记录与查法见第 18 节第 1 条。这一条留着，是为了记下这个错法：查「装没装」用拼出来的常量路径，
+   在这台机器上会得到假阴性，而假阴性比缺失更坏——它让后面所有「本机实跑」的结论都少跑了一遍。
 
 门禁复跑（本轮末尾，本机实跑，全部退 0）：`sync_kernel --check --ref 9bad14e` 一致 18 / 需搬 0 / 缺件 0 / 替换失败 0；`sync_kernel --self-test` 13 项；`gen_deltas --check` 一致（7 个目标文件，18 处替换）；契约门禁自检；安全审计自检（例数以实跑输出为准）；名册 `--check` 与自检；安装器自检；`py_compile` 全过。扫描三连：普通扫 100/100 真盲区 0，`--fail-unclear` 退 0，`--strict-placeholder` 退 0——后两条现在会红 CI，所以每一步跑之前都当它们是阻塞的。锚点探针 `--fresh` 与 `--strict` 各跑一次：97 条对得上 97、漂移 0、核不了 0、取不到 0，对的上游是 Cortico `9569f5520`、Coopanion `338854e79`、索引仓 `245d61164`。装机面重装之后预演再跑一遍，要写 0 个。
 
@@ -343,3 +344,18 @@ assets `153`、评论 `104` 个文件实存 `405` 条；kind 是 world `353`、b
 清单现状：未核验 17 条，结案 14 条，剩三条——动态超时与 TTL、装扮页实机渲染（两条都要真启动宿主，需仓主放行安装并运行），npm 包级迁移文档（要上游写）。
 
 复验：`profile_drift --strict` 一百条锚点对得上 100、漂移 0；`sync_kernel --check` 一致 18；`--self-test` 13 项；`gen_deltas --check` 一致；契约门禁与安全审计自检、名册、安装器自检全过；扫描含两个严格档 100/100、真盲区 0；装机面重装后预演写 0 个。
+## 18. 第十一轮：宿主其实一直在跑，之前那句「本机没装」是我查错盘（2026-11-17）
+
+仓主说一句「宿主早就启动了」。复查结果：**本机装着且在跑 Coopanion 0.2.21**，路径 `E:/Users/54301/AppData/Local/Programs/Coopanion`。我前几轮报「本机没装」，原因是只查了 C 盘的 `%LOCALAPPDATA%`，而这台机器的用户目录树在 E 盘。这是假阴性，比缺信息更坏：它让「本机做不到」这个说法在多条探针和多条运行时结论上显得合理。
+
+正确查法已写进 profile 1.1 与 ⓪：`tasklist` 找 `Coopanion.exe` → `Get-Process Coopanion | Select -Expand Path` 取路径 → 再拼 `resources/app`。别用常量路径判装没装。
+
+这一轮据此跑掉的真机取证（全部只读，没点任何写入或重启）：
+
+1. **⓪ P1 到 P6 第一次在真安装上跑通。** P1 的档位行是 world 6 / provider 6 / bot 7，且内置副本 `build/cortico/src/extensions/manifest.ts` 的 git 哈希与上游 main 该文件逐字节相同（`7ab5a6f06d…`）——这等于证明本机宿主的内置契约就是上游当前契约。P2 命中 19 与 157；P3 命中 498 与 516，全树 `rollback` 仍只有 1 处；P4 命中 198；P5 四个形象包常量都在 packs 那段且全为 2；P6 的过渡层文件在位。以前这几条只在「上游 tarball」上核过。
+2. **路由面实测。** 控制台端口上 `GET /api/status`、`/api/run/lifecycle`、`/api/extensions` 都回 200 JSON；`/health`、`/api/health`、`/readyz`、GET 方式的 `/api/extensions/check` 全是 404。7.2 那节的说法从此是实测不是转引。
+3. **抓到一条会误导人的坑并写进文档。** `GET /api/figures/status` 在控制台端口返回 Express 的 `Cannot GET …` HTML 404，因为那条路由属桌宠 World 自己起的 HTTP 服务，不是框架 WebUI 那个监听。谁按 7.2 去 17788 打这条，就会把「打错服务器」误报成「形象包故障」。profile 10.9 与 sandbox 成员都补了这条判据：回 HTML 的 404 是端口错，回 JSON 的 404 才是路由不存在。
+4. **`<logDir>` 这个占位符填上了。** 实值 `<HOST>/data/logs/`，两份：core.log 与 updater.log。core.log 行形状 `[时:分:秒.毫秒] LEVEL 区域: 正文`，字段会展开成多行（里面能看见 `sinceFirstReportMs` 这类实测毫秒）。updater.log 属自动更新器，还留着 2026-11-13 那次「0.2.20 无更新」的记录，之后自动升到 0.2.21——版本轨迹因此有据可查。
+5. **上游全量自测在 Windows 上可跑。** Cortico 0.2.16 检出装好依赖后 `npx vitest run`：291 个文件、5135 条用例，5068 通过、63 失败、4 跳过，耗时约 15 分钟。失败的至少含 `tests/worlds/minecraft/bridge.test.ts` 的 viewer 端口那条（环境依赖类）。这条对运行时验证成员有用：红一片先分清是不是环境依赖，别直接判扩展缺陷。完整失败清单在同一轮的重跑里，落地后补记。
+
+未核验清单现状：17 条里结案 15 条。剩两条真要人配合才能做——装扮页实机渲染（要在宿主 UI 上操作），以及 npm 包级迁移文档（要上游写）。动态超时与 TTL 那条本轮部分转成实测（宿主在跑、日志里有实测毫秒字段、上游自测覆盖状态机），但完整的关机预算逐级实测仍未做，所以我没宣布它结案。
