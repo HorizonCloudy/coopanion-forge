@@ -159,6 +159,20 @@
 - 改 id 后旧部署的 `worlds.<旧id>` 段与 `worlds/<旧id>/ENV_PROMPT.md` 不再被读到。缺的键由 `defaults()` 与 `declares` 在装配期补回。(03-world-contract §6、§8)
 - 官方对「替换包」的通道是发 issue：在 `Pal-AI-Lab/cortico-extensions` 用 `check:extension` 打印的纯文本格式提申请。(07-templates §12.2 项7)
 
+### 2.4b 本团的改 id 与改包名清单（上游没写，我们自己做一份）
+
+上游只有「替换包」这一条通道，没有面向作者的迁移步骤。缺文档本身改不了，但本团执行这件事时不再靠临场推断。下面每一步都指回本文件已核实的条目，没有新增猜测。
+
+1. 先定性质：改名等于发新包。已发布的 npm 包不能原地改名（2.4）。旧包与新包在索引仓是两条目，会同时存在。
+2. 把连带项一次列全再动手：包名、代码里的 `id`、`EXAMPLE` 一类前缀令牌、事件 type 的 `<id>.` 段、配置键 `worlds.<id>.*`、promptDoc key（2.4 与模板 README 的改名位清单）。少改一项就是装配期错。
+3. 算清用户侧的代价并写进发布说明：改 id 之后，旧部署里 `worlds.<旧id>` 段与 `worlds/<旧id>/ENV_PROMPT.md` 不再被读到，缺的键由 `defaults()` 与 `declares` 在装配期补回（2.4）。落到用户手上就是「你存的设置与打扮来源没了」。这一条不许省略。
+4. 迁移脚本帮不上：仓库自带的 `migrate-rename.ts` 只处理磁盘布局改名，且明确不碰事件库、session 与游标（4.9 与未核验第 9 条）。包级改名要作者自己给用户新配置。
+5. 走官方通道收尾：在索引仓开 `[supersede] <旧包名>` 的 issue，正文按 `键: 值` 一行一项，写 `by: <新包名>` 与 `reason:`。顺序是先 deprecate 旧包再提，这条是 `check:extension` 自己打印的要求（7.1 真跑记录里逐字有这句）。
+6. 请求类型一共七种，别混用：tags、certify、supersede、appeal、report、new-tag、other（7.1 实测输出）。改包名这件事只用 supersede 与可选的 tags。
+7. 交付前自查：新包过 `pnpm check:extension`，`cortico.api` 对齐当前档位（2.5），describe 重跑并让 `files` 带上（2.7），CHANGELOG 有当前版本段（8.3 口径）。
+
+审议与开发成员引用这一节，不要再自己编流程。上游若哪天出了正式迁移文档，本节改成引用并记下出处日期。
+
 ### 2.5 版本与契约兼容区间
 
 - 没有区间语法。`api` 是一个整数，必须等于自己这一类的契约版本：world 6、provider 6、bot 7。(02-ext-manifest §6、§2)
@@ -318,6 +332,7 @@
 ### 3.10 进程级启停预算
 
 - 启动前置、监管重启条件、关机信号、七段预算与宽限值，逐值见 6.1 表。(01-cortico-core §4)
+- 这张表是代码读实，不是实测。Windows 上想复现动态值请先读 7.1c 那六条，别重复踩。
 - 启动前置：缺 `node_modules` 时 `pnpm install`；WebUI 产物不新鲜时 `pnpm build:web`。新鲜度判定要清单与 `styles.css` 存在、清单引用文件逐个在、每个源文件 sha256 与现状相符。(01-cortico-core §4)
 - 受监管启动默认暂停：`CORTICO_START_PAUSED` 缺省 `'1'`；`CORTICO_OPEN_BROWSER` 首轮默认开浏览器，重启轮置 `'0'`。关机触发信号：`SIGINT`、`SIGTERM`、`SIGHUP`（窗口被关闭）、`SIGBREAK`，另加 `uncaughtException`。(01-cortico-core §4)
 - 扩展作者可用的关机额度就是 `extensions: 60_000` 那一项。它排在 `pause` 之后、`worlds` 之前。(01-cortico-core §4)
@@ -683,6 +698,29 @@ CORTICO_COMPANION_DATA=<空目录> pnpm run dev   # 宿主开发模式，干净�
 - 装前预检走 `POST /api/extensions/check`。它只读 manifest，不导入包代码。(10-market-install §5)
 - 官方指南页替这条背了书：原话是「扩展页安装前也会检查包的声明，不合格的会被拒绝」，同页还写明想马上被收录就在索引仓开 `[sync] 包名`、以及给 coding agent 的提示词里明写「不要替我发布到 npm」「不要读取或上传隐私数据和 API Key」。取该页只能用服务端 extract 通道，本机直连会 TLS 超时或 403（见未核验汇总第 10 条）。(coo.palailab.org/guide/make-extension/，2026-11-17 取回全文)
 
+### 7.1b 起一个自己的 core 实例（不碰用户宿主）
+
+运行时验证需要真跑一次，但不该动用户正在用的宿主。2026-11-17 本会话验证了一条干净路子，全程只用框架仓库。
+
+1. 克隆 Cortico 并装依赖：`git clone`，然后 `pnpm install --registry=https://registry.npmmirror.com --ignore-scripts`。本机实测约一分十秒。
+2. 用一个空目录当隔离家：设 `CORTICO_HOME` 指向它。这是**唯一真起作用的隔离变量**，见下面第 4 条。
+3. 起：`node bin/cortico.mjs`。首轮它自己建一个部署（本机建成 `mybot`，即参考 bot 可缇mini），再 fork launcher、launcher fork core。起来之后 stdout 会给一张表：Bot、WebUI 地址、每个 World 的状态、主模型是否配置，最后一行是暂停标记。
+4. 端口这条要记住，别按文档惯性去猜：`CORTICO_PORT` **只有 `scripts/dev-webui.ts` 读**（默认 8848），全仓搜 `CORTICO_PORT` 只有那一处加一条文档行。走 `bin/cortico.mjs` 时设它没有效果。实际端口来自部署自己的 `web.port`：参考 bot 分别是 7777 / 7788 / 7789（`docs/configuration.md` 第 28 行），可缇mini 是 7788。本会话设 18851，起来的仍是 7788，就是这么发现的。
+5. 默认状态是安全的：总线暂停（事件照常落库、不投递），除控制台外四个 World 报未激活，主模型未配置。所以这个实例不会自己发请求，也不会碰用户的数据目录。
+6. 隔离单实例锁按 `CORTICO_HOME` 分目录，实测到它识别上一次遗留的 `instance.lock`（日志里打出 `stalePid` 与 `staleStartedAt`，`unreadable: false`），然后继续启动，不清掉旧 World 数据。这条把 6.6 的锁行为从读码变成实测。
+7. 用完直接结束进程即可，实例数据都在那个空目录里，删掉就干净。
+
+### 7.1c 关机信号在 Windows 上的实测结果（与文档不符，按这条读）
+
+3.10 与 6.1 那份七段预算与三个宽限毫秒值，来源是读码。本会话去实测动态行为，结果如下，照实记：
+
+1. 用 `timeout` 到点发 SIGTERM 给外层 CLI：core 子进程退出码 143，宿主侧打印「进程异常退出（143）。未自动重启。」。这动态证实了 4.8 第 28 条那句「崩溃与非零退出不自动重启」。
+2. 用 `CTRL_BREAK_EVENT` 发给新建进程组里的 CLI：进程以 `0xC000013A` 退出，耗时 0.1 秒，没有分段关机报告。
+3. 跳过 CLI、直接 `node node_modules/tsx/dist/cli.mjs src/launcher.ts mybot` 再发 `CTRL_BREAK_EVENT`：同样是 `0xC000013A`，0.0 秒。
+4. 而 `src/launcher.ts:313` 源码里确实注册了 SIGBREAK 处理器。两者不矛盾的唯一读法是：处理器注册有条件，或控制台信号在 Node 27 alpha 上没走到那条监听。本会话没定到原因，不猜。
+5. 所以下面这条是结论，别绕过：七段预算与 `95000`、`65000`、`35000` 三个宽限值仍是**代码级证据**，动态逐级实测在 Windows 上没做成，且原因未定。谁要用这几个数做超时设计，按代码读实标注；要真测，去 POSIX 信号可用的环境，或者由仓主同意在真宿主上走一次完整关机。
+6. 复现脚本在 `<HOST>/forge-refresh-20261116/tools/` 下两个文件，别重造。日志留在那儿可查。
+
 ### 7.2 真实存在的路由（宿主 `<cortico>/src/web/server.ts`，2506 行，行号 = 注册行）
 
 宿主路径缩写：`<cortico>` = <HOST>/resources/app/build/cortico（宿主内置只读副本）。(09-webui-routes §1)(21-local-runtime §8)
@@ -1018,7 +1056,7 @@ curl -s http://127.0.0.1:17788/api/extensions
 3. ~~市场里上一版契约包还剩几个不可数。~~ 已结案（2026-11-17，抽样实测）：索引仓确实不落 `cortico.api`，所以绕道 registry 抽 150 个包逐个读，得非当前契约 6/149 = 4.0%，外推约 15 个，其中 world api 5 只有 1 个。方法与两条附带发现见 8.3b。别把「外推约 15 个」当精确数引用。
 4. ~~WorldHost 全接口未逐字段取证。~~ 已结案（2026-11-17，Cortico `0.2.16` 检出逐行读）：那个接口叫 `WorldHost`，定义起于 `src/core/types.ts:687`，共十三个成员：pushEvent、pushDeferred、可选 pushCandidate、store、drainPendingEvents、可选 withdrawPending、可选 promotePending、modelFacts、blob、reportUsage、可选 llmStalls、可选 cognition、log。第二问也有答案了：主机接口里没有任何「调模型」或「发 HTTP」的成员。modelFacts 只读当前模型的能力，reportUsage 只记账，Core 不管 World 自有模型的运行时。所以 World 要自己出访只能用自己的 fetch，且宿主不加限制，见 4.7。
 5. ~~「钩子异常处理」无成文禁 throw 清单。~~ 已结案（2026-11-17 逐行读了那份 README 的相关段）：成文规则是逐个钩子各定一条，不是一刀切禁 throw。`stop()` 失败或超时记下来并继续卸载；`onOpening`、`onDelivery`、`onBatchEnd`、`onTurnEnded`、`onIdle` 异常记 warn；`onHandoff` 异常记 error 并改用默认交接策略；其余钩子的异常由调用方处理；读 `webUi()` 失败就省略该 World 的环境段、继续拼前缀；主循环异常退出记一条 event 为 `loop-exit` 的 error 并停定时器，进程不退出，宿主按这个 event 决定是否重启；未捕获的进程异常由启动器接管并走关机流程。审查口径跟着改：看到钩子 throw 不再一律算缺陷，看它落在上面哪一条。
-6. 超时、限流、TTL 仍未逐项实测（不结案，但范围缩小了）。2026-11-17 宿主确认在跑，日志里能读到实测毫秒字段（`sinceFirstReportMs` 这类），上游自测也覆盖了带超时的路径。缺的是关机预算那一串值逐级实测——那要走一次真实关机流程，属于会打断使用的动作，本团默认不做，要做由仓主点头。引用这些毫秒值时仍按「代码读实」标注。
+6. 超时、限流、TTL：部分转成动态实测，关机预算那条卡住了（不结案）。2026-11-17 做的事：起过一个隔离 core 实例（方法见 7.1b），总线暂停默认、World 未激活、单实例锁识别 stalePid 三条都是眼看到的；宿主真机的路由面与形象包状态接口也实测过（10.9）。没做成的那件有原因，不是没试：SIGTERM 走硬退出（子进程 143），CTRL_BREAK 两种发法都以 0xC000013A 在 0.1 秒内结束，分段关机报告没出来，而源码里处理器确实在。细节与复现脚本在 7.1c。所以七段预算与三个宽限毫秒值仍是代码级证据。要拿到动态值有两条路：换 POSIX 信号可用的环境，或者由仓主同意在他正在用的宿主上走一次完整关机。
 7. ~~pnpm add 失败时是否原子回滚未验证。~~ 已结案（2026-11-17，本机 pnpm 12.18 两个夹具实测）：答案分阶段。解析阶段失败（批里有个包的依赖在 registry 上 404）是真原子——依赖目录、包清单的 dependencies、锁文件三者都没动，等于什么都没发生。装完之后的构建脚本阶段失败（本机上是 pnpm 拦下未批准的构建脚本）相反：包已经装好、清单与锁文件都已写入，命令却退非零。所以规则是：别只看退出码判装没装上，要回头看状态。这也修正了 1.4 那句「失败留半成品」——它只描述了其中一种形状。
 8. ~~扩展进程内出访是否被任何机制限制。~~ 已结案（2026-11-17，负面证据）：Cortico `0.2.16` 的 `src/` 里搜不到任何针对扩展进程的出访控制，命中的沙箱全在 Web 响应头上（可执行类型的 `sandbox`、SVG 图标的 `default-src 'none'`）。详见 4.7 那两条。形象包帧的 CSP 硬闸仍是唯一真沙箱。
 9. 改包名与改 id 的官方流程：2026-11-17 把 `docs/` 全量翻过一遍，能找到的只有 `docs/deployment.md` 的「迁移」一节，它管的是磁盘布局改名，附一个脚本，默认只列计划、加 `--apply` 才动，且明确「`config.json` 先备份再原子替换，事件库、session 与游标不碰」。npm 包改名或扩展 id 变更的用户侧迁移步骤仍无文档，只有上面 8.5 表里那条「替换包」issue 通道。所以这条留着，但范围缩小了：缺的是包级迁移指引，不是所有迁移指引。
