@@ -18,7 +18,9 @@
             上游动了不会自动改本仓副本，所以按 platform/port-ack.json 记录的 sha 判新旧：
             记录值不等于本次 ref，就算漂移。没有记录也算漂移。
 
-退出码：0 一致或 --apply / --port-done 全部成功；1 有漂移、有替换失败；2 上游 ref 读不到。
+退出码：0 一致或 --apply / --port-done 全部成功；1 有漂移、有替换失败、ref 落后远端 HEAD；2 上游 ref 读不到。
+没给 --ref 时用 origin/main，并核它对不对得上远端 HEAD：本仓克隆没 fetch 就会对着旧内核算，
+那种「一致」是假话。核不到远端（离线）时打一行 [未核验]，不改退出码。显式给 --ref 就按给的算。
 """
 import argparse
 import json
@@ -117,6 +119,22 @@ def git(ref, path=None):
            else ["git", "-C", UP_REPO, "show", "%s:%s" % (ref, path)])
     p = subprocess.run(cmd, capture_output=True)
     return None if p.returncode != 0 else p.stdout
+
+
+def remote_head():
+    """上游远端真正的 HEAD sha。拿不到返回 None（离线或权限受限）。"""
+    p = subprocess.run(["git", "-C", UP_REPO, "ls-remote", "origin", "HEAD"], capture_output=True)
+    if p.returncode != 0:
+        return None
+    out = p.stdout.decode("utf-8", "replace").split()
+    return out[0].strip() if out else None
+
+
+def freshness(resolved, remote):
+    """纯判据：解析出的 sha 是不是远端最新。返回 fresh / stale / unknown。"""
+    if not remote:
+        return "unknown"
+    return "fresh" if remote == resolved else "stale"
 
 
 def apply_deltas(text, pairs):
@@ -219,6 +237,12 @@ def _self_test():
     ck("norm_url 不该吃掉空值", norm_url("") != "")
     ck("同一内容只差行尾被判漂移", not same_eol(b"a\r\nb\n", b"a\nb\n"))
     ck("行尾归一把真差异也吃掉", same_eol(b"a\nb\n", b"a\nc\n"))
+    # ref 新鲜度：origin/main 可以停在任何旧 sha 上，rev-parse 照样成功。
+    ck("ref 与远端 HEAD 相同却被判非最新", freshness(sha_new, sha_new) != "fresh")
+    ck("ref 落后远端 HEAD 却判得出漂移", freshness(sha_old, sha_new) != "stale")
+    ck("拿不到远端 HEAD 被当成已核实", freshness(sha_new, None) != "unknown")
+    ck("拿不到远端 HEAD 被判成漂移（离线不该退 1）",
+       freshness(sha_new, "") != "unknown")
     print("SYNC_KERNEL SELF-TEST: %s（%d 项，实算）" % ("PASS" if not bad else "FAIL", len(ran)))
     for b in bad:
         print("  FAIL: " + b)
@@ -233,7 +257,7 @@ def main():
     g.add_argument("--port-done", action="store_true",
                    help="把本次 ref 记成移植件已对上的 sha（手搬完再用）")
     g.add_argument("--self-test", action="store_true", help="只跑移植件台账的回归自检")
-    ap.add_argument("--ref", default="origin/main")
+    ap.add_argument("--ref", default="", help="上游 ref。不给就用 origin/main，并核它对不对得上远端 HEAD")
     ap.add_argument("--strict", action="store_true")
     ap.add_argument("--upstream", default="",
                     help="上游 plugin-forge 检出路径。没给就读环境变量 FORGE_UPSTREAM")
@@ -247,13 +271,28 @@ def main():
               "或设环境变量 FORGE_UPSTREAM。" % rel(UP_REPO))
         return 2
 
-    full = git(a.ref)
+    ref = a.ref or "origin/main"
+    full = git(ref)
     if full is None:
-        print("FAIL: 上游 ref 读不到：%s（%s）" % (a.ref, UP_REPO))
+        print("FAIL: 上游 ref 读不到：%s（%s）" % (ref, UP_REPO))
         return 2
     full = full.decode().strip()
     short = full[:7]
     print("上游 %s @ %s" % (upstream_label(), short))
+    # 同级克隆的 origin/main 是一年前 fetch 的也照样读得出来，于是 --check 对着旧内核算，
+    # 报「一致 18」，把「已跟到最新」这句假话写进 KERNEL-BASELINE.txt（实测 7c20575 vs dcd0170）。
+    # 显式给了 --ref 就按给的算：那时新鲜度是使用者的责任。
+    if not a.ref:
+        state = freshness(full, remote_head())
+        if state == "stale":
+            print("\nFAIL: ref %s 解析到 %s，但上游远端 HEAD 是 %s。本仓克隆没 fetch，"
+                  "这条检查对着旧内核算了一遍。" % (ref, short, remote_head()[:7]))
+            print("修法：先 git -C %s fetch origin main，再重跑；"
+                  "或明确给 --ref <活 sha>。" % rel(UP_REPO))
+            return 1
+        if state == "unknown":
+            print("[未核验] 拿不到上游远端 HEAD（离线或受限），无法确认 %s 就是最新。" % short)
+
 
     deltas = load_deltas()
     port_ack = load_port_ack()

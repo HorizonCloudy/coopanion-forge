@@ -596,3 +596,51 @@ vendored 目录，不是安装行为。
   输出只点名 `sub\bad.json` 一处并退 1，另两类不参评
 - 本仓实跑：15 个 JSON 产物全部可解析、退 0。姊妹仓 plugin-forge 同一句 kernel 写法，
   同一条修正在那边也落了（它实跑 5 个）
+
+## 2026-11-18 · 内核同步到 `dcd0170`，并给 `--check` 装了一条新鲜度守卫
+
+开场第一条 `--check` 打印「上游 @ `7c20575`，一致 17 / 需搬 1」。真实 main 已经是 `dcd0170`。
+差的不是内容，是 ref 的来源：默认 `--ref origin/main` 读的是同级克隆 `plugin-forge-publish` 的
+remote-tracking，那个值停在上次 fetch 的点。`git rev-parse` 对一个旧值一样成功，所以工具不会自己说
+「我在对旧内核算」。这条是假绿的入口，写进守卫。
+
+- 实测三个克隆的 ref：`plugin-forge-publish` HEAD `7502053` / 它的 origin/main `7c20575`；
+  `C:/Users/54301/plugin-forge` `dcd0170`（另一会话的活克隆）；本会话用的
+  `forge-refresh-20261116/fresh/plugin-forge` `7137346` → fetch 后 FETCH_HEAD `dcd0170`，
+  区间 21 个提交
+- 本仓基线由另一会话推到 `28d59ef`，落后 `dcd0170` 五个提交。这五个只改了上游自己的 `AUDIT.md`
+  一类文件：`--check --ref dcd0170` 给 17 个分发件全一致、替换失败 0，说明 21 个提交没动本仓发的内核文本
+- 唯一漂移是移植件 ack 落后：`profile_drift.py` ack 记在 `5ccd870`，`dcd0170` 那个 blob 与它逐字节相同
+  （两侧都是 `c37260f5496e…`）。等于没东西要搬，只欠 ack。跑 `--apply --ref dcd0170` 写基线，
+  再跑 `--port-done --ref dcd0170`（守卫比对了 incoming 与上游原文才落 ack）
+
+守卫怎么做（`tools/sync_kernel.py`）
+
+- 新增 `remote_head()`（`git ls-remote origin HEAD`）与纯判据 `freshness(resolved, remote)`
+  → `fresh` / `stale` / `unknown`
+- 只在**没显式给 `--ref`** 时核。给了就按给的算，新鲜度是使用者的责任，这条口径写进 docstring
+- `stale` 退 1 并先说清真因（两个 sha 加 fetch 修法）；拿不到远端（离线）打一行 `[未核验]`，
+  不改退出码——离线不该把本地门禁搞红，也不许假装已核实
+- `--ref` 的默认值从 `"origin/main"` 改成 `""` 加哨兵，为的是区分「没给」和「给了同一个值」
+- 自检从 13 项涨到 17 项，四条新断言全对着 `freshness`：同 sha 判 fresh、旧 sha 判 stale、
+  拿不到远端判 unknown、空串也判 unknown（不许判成漂移）
+
+反证（守卫到底拦不拦得住）
+
+同一份旧克隆、同一个 ack 状态跑两遍：
+
+| 怎么跑 | 退出码 | 输出第一句归因 |
+|---|---|---|
+| `--check`（守卫在） | 1 | `ref origin/main 解析到 7c20575，但上游远端 HEAD 是 dcd0170` |
+| `--check --ref origin/main`（守卫按设计跳过） | 1 | `一致 17 / 需搬 1`，归因写给 `profile_drift.py` 的 ack |
+| `--check --upstream <fetch 过的克隆>`（守卫判 fresh） | 0 | `一致 18 / 需搬 0 / 缺件 0 / 替换失败 0` |
+
+两遍都退 1，所以「退出码」本身不证明守卫有用；证明它的是归因那一行。守卫关掉时输出 0 行提到远端
+HEAD，把旧内核读成「上游就这样」，还把原因算到移植件头上——那是会把人引去做一次没必要的搬动。
+诚实边界：这条守卫生效的场景是「ref 旧但 ack 恰好对得上」，那时改动前会真退 0；本轮没造出那个组合，
+所以只记它归因错，不记它曾静默放行。
+
+上游 HEAD 现读（`git ls-remote`，2026-11-18T00:15Z）：plugin-forge `dcd0170`、coopanion-forge `0a36d41`、
+Cortico `9569f55`（未动）、Coopanion `a539fbf`（未动）、Cortina `244b2d0`（未动）、
+cortico-world-vtuber `e455703`（未动）、cortico-extensions `ed0d3b8`（又一次 hourly sync，
+前一读值 `daed11209`）。索引仓的计数仍只在它自己那个 sha 上有效，本轮没有重算。
