@@ -524,3 +524,32 @@ core 的 21 项扩展名实测**没有**这五种（本会话把 `EXT_BY_MIME` �
 
 复验：`profile_drift --strict` 锚点 111 → 124 条，对得上 124、漂移 0、核不了 0、取不到 0，退 0；
 `generate_roster_tables --check` 退 0。
+
+## 2026-11-17 深夜 · 工单 W8：模板类型检查进 CI（带 41 号三个补丁）
+
+新增三步放在 Python 步骤之后、JSON 解析之前，两份逐字节一致
+（`platform/overrides/sync-check.yml` 是真源，`.github/workflows/sync-check.yml` 是部署件）：
+
+1. 装依赖：目录靠 `templates/*/package.json` 的 glob 发现。草案写死 `world provider bot`，
+   41 号实测「新增第四类目录 + 坏文件」时整条流水线退 0；本步用 stub 重放同一输入，
+   四个目录全被调用（`bot / mcp / provider / world`）
+2. 真 tsc：`pnpm exec tsc --noEmit`，一个目录红就整步退 1，并把 `FAILED=<目录>` 写进
+   `$GITHUB_STEP_SUMMARY`；全绿才写 `TYPECHECK_MODE=full pass`。顺手把 `pnpm ls cortico`
+   的实际版本打进 summary（模板钉 `^0.2.16`，^ 会吃掉未来的 0.2.x，钉版本身是 W15 待拍板）
+3. 降级兜底：只在装依赖失败时跑。三件套齐全——`::error::` 一行、summary 写
+   `TYPECHECK_MODE=syntax-only`、默认仍退 1；放行只认维护者显式设的
+   `vars.ALLOW_SYNTAX_ONLY=1`。注释里写明 `node --check` 的边界：只查语法，
+   41 号实测带类型错的 16 个文件全绿，红绿还会被 package.json 的 `type` 字段拨动
+
+能力边界（进步骤注释，不许冒充全平台体检）：tsc 只看各模板 tsconfig 的 include，
+`vitest.config.ts` 在 include 之外；`describe.json` 与 `cortico.api` 是否对齐归
+`check:extension`，不归本步。
+
+反证 23（`forge-scratch/run_controls23.py`）六臂实跑，全部符合预期：
+A1a glob 发现四类目录；A2a 全绿退 0 且 summary 写 pass；A2b 第四类目录类型失败 → 退 1 且
+summary 只有 FAILED 行、没有 pass；A3a 装不上 + 模板干净 → 默认退 1；A3b 设 `ALLOW_SYNTAX_ONLY=1`
+→ 退 0；A4 第四类目录塞进未闭合括号的 .ts → 兜底抓到，退 1（这就是 41 号臂 3）。
+跑的是 yml 里那三段 shell 的原样正文（脚本从 yml 抽取，不是另写一份），pnpm 用 stub。
+本机没有 corepack，那一句报 command not found 不影响判据（runner 上有）。
+
+待拍板两条，没自行动手：`ALLOW_SYNTAX_ONLY` 的放行治理（W14）与模板 lockfile / 精确钉版（W15）。

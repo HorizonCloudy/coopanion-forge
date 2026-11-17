@@ -63,5 +63,59 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: python scripts/profile_drift.py --strict
+
+      - name: '模板类型检查：装依赖（装不上时下一步只做语法兜底，并大声宣布）'
+        # 目录用 glob 发现，不写死 world provider bot：写死三值时新增第四类模板目录带坏文件
+        # 整条流水线退 0（外部审 41 号实测 P2_EXIT=0）。门禁只拦已知面就是假绿。
+        id: tpl-install
+        continue-on-error: true
+        timeout-minutes: 10
+        run: |
+          corepack enable
+          rc=0
+          for pkg in templates/*/package.json; do
+            d=$(dirname "$pkg")
+            ( cd "$d" && pnpm install ) || { echo "install failed in $d"; rc=1; }
+          done
+          exit "$rc"
+      - name: '模板类型检查：真 tsc（依赖装上就必须全绿，不许降级）'
+        # 能力边界三条，别把这一步当成全平台体检：
+        #   1 只查各模板 tsconfig include 里的文件。vitest.config.ts 在 include 之外，
+        #     41 号实测往里注类型错，tsc 退 0。
+        #   2 describe.json 与 package.json 的 cortico.api 是否对齐不归本步，那是 check:extension 的活。
+        #   3 装的是哪个 cortico 版本打印进 summary：模板钉 ^0.2.16，^ 会吃掉未来的 0.2.x。
+        if: steps.tpl-install.outcome == 'success'
+        timeout-minutes: 10
+        run: |
+          rc=0
+          for pkg in templates/*/package.json; do
+            d=$(dirname "$pkg")
+            if ( cd "$d" && pnpm exec tsc --noEmit ); then
+              { echo "### $d"; ( cd "$d" && pnpm ls cortico ); } >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "TYPECHECK_MODE=full FAILED=$d" >> "$GITHUB_STEP_SUMMARY"
+              rc=1
+            fi
+          done
+          if [ "$rc" -eq 0 ]; then echo "TYPECHECK_MODE=full pass" >> "$GITHUB_STEP_SUMMARY"; fi
+          exit "$rc"
+      - name: '模板类型检查：降级兜底（仅装依赖失败时；默认仍阻断）'
+        # node --check 只查语法：41 号实测带类型错的 16 个文件全绿（PIPE_RC=0），
+        # 而且红绿会被最近一个 package.json 的 type 字段拨动。它只准当语法兜底卖。
+        # 「装不动」永远不许被静默当成通过：默认退 1，放行只认维护者显式设的
+        # repo variable ALLOW_SYNTAX_ONLY=1（治理口径见 AUDIT.md，W14 待拍板）。
+        if: steps.tpl-install.outcome == 'failure'
+        timeout-minutes: 10
+        run: |
+          echo "::error::cortico 或依赖装不上，真 tsc 没跑成。本轮只做语法级检查，不是类型检查。"
+          echo "## TYPECHECK_MODE=syntax-only（未做类型检查）" >> "$GITHUB_STEP_SUMMARY"
+          rc=0
+          find templates -name '*.ts' -not -path '*/node_modules/*' -print0 \
+            | xargs -0 -n1 node --check || rc=1
+          if [ "$rc" -ne 0 ]; then exit "$rc"; fi
+          if [ "${{ vars.ALLOW_SYNTAX_ONLY }}" != "1" ]; then
+            echo "兜底模式默认阻断；要放行需维护者设 ALLOW_SYNTAX_ONLY=1，并在 AUDIT.md 记一次复审期"
+            exit 1
+          fi
       - name: JSON artifacts parse
         run: python -c "import json,glob;fs=glob.glob('**/*.json',recursive=True)+glob.glob('.claude-plugin/*.json');[json.load(open(p,encoding='utf-8-sig')) for p in fs]"
