@@ -578,3 +578,21 @@ CI 实测退 1：`Expecting property name enclosed in double quotes: line 2 colu
 `.github/workflows/sync-check.yml` 的注释行同时改掉了「pnpm install」这串字：
 扫描器的 SEC-4 按字面匹配，注释里出现同一串字也会记一条，而那句注释讲的是排除
 vendored 目录，不是安装行为。
+
+### JSON 产物解析步：三次红的真凶与判据方言
+
+同一个步骤红了三次（run `44112500299`、`44115511001`、`44117736106`），每次都只给一句
+`Expecting property name enclosed in double quotes: line 2 column 3`，不说是哪个文件。
+第三轮才定位：三份模板的 `tsconfig.json` 是 **JSONC**——TypeScript 自己按带注释的 JSON 读它，
+而本步用严格 `json.load` 判它。判据用错了方言，不是产物坏了。那三份是逐字搬来的上游件
+（`check_templates --check` 锁 47 个哈希），本仓不许改。
+
+- 本步现在做三件事：排除 vendored 目录；排除 JSONC 家族（`tsconfig.json`、`tsconfig.*.json`、
+  `jsconfig.json`）；失败时逐个打印路径与异常再退 1
+- 路径先归一化分隔符。前面那版只认正斜杠：Linux 对，Windows 上 glob 给反斜杠就不认，
+  同一句判据在两边结论相反
+- 反证（`forge-scratch/jsonneg/`，用 yml 解析出来的同一份脚本跑）：夹具里放
+  `sub/bad.json`（真坏）、`node_modules/x/package.json`（vendored）、`tsconfig.json`（JSONC）——
+  输出只点名 `sub\bad.json` 一处并退 1，另两类不参评
+- 本仓实跑：15 个 JSON 产物全部可解析、退 0。姊妹仓 plugin-forge 同一句 kernel 写法，
+  同一条修正在那边也落了（它实跑 5 个）
