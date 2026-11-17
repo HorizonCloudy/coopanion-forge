@@ -644,3 +644,25 @@ HEAD，把旧内核读成「上游就这样」，还把原因算到移植件头�
 Cortico `9569f55`（未动）、Coopanion `a539fbf`（未动）、Cortina `244b2d0`（未动）、
 cortico-world-vtuber `e455703`（未动）、cortico-extensions `ed0d3b8`（又一次 hourly sync，
 前一读值 `daed11209`）。索引仓的计数仍只在它自己那个 sha 上有效，本轮没有重算。
+
+## 2026-11-18 · 内核再同步（c9f1c15）与文档面密钥门禁
+
+内核这一段带进来五处修法：扫描器扩展名池与盲区账（W05）、门禁构建入口判据（W06）、
+探针冒号区间尾号（FG-5）、探针「写法核不了」四条（W10）、名册门禁四逃逸与字节面（W11）、
+文档面 SEC-2 与 HTML 注释声明（W14）。移植件 `scripts/profile_drift.py` 的手搬取舍写在
+`platform/kernel-deltas/profile-drift-port.md`：FG-5 与去重键已搬，
+「写法核不了」那一套没搬，并记了本仓裸名锚点 84 处的实测代价与两条出路（要拍板）。
+
+`platform/deltas.json` 的改写锚点跟着上游更新一处：
+名册扫描的豁免行从 `endswith("profile-dsh.md")` 变成精确相对路径以后，
+本仓那两条豁免也换成精确路径（`_GATE-PROFILE.md`），`gen_deltas --check` 与
+`sync_kernel --check` 都回到一致 18 / 需搬 0 / 替换失败 0。
+
+CI 新增「文档面密钥门禁」一步（override 真源与部署件逐字节一致，21 步）：
+`--include-docs` 只对 SEC-2 设阻塞，SEC-1/3/4 的文档命中打 INFO。
+本仓实测：SEC-2 合计 0、INFO 记 SEC-1 27 处、SEC-3 5 处、SEC-4 44 处，本步退 0。
+反向对照：临时副本里种一行 `api_token = "ghp_…"` → 本步退 1 并打印 BLOCK 与文件名。
+
+本机门禁全绿：名册 `--self-test` 与 `--check`、扫描器自检 132 例、门禁自检 PASS、
+探针自检 39 例、`sync_kernel --self-test` 17 项、`gen_deltas --check`、
+`check_templates --check` 47 文件、按 CI 旗标的裸扫与两个严格档全部 100/100 退 0。

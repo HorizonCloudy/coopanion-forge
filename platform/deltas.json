@@ -18,9 +18,9 @@
       "note": "豁免表补两类：改写台账 deltas.json 与本仓带日期的整改账"
     },
     {
-      "find": "            if rel in COUNT_FILES or rel in COUNT_EXEMPT or rel.endswith(\"profile-dsh.md\"):",
-      "replace": "            if (rel in COUNT_FILES or rel in COUNT_EXEMPT\n                    or rel.startswith((\"platform/kernel-deltas/\", \"platform/overrides/\"))\n                    or rel.endswith((\"profile-dsh.md\", \"_GATE-PROFILE.md\"))\n                    or os.path.basename(rel).startswith((\"_draft-p\", \"BETTER-FIX.\"))):",
-      "note": "扫描跳过改写台账与 override（里面引的是锚点原文）、草稿与整改账（按日期记账），都不是活声明"
+      "find": "            if (rel in COUNT_FILES or rel in COUNT_EXEMPT\n                    or rel == \"skills/coopanion-forge/references/profile-dsh.md\"):",
+      "replace": "            if (rel in COUNT_FILES or rel in COUNT_EXEMPT\n                    or rel.startswith((\"platform/kernel-deltas/\", \"platform/overrides/\"))\n                    or rel == \"skills/coopanion-forge/references/_GATE-PROFILE.md\"\n                    or os.path.basename(rel).startswith((\"_draft-p\", \"BETTER-FIX.\"))):",
+      "note": "扫描跳过改写台账与 override（里面引的是锚点原文）、草稿与整改账（按日期记账），都不是活声明。上游 W11 A3 把尾巴匹配换成精确相对路径以后，本仓这两条也改成精确路径：endswith 让任何以此结尾的文件整文件豁免，docs/evil-_GATE-PROFILE.md 那种冒名写法实测能藏住错数"
     }
   ],
   "skills/coopanion-forge/references/workflows.md": [

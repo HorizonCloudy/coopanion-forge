@@ -89,14 +89,17 @@ def load_roster():
     return members
 
 def read(path):
-    with open(path, encoding="utf-8-sig") as f:
-        return f.read().replace("\r\n", "\n")
+    # W11 字节面：文本模式默认把 "\r\n" 折成 "\n"，--write 因此顺手重排全文行尾；
+    # utf-8-sig 读时剥 BOM、写时不补。改一个数字会连带改掉与人数无关的字节。
+    # newline="" 保住原行尾；下游正则用 \s 与按行匹配，不受影响。
+    with open(path, encoding="utf-8-sig", newline="") as f:
+        return f.read()
 
 def write(path, text):
-    # 行尾跟随目标文件现状：Linux / macOS 上跑 --write 不再把整份文档改成 CRLF。
-    with open(path, "rb") as f:
-        eol = "\r\n" if b"\r\n" in f.read() else "\n"
-    with open(path, "w", encoding="utf-8", newline=eol) as f:
+    # W11 字节面：原行尾原样写回（text 里 \r\n 不再被二次翻译），有 BOM 就继续用
+    # utf-8-sig 写回。混合行尾文件的无关行因此不再被归一化改掉。
+    bom = open(path, "rb").read(3) == b"\xef\xbb\xbf"
+    with open(path, "w", encoding="utf-8-sig" if bom else "utf-8", newline="") as f:
         f.write(text)
 
 def render_table(members, subset, columns):
@@ -153,7 +156,10 @@ def sync_tables(members, do_write, errors):
             continue
         head, rest = text.split(begin, 1)
         old, tail = rest.split(end, 1)
-        new_block = "\n" + render_table(members, subset, columns) + "\n"
+        # W11 字节面：标记区用什么行尾就按什么行尾渲染，否则 CRLF 文档的表格
+        # 永远判「不新鲜」，--write 再整片重写
+        eol = "\r\n" if "\r\n" in old else "\n"
+        new_block = eol + render_table(members, subset, columns).replace("\n", eol) + eol
         if old != new_block:
             problems.append(f"{rel}: 标记内表格与 roster 不一致（{'已重写' if do_write else '需 --write 重写'}）")
             if do_write:
@@ -224,12 +230,19 @@ def stray_count_claims():
         dirs[:] = [d for d in dirs if d not in (".git", "__pycache__", ".drift-cache",
                                                 "node_modules", "venv", ".venv")]
         for fn in files:
-            if not fn.endswith(COUNT_SCAN_SUFFIXES):
+            # W11 A1：后缀表本身是逃逸面——同内容存成 .txt 或去掉后缀，声明检查整段跳过。
+            # 无后缀文件也扫；常见文本后缀并入扫描集。解不了码的文件在下面 except 里跳过。
+            # 不能改成「凡文件都试解码」：脚本源码与自检用例里就有五种受管句式的样例句，
+            # 全量扫会把 scripts/*.py 与 tests/*.py 变成常红误报。
+            if not (fn.endswith(COUNT_SCAN_SUFFIXES + (".txt", ".rst", ".yml", ".yaml", ".toml"))
+                    or "." not in fn):
                 continue
             rel = os.path.relpath(os.path.join(root, fn), ROOT).replace("\\", "/")
+            # W11 A3：endswith("profile-dsh.md") 让任何以此结尾的路径整文件豁免——
+            # docs/evil-profile-dsh.md 种错数也退 0，改一个字母才报。豁免只给那一个真实路径。
             if (rel in COUNT_FILES or rel in COUNT_EXEMPT
                     or rel.startswith(("platform/kernel-deltas/", "platform/overrides/"))
-                    or rel.endswith(("profile-dsh.md", "_GATE-PROFILE.md"))
+                    or rel == "skills/coopanion-forge/references/_GATE-PROFILE.md"
                     or os.path.basename(rel).startswith(("_draft-p", "BETTER-FIX."))):
                 continue
             try:
@@ -269,6 +282,15 @@ def sync_counts(members, do_write):
         problems.append("%s: 名单外的人数声明「%s」，请补进 COUNT_FILES 或改成引用 roster.json"
                         % (rel, snippet))
     return problems
+
+def unfixable(drift):
+    """drift 里脚本自己修不了的那几条：名单外声明与空转。
+
+    --write 对这两种也无能为力，必须退 1 让人来处理（工单 W11 A5）。
+    识别靠字样：sync_counts 的文案里有「名单外」「空转」，自检钉住这两句。
+    """
+    return [d for d in drift if "名单外" in d or "空转" in d]
+
 
 def _self_test():
     """自检：人数改写只动捕获组，前导的 1 与已正确的声明不受影响。"""
@@ -401,6 +423,63 @@ def _self_test():
         if not any("空转" in p for p in probs3):
             ok = False
             print("SELF-TEST FAIL(人数): 声明全部消失时没报空转，实得 %r" % (probs3,))
+        # W11 A1：后缀表是逃逸面。同内容换成 .txt 或干脆不带后缀，以前整段跳过。
+        io.open(os.path.join(claim_dir, "stray.txt"), "w", encoding="utf-8", newline="").write(
+            "调度 7 位专家。" + chr(10))
+        io.open(os.path.join(claim_dir, "STATUS"), "w", encoding="utf-8", newline="").write(
+            "编制 8 个人设。" + chr(10))
+        globals()["COUNT_EXEMPT"] = []
+        probs_a1 = sync_counts(members, False)
+        if not any("stray.txt" in p and "名单外" in p for p in probs_a1):
+            ok = False
+            print("SELF-TEST FAIL(W11-A1): .txt 里的名单外声明没报出来，实得 %r" % (probs_a1[:2],))
+        if not any("STATUS" in p and "名单外" in p for p in probs_a1):
+            ok = False
+            print("SELF-TEST FAIL(W11-A1): 无后缀文件里的名单外声明没报出来，实得 %r"
+                  % (probs_a1[:2],))
+        os.remove(os.path.join(claim_dir, "stray.txt"))
+        os.remove(os.path.join(claim_dir, "STATUS"))
+        # W11 A3：豁免必须是精确相对路径。endswith("profile-dsh.md") 时，
+        # docs/evil-profile-dsh.md 也整文件免掉，改一个字母才报——那是给单个文件的口子。
+        evil = os.path.join(claim_dir, "evil-profile-dsh.md")
+        io.open(evil, "w", encoding="utf-8", newline="").write("调度 4 位专家。" + chr(10))
+        if not any("evil-profile-dsh.md" in p and "名单外" in p for p in sync_counts(members, False)):
+            ok = False
+            print("SELF-TEST FAIL(W11-A3): 以 profile-dsh.md 结尾的冒名文件没被报出来")
+        os.remove(evil)
+        # W11 A5：脚本修不了的两种情况必须让 --write 也退 1。判据抽成 unfixable()，
+        # 这里正向与反向都问一遍：文案一改、识别就失效，先在这里红。
+        if len(unfixable(["docs/x.md: 名单外的人数声明「调度 5 位专家」"])) != 1:
+            ok = False
+            print("SELF-TEST FAIL(W11-A5): 名单外声明没被认成修不了的问题")
+        if len(unfixable(["COUNT_FILES 里一处人数声明都没有：名单成了空转"])) != 1:
+            ok = False
+            print("SELF-TEST FAIL(W11-A5): 空转没被认成修不了的问题")
+        if unfixable(["README.md: 「1 主理人 + 9 专家」应为 13（需 --write）"]) != []:
+            ok = False
+            print("SELF-TEST FAIL(W11-A5): 可修的陈旧声明被误认成修不了的问题")
+        # W11 字节面：改数字不许顺手改掉 BOM 与无关行的行尾。
+        # 夹具形状：BOM + 第 1 行 CRLF + 第 2 行裸 LF + 第 3 行 CRLF 且带旧数字。
+        bomp = os.path.join(wd, "docs", "bom-crlf.md")
+        CR, LF = chr(13), chr(10)
+        body = ("标语文本 A" + CR + LF + "标语文本 B" + LF + "现有 1 主理人 + 9 专家。" + CR + LF)
+        io.open(bomp, "wb").write(bytes([0xEF, 0xBB, 0xBF]) + body.encode("utf-8"))
+        got = read(bomp)
+        if got != body:
+            ok = False
+            print("SELF-TEST FAIL(W11 字节面): read 改了行尾，实得 %r" % (got[:40],))
+        write(bomp, got.replace("9 专家", "13 专家"))
+        raw = io.open(bomp, "rb").read()
+        rows = raw.decode("utf-8-sig").split(LF)
+        if raw[:3] != bytes([0xEF, 0xBB, 0xBF]):
+            ok = False
+            print("SELF-TEST FAIL(W11 字节面): write 把 BOM 吃掉了")
+        if sum(1 for r in rows if r.endswith(CR)) != 2 or not rows[1].endswith("B"):
+            ok = False
+            print("SELF-TEST FAIL(W11 字节面): 混合行尾被归一化了，实得 %r" % (rows,))
+        if "1 主理人 + 13 专家" not in raw.decode("utf-8-sig"):
+            ok = False
+            print("SELF-TEST FAIL(W11 字节面): 数字没改成，实得 %r" % (rows[2],))
         # 交付口径核对：ROOT 此刻是临时目录，所以按 REPORT_SOURCE 造一份带规范句的替身
         real_files, real_source = globals()["REPORT_FILES"], globals()["REPORT_SOURCE"]
         sp = os.path.join(wd, real_source.replace("/", os.sep))
@@ -465,6 +544,13 @@ def main(argv=None):
         print("DRIFT:", d)
     if errors:
         print("结论: 有脚本修不了的错误，手工改正后重跑（--write 也不会跳过）。")
+        return 1
+    strays = unfixable(drift)
+    if strays:
+        # W11 A5：stray 与空转进的是 drift，旧写法 --write 也退 0 还打印「已修复」，
+        # 与文件头「脚本修不了的问题 → --check 与 --write 都退出码 1」直接矛盾。
+        # 靠这两个字样识别：自检用例钉住了它们，改文案会先红自检，耦合由 CI 兜住。
+        print("结论: 名单外声明与空转两种模式都修不了，必须人工处理。")
         return 1
     if drift:
         print(f"结论: {'已修复，请复查 git diff' if args.write else '不新鲜，运行 python scripts/generate_roster_tables.py --write'}")

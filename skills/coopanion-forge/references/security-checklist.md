@@ -22,6 +22,14 @@ urllib.request.urlopen(req)  # forge-declared: SEC-4 理由=只读拉取 api.git
 - 缺一段、格式不对、或日期已过 → 声明失效，命中重新计回账上（fail-closed）。
 - `--strict-declared` 把畸形标记直接判成问题，CI 跑这一步。
 - 声明的类别要与命中一致：写 `SEC-1` 的声明豁免不了 `SEC-4` 的命中。
+- 注释语法两种都认：脚本与 yml 用 `# forge-declared: …`，文档与 HTML 用
+  `<!-- forge-declared: … -->`（工单 W14）。文档没有 `#` 注释，以前等于没有点位声明这条路：
+  教学示例与历史条目只能改写文字才能过门禁，而改写 AUDIT 的历史记录等于造假。
+  认这一种写法之后，`--include-docs` 下的文档 SEC-2 走声明，不走整份 `--allow`。
+- 明文赋值的右值在反引号与中日韩标点处截断（`、。「」（）…` 与全角字符）。
+  以前只认 ASCII 空白和 `,;{}()`：文档里「`max_tokens=MAX_TOKENS`）、类型标注」会一路吃到
+  下一个 ASCII 空格，取到的值带着反引号与汉字，全大写常量的排除当场失效，
+  同一行相邻的 `OPENAI_API_KEY=`、`DB_PASSWORD=` 也会被并成一个长值吞掉（实测 6 处误报的根因）。
 - 判据在 `security_audit.py` 的 `DECLARE_RE` / `_declaration()` / `_covers()`，自检各有正反用例。
 - 全部在册声明逐条登记在 `AUDIT.md` 的 `sec-declared` 一节，来源是 `--json` 的 `declared_ok_list`，不手抄。
 
@@ -62,7 +70,7 @@ urllib.request.urlopen(req)  # forge-declared: SEC-4 理由=只读拉取 api.git
 机器查：GitHub / OpenAI / AWS / Slack token 形态；`PRIVATE KEY` 块；URL 内嵌凭据（`scheme://user:pass@`）；明文赋值按**标识符拆词**判定 —— 键名按 `_` `.` `-` 与驼峰切词后命中 password / passwd / pwd / secret / token / credential / api_key / access_key / refresh_token 等，或整名含 password·secret·credential 这类高区分度子串（占位值已过滤）。
 值是**代码引用**时不算密钥，这是有意的排除面：属性路径（`args.password`）、全大写常量（`max_tokens=MAX_TOKENS`）、类型标注（`Optional[str]`）、纯数字（`token_count = 1234567890`）、普通 URL 值、与键同名的自引用（`self.password = password`）、函数调用右值。
 URL 内嵌凭据一条同样过滤模板占位：`${DB_PASSWORD}`、`<password>` 不算真口令。
-已知边界：值不足 8 字符不报（`PASSWORD=myword` 6 位、`password = "abc"` 都漏）；`tokenizer` 这类同前缀词不误报；不含任何关键词的纯随机串扫不到，仍要人工抽查。纯字母且够长的右值仍会报（`db_password = secretvalue` 命中），所以「变量引用」的排除只针对属性路径、全大写常量、类型标注、纯数字、URL 与自引用这几种明确形态。占位值默认也被吃掉，`example1234567` 这种「占位词 + 数字」同样不报；要按真值对待就加 `--strict-placeholder`，它只收紧这一种情形，文档示例值会因此开始报。
+已知边界：值不足 8 字符不报（`PASSWORD=myword` 6 位、`password = "abc"` 都漏）；`tokenizer` 这类同前缀词不误报；不含任何关键词的纯随机串扫不到，仍要人工抽查。纯字母且够长的右值仍会报（`db_password = secretvalue` 命中），所以「变量引用」的排除只针对属性路径、全大写常量、类型标注、纯数字、URL 与自引用这几种明确形态。占位值默认也被吃掉，`example1234567` 这种「占位词 + 数字」同样不报；要按真值对待就加 `--strict-placeholder`，它只收紧这一种情形，文档示例值会因此开始报。 <!-- forge-declared: SEC-2 理由=db_password = secretvalue 是本行用来讲命中形状的教学示例，非真凭据 出处=AUDIT.md#sec-declared 复审=2026-12-15 -->
 修法：改环境变量或宿主安全存储（对照 profile §6）；**已提交的凭据立即轮换**，并清理历史。
 判定：**任一真实命中 = 一票否决，直接阻断**（退出码 2）。SEC-2 的分值同时进总分，
 但阻断不看总分——判据是「有没有真实命中」这一条，总分只是显示。
