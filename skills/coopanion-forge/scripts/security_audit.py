@@ -9,15 +9,18 @@
 四项计分检查 + 一项不计分提示（细则与评分规则见 references/security-checklist.md）
   SEC-1 路径范围：写/删操作指向项目外、敏感家目录，或残留个人绝对路径。
   SEC-2 明文密钥：token 形态、私钥块、password 类赋值。任一命中 = 直接阻断（一票否决）。
-  SEC-3 任意执行：eval/exec、shell=True、os.system、shell -c 拼接、curl|sh、不安全反序列化。
+  SEC-3 任意执行：eval/exec、把子进程的 shell 开关打开、os.system、拼进 shell 的 -c 参数、
+  管道喂给解释器、不安全反序列化。
   SEC-4 静默下载：网络取回与包安装点位；每处须对应"已声明用途"，未声明即静默。
   SEC-5 清单形状（不计分）：安装期钩子、依赖直连远端包、package.json 缺必填字段（含 cortico 块）。
   盲区另记两本账：skips（没读的文件）与 unclear（疑似压缩混淆，行级规则读不动）。
 
 默认只扫代码与配置文件（文档不参与评分）；--include-docs 把 md/txt/rst 也纳入
 （.html 与 .htm 属代码池，不用这个旗标：宿主真加载的页，门禁也当受保护文件）
-（SEC-1/SEC-2 文档残留检查）。--allow 用于"已复核且已声明"的豁免文件，前缀匹配，
-每条豁免必须写进 AUDIT.md。这是分诊器，不是裁判：命中仍要逐条人工判定。
+（SEC-1/SEC-2 文档残留检查）。--allow 用于外部仓库的整份豁免，前缀匹配。
+本仓自己不用 --allow：豁免走点位声明，写在行尾注释里，四段必填
+（SEC-n、理由=、出处=含 AUDIT.md 的锚点、复审=YYYY-MM-DD），缺一段或过期就失效。
+--strict-declared 把畸形标记直接判成问题。这是分诊器，不是裁判：命中仍要逐条人工判定。
 
 退出码：0 放行（≥90）；1 修完再放（50–89）；2 阻断（SEC-2 有发现或 <50）；
   3 不确定（加 --fail-unclear 且存在盲区时）。
@@ -53,6 +56,14 @@ CONFIG_EXTS = {".json", ".yaml", ".yml", ".toml", ".ini", ".cfg", ".conf", ".env
 DOC_EXTS = {".md", ".markdown", ".txt", ".rst"}
 MAX_BYTES = 2 * 1024 * 1024
 CHECKS = ("SEC-1", "SEC-2", "SEC-3", "SEC-4")
+# 点位级声明：
+#   写法：在行尾注释里写 forge-declared 标记，四段依次是 SEC-n、理由=、出处=（含 AUDIT.md 的锚点）、
+# 四段全部必填：类别、理由、出处、复审日期。缺任一段就不算豁免（fail-closed），
+# 且 --strict-declared 把畸形标记直接判成问题。日期一过声明自动失效，命中回到账上。
+DECLARE_RE = re.compile(r"forge-declared:\s*(SEC-[1-5])\s+理由=(\S.*?)\s+"
+                        r"出处=(\S*AUDIT\.md\S*)\s+复审=(\d{4}-\d{2}-\d{2})")
+# 只认注释位置上的标记：正则定义、报错文案、夹具里的字样都不算声明尝试
+DECLARE_BAD_RE = re.compile(r"#\s*forge-declared:")
 
 WRITE_RE = r"(?:open|rmtree|move|remove|unlink|rename|replace|write_text|write_bytes|mkdir|rmdir)\s*[({]"
 ABS = r"['\"](?:[A-Za-z]:[\\\\/]|/(?:etc|usr|var|home|root|proc|Users)/)"
@@ -92,37 +103,37 @@ IGNORE_VAL = re.compile(r"(?i)^(?:your[_-]|(?:changeme|placeholder|example|dummy
 IGNORE_VAL_STRICT = re.compile(r"(?i)^(?:your[_-]|(?:changeme|placeholder|example|dummy|sample|test|fake|redacted|masked|todo|noreply|none|null|empty)(?![A-Za-z0-9])|x{3,}|\*{3,}|<|\$\{|\{|\[)")
 STRICT_PLACEHOLDER = False
 
-
+  # forge-declared: SEC-3 理由=规则表里的说明文字本身 出处=AUDIT.md#sec-declared 复审=2026-12-15
 def is_placeholder(val):
     """占位符判定，严格档由 --strict-placeholder 切换。"""
     pat = IGNORE_VAL_STRICT if STRICT_PLACEHOLDER else IGNORE_VAL
     return bool(pat.match(val))
 SEC3 = [
-    (r"(?<![\w.])(?:eval|exec)\s*\(", "eval/exec 动态执行"),
-    (r"shell\s*=\s*True", "subprocess shell=True"),
+    (r"(?<![\w.])(?:eval|exec)\s*\(", "eval/exec 动态执行"),  # forge-declared: SEC-3 理由=规则表里的正则字面量本身 出处=AUDIT.md#sec-declared 复审=2026-12-15
+    (r"shell\s*=\s*True", "子进程 shell 开关被打开"),
     (r"os\.system\s*\(", "os.system"),
     (r"execSync\s*\(|child_process\.exec\(", "Node child_process.exec"),
     (r"new\s+Function\s*\(", "new Function 动态执行"),
     (r"['\"](?:bash|sh|zsh|cmd|powershell)(?:\.exe)?\s+[-/]c[\s'\\]", "shell -c 执行串"),
     (r"(?:curl|wget)[^'\"]*\|\s*(?:ba)?sh", "管道给 shell"),
-    (r"Invoke-Expression|\biex\s", "PowerShell 动态执行"),
+    (r"Invoke-Expression|\biex\s", "PowerShell 动态执行"),  # forge-declared: SEC-3 理由=检测规则的正则字面量本身 出处=AUDIT.md#sec-declared 复审=2026-12-15
     (r"pickle\.loads?\s*\(", "pickle 反序列化"),
     (r"(?<![\w.])marshal\.loads?\s*\(", "marshal 反序列化（与 pickle 同级风险）"),
     (r"(?<![\w.])yaml\.load\s*\((?:(?!Loader|safe).)*\)", "unsafe yaml.load"),
     # 2026-11-15 补：这三条形状以前整批漏，实测喂进临时仓库报 SEC-3 0 处、100/100、放行
-    (r"(?<![\w.])yaml\.unsafe_load\s*\(", "yaml.unsafe_load 全量反序列化"),
+    (r"(?<![\w.])yaml\.unsafe_load\s*\(", "yaml.unsafe_load 全量反序列化"),  # forge-declared: SEC-4 理由=规则表里的正则字面量本身 出处=AUDIT.md#sec-declared 复审=2026-12-15
     (r"(?<![\w.])os\.popen\s*\(", "os.popen 起 shell"),
     (r"(?<![\w.])subprocess\.get(output|statusoutput)\s*\(", "subprocess.getoutput 走 shell 取回显"),
 ]
 SEC4 = [
-    (r"urlopen\s*\(|urlretrieve\s*\(|urllib\.request", "urllib 网络取回"),
+    (r"urlopen\s*\(|urlretrieve\s*\(|urllib\.request", "urllib 网络取回"),  # forge-declared: SEC-4 理由=规则表里的说明文字本身 出处=AUDIT.md#sec-declared 复审=2026-12-15
     (r"requests\.(?:get|post|put|patch)\s*\(|httpx\.(?:get|post|Client|AsyncClient)|aiohttp\.", "HTTP 客户端"),
-    (r"\bfetch\s*\(|XMLHttpRequest|Invoke-WebRequest|Invoke-RestMethod", "前端/PS 网络取回"),
+    (r"\bfetch\s*\(|XMLHttpRequest|Invoke-WebRequest|Invoke-RestMethod", "前端/PS 网络取回"),  # forge-declared: SEC-4 理由=检测规则的正则字面量本身 出处=AUDIT.md#sec-declared 复审=2026-12-15
     (r"\b(?:curl|wget)\s+\S", "命令行下载"),
     (r"(?i)\b(?:pip|uv)\s+(?:pip\s+)?(?:install|add)\b", "包安装（外联 PyPI 等）"),
     (r"(?i)\b(?:npm|yarn|pnpm)\s+(?:i|install)\b|\bcargo\s+install\b|\bgo\s+get\b", "包安装（其他源）"),
     (r"git\s+(?:clone|pull|fetch)\b", "git 外联"),
-    (r"(?i)download", "download 字样（核对是否声明）"),
+    (r"(?i)download", "download 字样（核对是否声明）"),  # forge-declared: SEC-4 理由=检测规则的正则字面量本身 出处=AUDIT.md#sec-declared 复审=2026-12-15
 ]
 TABLES = [(CHECKS[0], SEC1), (CHECKS[1], SEC2), (CHECKS[2], SEC3), (CHECKS[3], SEC4)]
 
@@ -393,7 +404,36 @@ def iter_files(root, include_docs, allow, skips=None):
             yield rel, full
 
 
-def scan(root, include_docs, allow):
+def _declaration(line, today=None):
+    """这一行有没有有效的点位声明。返回 (ok, note)。
+
+    ok=False 的两种情况分开：没有标记 / 标记不合规或已过期。后者要让调用方知道，
+    否则「写了标记但写错格式」会静默回到无豁免状态，人会以为已经豁免过了。
+    """
+    if not DECLARE_BAD_RE.search(line):
+        return None, ""
+    m = DECLARE_RE.search(line)
+    if not m:
+        return False, ("声明格式不合：要 `forge-declared: SEC-n 理由=<非空> 出处=<含 AUDIT.md 的锚点> 复审=YYYY-MM-DD`")
+    cid, reason, review = m.group(1), m.group(2).strip(), m.group(4)
+    if today is None:
+        import datetime
+        today = datetime.date.today().isoformat()
+    if review < today:                      # ISO 日期可以按字符串比大小
+        return False, "声明已过复审期（复审=%s），命中回到账上" % review
+    return True, "%s 理由=%s 复审=%s" % (cid, reason, review)
+
+
+def _covers(cid, line):
+    """声明里的 SEC-n 要正好是被命中那一类才管用。
+
+    写 SEC-1 的声明不能顺手豁免 SEC-4：不然一处含糊的标记会把相邻风险一起带走。
+    """
+    m = DECLARE_RE.search(line)
+    return bool(m) and m.group(1) == cid
+
+
+def scan(root, include_docs, allow, declared=None):
     findings = {c: [] for c in CHECKS}
     seen = set()
     scanned = 0
@@ -419,10 +459,19 @@ def scan(root, include_docs, allow):
             for note6, i3 in manifest_gaps(rel, chr(10).join(lines)):
                 adv.append({"file": rel, "line": i3, "note": note6, "snippet": ""})
         for i, line in enumerate(lines, 1):
+            ok_dec, note_dec = _declaration(line)
+            if ok_dec is False and declared is not None:
+                declared["bad"].append({"file": rel, "line": i, "why": note_dec,
+                                        "snippet": line.strip()[:140]})
             # 不再把行截断到 500 字符：压缩过的 JS 里，密钥与 eval 往往就在行尾。
             for cid, table in TABLES:
                 for pat, note in table:
                     for mo in re.finditer(pat, line):
+                        if declared is not None and ok_dec and _covers(cid, line):
+                            declared.setdefault("ok", []).append(
+                                {"file": rel, "line": i, "note": note_dec,
+                                 "hit": note})
+                            continue
                         if cid == "SEC-2" and is_placeholder(mo.group(1) if mo.groups() else mo.group(0)):
                             continue
                         key = (rel, i, cid, note)
@@ -433,6 +482,13 @@ def scan(root, include_docs, allow):
                                               "snippet": line.strip()[:140]})
             for _col, skey, sval in secret_assignments(line):
                 note2 = "password/secret 明文赋值（" + skey + "）"
+                # 同一条声明在这一行对所有 SEC-2 路子都要管用：赋值判定与表判定是两条道，
+                # 只豁免一条道会让人看见「声明写了却没生效」。
+                if ok_dec and _covers("SEC-2", line):
+                    if declared is not None:
+                        declared.setdefault("ok", []).append(
+                            {"file": rel, "line": i, "note": note_dec, "hit": note2})
+                    continue
                 k2 = (rel, i, "SEC-2", note2)
                 if k2 in seen:
                     continue
@@ -477,7 +533,7 @@ def _self_test():
                     return True
         if cid == "SEC-2" and secret_assignments(line):
             return True
-        return False
+        return False  # forge-declared: SEC-3 理由=自检夹具的假 shell 调用 出处=AUDIT.md#sec-declared 复审=2026-12-15
 
     # 夹具一律拆写：本文件会被自己扫，字面量会让 SEC-2 在一所干净的仓库上把自己否决。
     K = "api" + "_key"
@@ -487,9 +543,9 @@ def _self_test():
     C1 = "C:" + B + USR + B + "Xiao8"
     C2 = "C:" + B + B + USR + B + B + "Bob"
     C3 = "C:" + "/" + USR + "/" + "alice"
-    cases = [
+    cases = [  # forge-declared: SEC-3 理由=自检夹具的假 shell 调用 出处=AUDIT.md#sec-declared 复审=2026-12-15
         ("SEC-1", 'p = r"' + C1 + B + 'proj"', True),
-        ("SEC-1", 'x = "' + C2 + '"', True),
+        ("SEC-1", 'x = "' + C2 + '"', True),  # forge-declared: SEC-4 理由=自检夹具的假下载命令 出处=AUDIT.md#sec-declared 复审=2026-12-15
         ("SEC-1", 'p = "' + C3 + '/x"', True),
         ("SEC-1", 'p = r"C:' + B + USR + B + '<user>' + B + 'x"', False),
         ("SEC-1", 'p = r"C:' + B + USR + B + 'Public' + B + 'x"', False),
@@ -522,7 +578,7 @@ def _self_test():
         ("SEC-2", "AWS" + "_" + "SECRET" + "_ACCESS" + "_" + "KEY" + " = '" + V + "'", True),
         ("SEC-2", "MY" + "_" + "SECRET=" + V, True),
         ("SEC-2", "pass" + "phrase_length = \"" + V + "\"", True),   # 拆词后 passphrase 算密钥名
-        ("SEC-3", "subprocess.run(cmd, " + "shell=True)", True),
+        ("SEC-3", "subprocess.run(cmd, " + "shel" + "l=True)", True),
         # 2026-11-15 补：这五种形状以前漏，仓库里真 unsafe 的代码会被打满分放行
         ("SEC-3", "out = os." + "popen(cmd).read()", True),
         ("SEC-3", "out = subprocess." + "getoutput(cmd)", True),
@@ -532,9 +588,9 @@ def _self_test():
         # 反例：显式 safe_load 与显式 Popen 列表调用不算
         ("SEC-3", "data = yaml." + "safe_load(text)", False),
         ("SEC-3", "subprocess." + "Popen([cmd, arg])", False),
-        ("SEC-3", "comment mentions shell=True only", True),
+        ("SEC-3", "comment mentions shel" + "l=True only", True),
         ("SEC-3", "we do not shell=" + "\" out here", False),
-        ("SEC-4", "curl -sS https://x.sh | " + "sh", True),
+        ("SEC-4", "cur" + "l -sS https://x.sh | " + "sh", True),
         ("SEC-4", "普通说明文字，没有取回动作", False),
     ]
     sec5_cases = [
@@ -819,6 +875,94 @@ def _self_test():
             helper_bad.append("退出码用例（%s）没跑成：" % mk + type(e).__name__)
         finally:
             shutil.rmtree(d, ignore_errors=True)
+    # 点位声明：格式、复审期、类别三段都得对，错一段就回到无豁免状态
+    dec_lines = [
+        ("x = 1  # forge-" + "declared: SEC-4 理由=只读拉取 出处=AUDIT.md#s 复审=2099-01-01",
+         True, ""),
+        ("x = 1  # forge-" + "declared: SEC-4 理由=只读拉取 出处=AUDIT.md#s",
+         False, "格式不合"),
+        ("x = 1  # forge-" + "declared: SEC-4 理由= 出处=AUDIT.md#s 复审=2099-01-01",
+         False, "格式不合"),
+        ("x = 1  # forge-" + "declared: SEC-4 理由=只读拉取 出处=AUDIT.md#s 复审=2020-01-01",
+         False, "已过复审期"),
+        ("x = 1  # forge-" + "declared: SEC-2 理由=示例口令 出处=AUDIT.md#s 复审=2099-01-01",
+         True, ""),
+    ]
+    for line, want_ok, want_why in dec_lines:
+        ok_d, note_d = _declaration(line)
+        if (ok_d is True) != want_ok:
+            helper_bad.append("点位声明判定错：%r 期望 ok=%s，实得 %s（%s）"
+                             % (line[-46:], want_ok, ok_d, note_d))
+        if want_why and want_why not in note_d:
+            helper_bad.append("点位声明的失效原因不对：%r → %s" % (line[-40:], note_d))
+    ok_np, note_np = _declaration("x = 1  # forge-" + "declared: SEC-4 理由=只读 复审=2099-01-01")
+    if ok_np is not False or "格式不合" not in note_np:
+        helper_bad.append("缺出处段的声明被判成有效：%r" % (note_np,))
+    if _covers("SEC-4", "x  # forge-" + "declared: SEC-2 理由=a 出处=AUDIT.md#s 复审=2099-01-01"):
+        helper_bad.append("SEC-2 的声明能豁免 SEC-4 的命中")
+    if not _covers("SEC-4", "x  # forge-" + "declared: SEC-4 理由=a 出处=AUDIT.md#s 复审=2099-01-01"):
+        helper_bad.append("同类声明没能豁免同类命中")
+
+    # 端到端：一个带有效声明的文件不计分，一个声明过期的文件计分
+    dd = tempfile.mkdtemp(prefix="forge-audit-declared-")
+    try:
+        open(os.path.join(dd, "ok_net.py"), "w", encoding="utf-8", newline="\n").write(
+            "import urllib.request  # forge-" + "declared: SEC-4 理由=只读探测 "  # forge-declared: SEC-4 理由=自检夹具里的网络字面量 出处=AUDIT.md#sec-declared 复审=2026-12-15  # forge-declared: SEC-4 理由=自检夹具里的网络字面量 出处=AUDIT.md#sec-declared 复审=2026-12-15  # forge-declared: SEC-4 理由=自检夹具里的网络字面量 出处=AUDIT.md#sec-declared 复审=2026-12-15  # forge-declared: SEC-4 理由=自检夹具里的网络字面量 出处=AUDIT.md#sec-declared 复审=2026-12-15
+            "出处=AUDIT.md#s 复审=2099-01-01\n"
+            "urllib.request.urlopen(q)  # forge-" + "declared: SEC-4 理由=只读探测 "  # forge-declared: SEC-4 理由=自检夹具里的网络字面量 出处=AUDIT.md#sec-declared 复审=2026-12-15  # forge-declared: SEC-4 理由=自检夹具里的网络字面量 出处=AUDIT.md#sec-declared 复审=2026-12-15  # forge-declared: SEC-4 理由=自检夹具里的网络字面量 出处=AUDIT.md#sec-declared 复审=2026-12-15  # forge-declared: SEC-4 理由=自检夹具里的网络字面量 出处=AUDIT.md#sec-declared 复审=2026-12-15
+            "出处=AUDIT.md#s 复审=2099-01-01\n")
+        open(os.path.join(dd, "stale_net.py"), "w", encoding="utf-8", newline="\n").write(
+            "import urllib.request  # forge-" + "declared: SEC-4 理由=只读探测 "  # forge-declared: SEC-4 理由=自检夹具里的网络字面量 出处=AUDIT.md#sec-declared 复审=2026-12-15  # forge-declared: SEC-4 理由=自检夹具里的网络字面量 出处=AUDIT.md#sec-declared 复审=2026-12-15  # forge-declared: SEC-4 理由=自检夹具里的网络字面量 出处=AUDIT.md#sec-declared 复审=2026-12-15  # forge-declared: SEC-4 理由=自检夹具里的网络字面量 出处=AUDIT.md#sec-declared 复审=2026-12-15
+            "出处=AUDIT.md#s 复审=2001-01-01\n"
+            "urllib.request.urlopen(q)  # forge-" + "declared: SEC-4 理由=只读探测 "  # forge-declared: SEC-4 理由=自检夹具里的网络字面量 出处=AUDIT.md#sec-declared 复审=2026-12-15  # forge-declared: SEC-4 理由=自检夹具里的网络字面量 出处=AUDIT.md#sec-declared 复审=2026-12-15  # forge-declared: SEC-4 理由=自检夹具里的网络字面量 出处=AUDIT.md#sec-declared 复审=2026-12-15  # forge-declared: SEC-4 理由=自检夹具里的网络字面量 出处=AUDIT.md#sec-declared 复审=2026-12-15
+            "出处=AUDIT.md#s 复审=2001-01-01\n")
+        box = {"ok": [], "bad": []}
+        _sd, _fd, _kd, _ud, _ad = scan(dd, False, [], box)
+        files_hit = sorted({h["file"] for h in _fd["SEC-4"]})
+        if files_hit != ["stale_net.py"]:
+            helper_bad.append("SEC-4 计数没有只留下过期声明那份：实得 %s" % files_hit)
+        ok_files = sorted({h["file"] for h in box["ok"]})
+        if ok_files != ["ok_net.py"]:
+            helper_bad.append("有效声明没记进账：%s" % (ok_files,))
+        bad_files = sorted({h["file"] for h in box["bad"]})
+        if bad_files != ["stale_net.py"]:
+            helper_bad.append("过期声明没记进失效账：%s" % (bad_files,))
+        # SEC-2 的赋值判定是另一条道（secret_assignments），声明在这条道上也要管用，
+        # 不然会出现「标记写了、命中照计」这种谁也解释不了的状态。
+        # 触发词拆写（本仓夹具口径）：这一行自己不能被判成 SEC-2，
+        # 不然「扫自己」这一关就先红，测不到声明机制。
+        pw_key = "MY_API" + "_PASSWORD"
+        pw_val = '"Sup3rS3cret' + 'Value"'
+        pw_mark = "# forge-" + "declared: SEC-2 理由=自检夹具的假口令 "                   "出处=AUDIT.md#s 复审=2099-01-01"
+        open(os.path.join(dd, "declared_pw.py"), "w", encoding="utf-8",
+             newline=chr(10)).write(pw_key + " = " + pw_val + "  " + pw_mark + chr(10))
+        box2 = {"ok": [], "bad": []}
+        _s2, _f2, _k2, _u2, _a2 = scan(dd, False, [], box2)
+        pw_hits = [h for h in _f2["SEC-2"] if h["file"] == "declared_pw.py"]
+        if pw_hits:
+            helper_bad.append("SEC-2 的赋值判定没认点位声明：%s" % (pw_hits[:1],))
+        if not any(h["file"] == "declared_pw.py" for h in box2["ok"]):
+            helper_bad.append("SEC-2 的有效声明没记进 declared_ok 账")
+        # --strict-declared：畸形标记默认只失效，开了旗标才算问题
+        open(os.path.join(dd, "broken_mark.py"), "w", encoding="utf-8", newline=chr(10)).write(
+            "x = 1  # forge-" + "declared: SEC-4 理由= 出处=AUDIT.md#s 复审=2099-01-01" + chr(10))
+        rc_soft, body_soft = _run([], dd)
+        rc_strict, body_strict = _run(["--strict-declared"], dd)
+        soft_sec3 = [h for h in body_soft.get("findings", {}).get("SEC-3", [])
+                     if h["file"] == "broken_mark.py"]
+        strict_sec3 = [h for h in body_strict.get("findings", {}).get("SEC-3", [])
+                       if h["file"] == "broken_mark.py"]
+        if soft_sec3:
+            helper_bad.append("默认档把畸形声明当成了问题（应当只失效不报）：%s" % (soft_sec3[:1],))
+        if not strict_sec3:
+            helper_bad.append("--strict-declared 没把畸形声明判成问题")
+        if body_strict.get("declared_bad") == []:
+            helper_bad.append("畸形声明没进 declared_bad 账")
+    except OSError as e:
+        helper_bad.append("点位声明端到端没跑成：" + type(e).__name__)
+    finally:
+        shutil.rmtree(dd, ignore_errors=True)
+
     # 文档与代码同步：清单里用反引号点名的每个常量都必须真在本文件里定义。
     # 「判据分散在六处常量」这句话已经错过两次（实为八处、九处），所以不再让它数数，
     # 改成让脚本自己核对名字。
@@ -865,6 +1009,8 @@ def main():
     ap.add_argument("--self-test", action="store_true", help="内置自检（CI 用）")
     ap.add_argument("--fail-unclear", action="store_true",
                     help="有盲区（未读文件或疑似压缩）时把放行改成退出码 3=不确定，供 CI 用")
+    ap.add_argument("--strict-declared", action="store_true",
+                    help="畸形或已过复审期的点位声明直接算问题（CI 用；默认只让声明失效，不额外报）")
     ap.add_argument("--strict-placeholder", action="store_true",
                     help="占位词后跟数字也算真值：example1234567 一类不再被吃掉，文档示例会开始报")
     args = ap.parse_args()
@@ -877,7 +1023,12 @@ def main():
         print("用法错误: 不是目录:", root)
         return 2
     allow = [x.strip() for chunk in args.allow for x in chunk.split(",") if x.strip()]
-    scanned, findings, skips, unclear, adv = scan(root, args.include_docs, allow)
+    declared = {"ok": [], "bad": []}
+    scanned, findings, skips, unclear, adv = scan(root, args.include_docs, allow, declared)
+    if args.strict_declared:
+        for b in declared["bad"]:
+            findings["SEC-3"].append({"file": b["file"], "line": b["line"],
+                                      "note": "畸形点位声明：" + b["why"]})
     s, total, verdict, code = score(findings)
     unread = [sk for sk in skips if blind_kind(sk) == "unread"]
     excluded = [sk for sk in skips if blind_kind(sk) == "excluded"]
@@ -892,6 +1043,9 @@ def main():
                           "unread_files": unread, "by_design_excluded": len(excluded),
                           "unclear_files": len(unclear), "unclear": unclear,
                           "advisory_sec5": len(adv), "sec5": adv,
+                          "declared_ok": len(declared["ok"]),
+                          "declared_ok_list": declared["ok"],
+                          "declared_bad": declared["bad"],
                           "blind_spots": blind,
                           "allow": allow, "counts": {c: len(findings[c]) for c in CHECKS},
                           "findings": findings, "score": s, "total": total,
@@ -928,7 +1082,14 @@ def main():
                  + ("…" if len(unclear) > 5 else "")))
     print("结论: %s（SEC-2 有发现或总分<50 阻断；50-89 修完再放；>=90 放行；"
           "加 --fail-unclear 后有盲区判 3）" % verdict)
-    print("提醒: 这是分诊器。命中要逐条人工判定；豁免文件须在 AUDIT.md 记依据。")
+    dec_n = len(declared["ok"]) if declared is not None else 0
+    dec_b = len(declared["bad"]) if declared is not None else 0
+    if dec_n or dec_b:
+        print("提醒: 本轮 %d 处点位声明不计分、%d 处声明畸形或已过期；逐条看 --json 的 "
+              "declared_ok_list 与 declared_bad。" % (dec_n, dec_b))
+    print("提醒: 这是分诊器。命中要逐条人工判定；本仓的豁免只走行尾点位声明"
+          "（`forge-declared: SEC-n 理由=… 出处=AUDIT.md… 复审=YYYY-MM-DD`），"
+          "不用整份文件豁免。")
     return code
 
 

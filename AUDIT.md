@@ -2,6 +2,24 @@
 
 日期：2026-11-15。执行者与方式：主理人在本机跑 `security_audit.py` 与人工判定，逐条给依据。
 
+## 2026-11-17 晚 · 内核同步与验收命令面（第 1 条）
+
+- `tools/sync_kernel.py --apply --ref d16b3db`：一致 17 / 需手搬 1 / 替换失败 0。
+  KERNEL-BASELINE.txt 随之升到 d16b3db。
+- 上游这一轮带来的东西：准奏记录新增必填字段 `verify_commands`（每条验收命令都要能解析、
+  引用的文件要在）、交付证据硬格式那句规范句、示例记录形状核对（只核形状，不核本机装了什么）。
+- 本仓补齐的三件事：
+  1. `platform/overrides/contract-approval.example.json` 加 `verify_commands`
+     （`pnpm describe:extension .`、`pnpm check:extension .`、`pnpm typecheck && pnpm test`）；
+     仓内那份随之同步，两处字节一致
+  2. 契约审议师人设写明「给不出验收命令的裁决不予签发」
+  3. 硬格式那句逐字进 `skills/coopanion-forge/SKILL.md` §7、lead、docs、sandbox 四个人设面
+- 复跑：门禁自检 PASS、`generate_roster_tables --check` OK、安全扫描自检 PASS、
+  名册自检 PASS、探针自检 PASS、同步器自检 PASS、`gen_deltas --check` PASS、宿主安装器自检 PASS
+- 遗留（不是本轮引入）：`scripts/profile_drift.py` 是移植件，ack 还停在 7137346，
+  上游已到 d16b3db；`--check` 会一直报这一条漂移，直到手搬完再 `--port-done`。
+  另外本仓 CI 没跑 `sync_kernel.py --check --strict`，所以这条漂移在 CI 上是看不见的。
+
 ## 1. 本仓安全扫描
 
 命令：

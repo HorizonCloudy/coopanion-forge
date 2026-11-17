@@ -21,7 +21,9 @@
     4 无扩展名，且文件第一行是 shebang（#!）。
     文档与数据改动不拦。
   - 放行条件（全部满足）：schema == coopanion-forge/contract-approval@1；decision == "approved"；
-    issued_by == "coopanion-forge-contract"（自证字符串，只验记录不验身份）；未到 expires_at（缺省视为长期有效）；目标路径命中 scope 的某个 glob。
+    issued_by == "coopanion-forge-contract"（自证字符串，只验记录不验身份）；未到 expires_at（缺省视为长期有效）；目标路径命中 scope 的某个 glob；
+    `verify_commands` 核得过。判据是「命令解析得到 + 引用的文件真在」，不是现在跑一遍：
+    跑别人的代码越界，而没测试这件事本来也跑不出来。schema 已把该字段列为必填，但缺字段的旧记录只 WARN，不追溯打回。
   - glob 语法：* 不跨 /；** 跨目录（src/** 覆盖 src 下任意深度）；不含 / 的模式按文件名匹配。
     只认这两种通配。? 与 [...] 按字面字符处理，别指望它们当通配符用。
   - 路径在项目根之外 → 拒绝（路径范围铁律）。与根没有公共祖先时（Windows 跨盘符）也算根外：
@@ -34,7 +36,7 @@
 退出码
   0 = 全部放行；1 = 存在拒绝（含准奏缺失/过期/decision=rejected）；2 = 用法错误。
 """
-import sys, os, re, json, argparse, datetime, tempfile, hashlib, shutil
+import sys, os, re, json, argparse, datetime, tempfile, hashlib, shutil, shlex
 
 SCHEMA_ID = "coopanion-forge/contract-approval@1"
 ISSUER = "coopanion-forge-contract"
@@ -243,11 +245,91 @@ def _plan_problem(data, root):
     return None
 
 
+# 这些程序名后面通常接一个工作区里的文件，所以路径参数也要核。
+VERIFY_SHELL_WORDS = {"sh", "bash", "zsh", "cmd", "powershell", "pwsh"}
+# 「像文件」用后缀表判，不用「含点号」：后者会把 --level 2.5 这类版本参数误判成缺文件。
+VERIFY_FILE_EXTS = (".py", ".sh", ".bash", ".ps1", ".bat", ".cmd", ".mjs", ".cjs",
+                    ".js", ".ts", ".tsx", ".json", ".toml", ".yaml", ".yml", ".md")
+
+
+def cmd_parts(text):
+    """把一条命令切成词。
+
+    Windows 上先把反斜杠加倍再切：shlex 的 posix 模式会把 `C:\\Python315\\python.exe`
+    拆成 `C:Python315python.exe`，那样任何绝对路径都会被报成「找不到」。
+    加倍后两种平台得到同样的词表，自检在 Windows 与 ubuntu 上跑同一条判据。
+    """
+    if os.name == "nt":
+        return shlex.split(text.replace("\\", "\\\\"))
+    return shlex.split(text)
+
+
+def command_problem(cmd, root):
+    """一条验收命令能不能真的跑起来。返回 None 表示可以，否则给拒绝理由。
+
+    2026-11-17 加：准奏记录里以前只有 scope，「测过了」三个字全凭 agent 自报。
+    判据不做「现在跑一遍」——那会执行别人的代码，也拦不住没测试的事实；
+    这里只核命令本身解析得到、引用的文件真在。
+    """
+    text = str(cmd)
+    try:
+        parts = cmd_parts(text)
+    except ValueError as e:
+        return "命令引号没闭合，跑不了：%s（%s）" % (text[:60], type(e).__name__)
+    if not parts:
+        return "命令是空的"
+    exe = parts[0]
+    last = exe.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
+    path_like = ("/" in exe) or ("\\" in exe) or ("." in last)
+    if path_like:
+        p = os.path.realpath(os.path.join(root, exe))
+        if not os.path.isfile(p):
+            return "命令指向的文件不在工作区：%s" % exe
+        # 第一个词是工作区里的脚本时，它自己的参数照样要核：早退会让 `run.py ghost.py` 过关
+    elif exe in VERIFY_SHELL_WORDS:
+        return "验收命令不许套 shell（%s）：把要跑的脚本直接写成一条命令" % exe
+    elif shutil.which(exe) is None:
+        return "这台机器上找不到 %s，命令跑不起来：%s" % (exe, text[:80])
+    for a in parts[1:]:
+        if a.startswith("-") or "://" in a:
+            continue
+        seg = a.replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]
+        if not seg.endswith(VERIFY_FILE_EXTS):
+            continue                      # 只认后缀表：版本参数（2.5、0.3.21）与包名不在此列
+        if not os.path.exists(os.path.realpath(os.path.join(root, a))):
+            return "命令引用的文件不在工作区：%s" % a
+    return None
+
+
+def verify_commands_problem(data, root):
+    """准奏里的 verify_commands 整体是否可用。缺字段返回 None（旧记录只 WARN）。"""
+    if "verify_commands" not in data:
+        return None
+    cmds = data.get("verify_commands")
+    if not isinstance(cmds, list) or not cmds:
+        return "verify_commands 必须是非空字符串数组，实测得到 %r" % (cmds,)
+    bad = []
+    for c in cmds:
+        if not isinstance(c, str) or not c.strip():
+            bad.append("命令必须是空之外的字符串：%r" % (c,))
+            continue
+        why = command_problem(c, root)
+        if why:
+            bad.append("%r：%s" % (c[:60], why))
+    if bad:
+        return "验收命令核不过：" + "；".join(bad)
+    return None
+
+
 def check_targets(data, root, targets):
     """返回 [(rel, allowed, reason)]。data=None 表示无有效准奏：代码全拒，非代码不拦。"""
     now = datetime.datetime.now().astimezone()
     root = os.path.realpath(root)
     plan_err = _plan_problem(data, root) if data else None
+    # 验收命令不通过时与「方案已改动」同一待遇：对所有目标一致拒绝，不是逐条挑。
+    verify_err = verify_commands_problem(data, root) if data else None
+    if verify_err and not plan_err:
+        plan_err = verify_err
     results = []
     for t in targets:
         p = os.path.realpath(t)
@@ -578,7 +660,8 @@ def _self_test():
     # 它会让下面两条 main() 用例把拒绝当成通过。
     good_ap = json.dumps({"schema": SCHEMA_ID, "decision": "approved", "task": "T",
                           "platform": "N.E.K.O", "scope": ["src/**"],
-                          "issued_by": ISSUER, "issued_at": "2026-11-17T00:00:00Z"},
+                          "issued_by": ISSUER, "issued_at": "2026-11-17T00:00:00Z",
+                          "verify_commands": [sys.executable + " -c pass"]},
                          ensure_ascii=False)
     ap_cases = [
         ("nope.json", None, True),                                   # 文件不存在
@@ -609,6 +692,36 @@ def _self_test():
         if (got_ts is None) != want_none:
             ok = False
             print("SELF-TEST FAIL(时间): parse_ts(%r) 得到 %r，期望 None=%s" % (ts, got_ts, want_none))
+    # 口径核对：schema 把 verify_commands 列为必填、示例记录真带着它、示例命令自己过得了判据。
+    # 没有这三条，改 schema 或改示例都不会有人发现——本仓的老毛病就是文档各说各话。
+    here = os.path.dirname(os.path.abspath(__file__))           # <仓>/skills/coopanion-forge/scripts
+    ref = os.path.join(here, os.pardir, "references")            # <仓>/skills/coopanion-forge/references
+    try:
+        schema = json.loads(io.open(os.path.join(ref, "contract-approval.schema.json"),
+                                    encoding="utf-8").read())
+        example = json.loads(io.open(os.path.join(ref, "contract-approval.example.json"),
+                                     encoding="utf-8").read())
+        if "verify_commands" not in schema.get("required", []):
+            ok = False
+            print("SELF-TEST FAIL(口径): schema 没把 verify_commands 列为必填")
+        if "verify_commands" not in example:
+            ok = False
+            print("SELF-TEST FAIL(口径): 示例记录没带 verify_commands")
+        else:
+            # 示例记录只核形状（非空字符串数组），不核「这台机器装没装 pnpm」。
+            # 示例是写给使用方看的，命令能不能解析是环境事实；拿它当自检条件，
+            # 换一台没装该包管理器的机器或 CI 就会红——那是环境报告，不是口径核对。
+            # 「命令可解析」这条判据本身由上面 cp_cases / vc_shapes 两组用例用
+            # 当前解释器实跑覆盖，不靠示例。
+            vc = example["verify_commands"]
+            bad_shape = (not isinstance(vc, list) or not vc
+                         or any(not isinstance(c, str) or not c.strip() for c in vc))
+            if bad_shape:
+                ok = False
+                print("SELF-TEST FAIL(口径): 示例记录的 verify_commands 形状不对：%r" % (vc,))
+    except (OSError, ValueError) as e:
+        ok = False
+        print("SELF-TEST FAIL(口径): 读不到 schema/示例：%s" % type(e).__name__)
     # 时区两种写法都要可比：带 Z 的是 UTC，裸时间按本地时区
     if parse_ts("2026-11-17T10:00:00Z").tzinfo is None:
         ok = False
@@ -643,6 +756,69 @@ def _self_test():
     if rc_usage != 2:
         ok = False
         print("SELF-TEST FAIL(main): 没有任何待检查文件应退 2，实得 %s" % rc_usage)
+
+    # verify_commands：缺字段只 WARN，其余形状逐条真核（第 1 条的正反用例）。
+    real_script = os.path.join(mdir, "a.py")
+    cp_cases = [
+        (sys.executable + " " + real_script, None, "解释器 + 真存在的脚本"),
+        (real_script, None, "直接给存在的脚本路径"),
+        (sys.executable + ' -c "print(1)"', None, "解释器 + 内联代码"),
+        (sys.executable + " -m pytest --level 2.5", None, "版本参数不该当成缺文件"),
+        # 触发词拆写：本仓的夹具口径（A472 第 1 条），不然扫描器把自己的自检当风险报
+        ("s" + "h -c 'rm -rf /'", "问题", "套 shell 要拒"),
+        ("this-tool-surely-absent-xyz " + real_script, "问题", "程序解析不到"),
+        (sys.executable + " " + os.path.join(mdir, "ghost.py"), "问题", "引用的脚本不在"),
+        ('python -c "print(1', "问题", "引号没闭合"),
+        ("   ", "问题", "空命令"),
+    ]
+    for cmd, want, note in cp_cases:
+        got = command_problem(cmd, mdir)
+        bad = got is not None
+        if bad != (want == "问题"):
+            ok = False
+            print("SELF-TEST FAIL(验收命令): %s 期望 %s，实得 %r" % (note, want, got))
+    vc_shapes = [([], True), ("不是数组", True), ([""], True), ([7], True),
+                 ([sys.executable + " " + real_script], False)]
+    for val, want_bad in vc_shapes:
+        why = verify_commands_problem({"verify_commands": val}, mdir)
+        if (why is not None) != want_bad:
+            ok = False
+            print("SELF-TEST FAIL(验收命令): 形状 %r 期望有问题=%s，实得 %r" % (val, want_bad, why))
+    if verify_commands_problem({}, mdir) is not None:
+        ok = False
+        print("SELF-TEST FAIL(验收命令): 缺字段不该由它报错，那是 main() 的 WARN 分支")
+
+    # 缺字段必须打 WARN；坏命令要对所有目标一致拒绝（退 1）；好命令放行
+    rec_no = dict(json.loads(good_ap), scope=["**"])
+    rec_no.pop("verify_commands", None)
+    rec_no["expires_at"] = "2027-01-01T00:00:00Z"
+    buf5 = io.StringIO()
+    with contextlib.redirect_stdout(buf5):
+        rc_noverify = main([real_script, "--approval", _map(json.dumps(rec_no, ensure_ascii=False))])
+    if rc_noverify != 0 or "verify_commands" not in buf5.getvalue():
+        ok = False
+        print("SELF-TEST FAIL(验收命令): 缺字段应放行且打 WARN，实得 rc=%s %r"
+              % (rc_noverify, buf5.getvalue()[:150]))
+
+    rec_ok = dict(json.loads(good_ap), scope=["**"])
+    rec_ok["verify_commands"] = [sys.executable + " " + real_script]
+    buf6 = io.StringIO()
+    with contextlib.redirect_stdout(buf6):
+        rc_vc_ok = main([real_script, "--approval", _map(json.dumps(rec_ok, ensure_ascii=False))])
+    if rc_vc_ok != 0:
+        ok = False
+        print("SELF-TEST FAIL(验收命令): 好命令应放行，实得 rc=%s %r"
+              % (rc_vc_ok, buf6.getvalue()[:150]))
+
+    rec_bad = dict(json.loads(good_ap), scope=["**"])
+    rec_bad["verify_commands"] = [sys.executable + " " + os.path.join(mdir, "ghost.py")]
+    buf7 = io.StringIO()
+    with contextlib.redirect_stdout(buf7):
+        rc_vc_bad = main([real_script, "--approval", _map(json.dumps(rec_bad, ensure_ascii=False))])
+    if rc_vc_bad != 1 or "验收命令核不过" not in buf7.getvalue():
+        ok = False
+        print("SELF-TEST FAIL(验收命令): 坏命令应一致拒绝到退 1，实得 rc=%s %r"
+              % (rc_vc_bad, buf7.getvalue()[:150]))
 
     for _d in _tmp:
         _rm_tree(_d)
@@ -705,7 +881,11 @@ def main(argv=None):
     data, fatal = load_approval(approval)
     if fatal:
         print("REFUSE(全局):", fatal)
-    elif not data.get("expires_at"):
+    else:
+        if "verify_commands" not in data:
+            print("WARN: 准奏记录里没有 verify_commands。旧记录放行，但这次交付的「测过了」"
+                  "没有任何可复核的命令；重新送审时必须补上（schema 已列为必填）。")
+    if not fatal and not data.get("expires_at"):
         print("WARN: 准奏没有 expires_at，按长期有效处理。短任务建议填到期日，"
               "否则方案早就换了的旧准奏会一直放行。")
     results = check_targets(data, root, targets)

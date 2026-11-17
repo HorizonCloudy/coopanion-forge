@@ -4,7 +4,8 @@
   "title": "coopanion-forge 契约准奏记录（contract-approval.json）",
   "description": "契约审议师裁决落盘产物，放在插件项目根目录。check_contract_approval.py 据此放行/拒绝写码：没有本文件、decision 非 approved、过期、或目标路径不在 scope，代码一律不许写。",
   "type": "object",
-  "required": ["schema", "task", "platform", "decision", "issued_by", "issued_at", "scope"],
+  "required": ["schema", "task", "platform", "decision", "issued_by", "issued_at",
+               "scope", "verify_commands"],
   "properties": {
     "schema": {
       "const": "coopanion-forge/contract-approval@1",
@@ -41,6 +42,12 @@
       "minItems": 1,
       "items": { "type": "string", "minLength": 1 },
       "description": "允许改动的路径 glob（相对项目根）：src/** 跨目录；* 不跨 /；不含 / 的模式按文件名匹配。只认 * 与 ** 两种通配，? 与 [...] 按字面匹配。只写方案实际要动的文件。"
+    },
+    "verify_commands": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 },
+      "description": "怎么证明这次交付真的能跑：验收命令数组，每条都得是能直接执行的命令。门禁逐条核：第一个词要么是工作区里真存在的脚本，要么是本机解析得到的程序（python、npx、pnpm、bun、pytest、node 一类），命令里引用的文件也必须真在。核不过就对所有目标一致拒绝。旧记录没这个字段只打 WARN，不追溯打回；重新送审时必须补上。没有它，「我测过了」这句话无法证伪。"
     },
     "issued_by": {
       "const": "coopanion-forge-contract",

@@ -63,6 +63,7 @@ maxTurns: 60
 
 准奏裁决同时写入插件项目根 `contract-approval.json`（格式 `references/contract-approval.schema.json`，
 相对 `${FORGE_HOME}`）。`platform` 写 `cortico@<框架版本>`；`scope` 只列方案真要动的文件。
+`verify_commands` 必填：每条都是这个扩展包目录里能直接跑起来的验收命令（`pnpm check:extension .`、`pnpm describe:extension .`、`pnpm typecheck && pnpm test` 都算）。门禁逐条核「程序解析得到、引用的文件真在」；给不出验收命令的裁决等于「我保证」，不予签发。
 封驳不写该文件，或写 `decision: "rejected"` 留档。
 
 scope 的写法与保护面（以 `scripts/check_contract_approval.py` 头部规则段为准，2026-11-16 同步自内核 2d658a7）：

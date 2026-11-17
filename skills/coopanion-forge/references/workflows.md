@@ -13,12 +13,12 @@
 | 3. **契约审议（门禁）** | **contract** | 准奏 / 封驳（对照 profile 能力面逐条核）；准奏落盘 `contract-approval.json` |
 | 4. 派发 | lead | 按成员拆分，无依赖的并行 |
 | 5. 实现 | tdd 先写最小测试 → dev 转绿（ architect / simplifier 并行补位） | 完整代码 + manifest |
-| 6. 运行时验证 | sandbox（+ reliability 发布就绪清单） | 隔离环境真实加载记录 |
+| 6. 运行时验证 | sandbox（+ reliability 发布就绪清单） | 隔离环境真实加载记录；先过 `dry_load.py`，输出里要能看出是 `real-import` 还是 `ast-fallback` |
 | 7. 验收汇编 | lead | 三段回奏（见下） |
 
 **不可跳步**：1a 的检索结论没出来，不进第 2 步（起草方案）；没有 contract 准奏，不许写码。
 
-写码前先过机器门禁：`python ${FORGE_HOME}/scripts/check_contract_approval.py --approval contract-approval.json <要写的文件…>`；脚本 REFUSE 即不许动笔（含 scope 外文件）。**这是流程辅助，不是强制**：脚本只校验记录，验不了签发人身份，也不会自动触发，靠各角色自觉调用；宿主级强制需另配 PreToolUse hook。派工规模先按 `references/task-size-routing.md` 分拣：小改动到 dev + tdd，要写代码时先跑 1a 快速档，契约与安全门禁不豁免。接 PreToolUse hook 或 CI 时改用 `--staged`（已暂存）或 `--changed`（工作区改动加未跟踪新文件），不必自己拼路径列表。
+写码前先过机器门禁（准奏记录须含 `verify_commands`：每条验收命令都得解析得到、引用的文件真在，否则对所有目标一致拒绝）：`python ${FORGE_HOME}/scripts/check_contract_approval.py --approval contract-approval.json <要写的文件…>`；脚本 REFUSE 即不许动笔（含 scope 外文件）。**这是流程辅助，不是强制**：脚本只校验记录，验不了签发人身份，也不会自动触发，靠各角色自觉调用；宿主级强制需另配 PreToolUse hook。派工规模先按 `references/task-size-routing.md` 分拣：小改动到 dev + tdd，要写代码时先跑 1a 快速档，契约与安全门禁不豁免。接 PreToolUse hook 或 CI 时改用 `--staged`（已暂存）或 `--changed`（工作区改动加未跟踪新文件），不必自己拼路径列表。
 
 ### 1a 先搜后建（rbb）到底要交什么
 

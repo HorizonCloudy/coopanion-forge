@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-coopanion-forge · 名册表生成器（roster.json 为唯一来源）
+coopanion-forge · 仓库文档一致性门禁（roster.json 为唯一来源）
 
 用途
   从 roster.json 重新生成 README.md、skills/coopanion-forge/SKILL.md、
   agents/coopanion-forge-lead.md 里的名册表格，并同步各处的人数声明
   （"1 主理人 + N 专家"、"调度 N 位专家"、"N 人编制"、"N 个人设"、"共 N 人编制"）。
   人数声明同时覆盖 .claude-plugin/plugin.json。
+  第三件事：交付证据硬格式那句规范句必须逐字出现在点名文件里（第 3 项任务）。
   表格区域由成对标记包住，标记之间只许本脚本写入，不许手改。
 
 用法
@@ -175,6 +176,45 @@ def apply_counts(text, vals):
             return _replace_group(mo, str(vals[k]))
         text = re.sub(pat, repl, text)
     return text, hits
+
+# 交付证据的硬格式：规范句只有一处定义（skills/coopanion-forge/SKILL.md §6），其余文件逐字引用。
+# 这一条来自 2026-11-17 的第 3 项任务：口径要「机器可检」，否则它只是一句愿望。
+REPORT_FORMULA = "验收证据 = 命令 + 退出码 + 输出末 20 行；三者缺一按半道交付打回。"
+REPORT_SOURCE = "skills/coopanion-forge/SKILL.md"
+REPORT_FILES = [
+    "skills/coopanion-forge/SKILL.md",
+    "agents/coopanion-forge-lead.md",
+    "agents/coopanion-forge-docs.md",
+    "agents/coopanion-forge-sandbox.md",
+    "skills/coopanion-forge/references/delivery-self-check.md",
+]
+
+
+def check_report_formula():
+    """该带规范句的文件必须逐字带上；同一文件里写两遍也要报——
+    改口径时只改一处，另一处就变成假的「已对齐」。"""
+    problems = []
+    src_path = os.path.join(ROOT, REPORT_SOURCE.replace("/", os.sep))
+    try:
+        src_text = read(src_path)
+    except OSError as e:
+        return ["读不到规范句来源 %s：%s" % (REPORT_SOURCE, e)]
+    if REPORT_FORMULA not in src_text:
+        problems.append("%s 里找不到规范句，其余文件的核对没有基准" % REPORT_SOURCE)
+    for rel in REPORT_FILES:
+        fp = os.path.join(ROOT, rel.replace("/", os.sep))
+        try:
+            text = read(fp)
+        except OSError as e:
+            problems.append("%s 读不到：%s" % (rel, e))
+            continue
+        times = text.count(REPORT_FORMULA)
+        if times == 0:
+            problems.append("%s 缺交付证据硬格式那句（要逐字）：%s" % (rel, REPORT_FORMULA))
+        elif times > 1:
+            problems.append("%s 里同一句出现 %d 次，改口径时只会改一处" % (rel, times))
+    return problems
+
 
 def stray_count_claims():
     """名单之外还写着人数声明的文件。它们不在同步范围里，改编制时一定变陈旧。"""
@@ -361,6 +401,32 @@ def _self_test():
         if not any("空转" in p for p in probs3):
             ok = False
             print("SELF-TEST FAIL(人数): 声明全部消失时没报空转，实得 %r" % (probs3,))
+        # 交付口径核对：ROOT 此刻是临时目录，所以按 REPORT_SOURCE 造一份带规范句的替身
+        real_files, real_source = globals()["REPORT_FILES"], globals()["REPORT_SOURCE"]
+        sp = os.path.join(wd, real_source.replace("/", os.sep))
+        os.makedirs(os.path.dirname(sp), exist_ok=True)
+        io.open(sp, "w", encoding="utf-8", newline="").write(
+            "规范句在此：" + REPORT_FORMULA + chr(10))
+        globals()["REPORT_FILES"] = ["docs/missing-formula.md"]
+        os.makedirs(os.path.join(wd, "docs"), exist_ok=True)
+        mfp = os.path.join(wd, "docs", "missing-formula.md")
+        io.open(mfp, "w", encoding="utf-8", newline="").write("没有那句规范句" + chr(10))
+        got_f = check_report_formula()
+        if not any("缺交付证据硬格式" in x for x in got_f):
+            ok = False
+            print("SELF-TEST FAIL(交付口径): 缺规范句没报出来，实得 %r" % (got_f[:2],))
+        io.open(mfp, "w", encoding="utf-8", newline="").write(
+            REPORT_FORMULA + chr(10) + REPORT_FORMULA + chr(10))
+        got_f2 = check_report_formula()
+        if not any("出现 2 次" in x for x in got_f2):
+            ok = False
+            print("SELF-TEST FAIL(交付口径): 同句写两遍没报，实得 %r" % (got_f2[:2],))
+        io.open(mfp, "w", encoding="utf-8", newline="").write(REPORT_FORMULA + chr(10))
+        got_f3 = check_report_formula()
+        if got_f3:
+            ok = False
+            print("SELF-TEST FAIL(交付口径): 已经对齐了还报错，实得 %r" % (got_f3[:2],))
+        globals()["REPORT_FILES"], globals()["REPORT_SOURCE"] = real_files, real_source
     except Exception as e:
         ok = False
         print("SELF-TEST FAIL(写路径): 用例没跑成 %s: %s" % (type(e).__name__, e))
@@ -391,6 +457,7 @@ def main(argv=None):
         print(f"FAIL: roster.json 读取失败: {e}")
         return 1
     errors = validate_against_agents_dir(members)          # 脚本修不了，必须手工改
+    errors += check_report_formula()                        # 交付口径逐字核对
     drift = sync_tables(members, args.write, errors) + sync_counts(members, args.write)
     for e in errors:
         print("ERROR:", e)
