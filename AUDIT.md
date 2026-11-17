@@ -476,3 +476,16 @@ plugin.toml 那一族用例，所以比内核的 130 少 4 例，不是没同步
 `check_templates --check` 47 文件逐字节一致；按 CI 的 `--allow` 与两个严格档旗标重跑扫描，
 三步都 100/100 退 0，真盲区 0（不带 `--allow` 直接扫的话 `platform/deltas.json` 会因单行超长
 记成压缩盲区，那是台账的写法，不是漏检）。
+
+补记（同一轮，探针实跑逼出的两条）：去重键收紧以后，本仓探针从 102 条锚点涨到 111 条，
+并立刻报出 2 条漂移。逐条核过，两条都是**正文写法缺陷**，不是行号漂：
+- ⓪ 表 P5 那条只写「grep 四个常量名」，没把常量名本身写进句子，符号池里只剩
+  `node_modules`（那是描述里的路径词），于是 packs.ts:39 怎么核都不对。
+  现在把 `MANIFEST_VERSION`、`FIGURE_API`、`MANIFEST_OLDEST`、`FIGURE_API_OLDEST` 四个名字写全。
+- ⓪ 表 P8 那条一行里同时挂着 `gh api repos/.../releases/latest` 与
+  `src/extensions/manifest.ts:23-27`，本件的符号池取整行反引号，于是拿 repos / Cortico /
+  releases 去 manifest.ts 找。按 W2 的第 2 条军规补上 `EXTENSION_API_VERSIONS` 即绿。
+  根因是整行取词这一级：内核用逐号配对（pairs）避免这种串扰，本件没有，属 W13 的范围。
+复跑 `profile_drift --strict` 111 条全对得上、漂移 0、核不了 0，退 0。
+这条也更正本文早前那句「本件与内核的判据差异目前没有证据会抓到本仓现有的漏」——
+证据现在有了，就是这两条。
