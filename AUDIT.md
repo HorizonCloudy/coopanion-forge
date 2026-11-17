@@ -553,3 +553,16 @@ summary 只有 FAILED 行、没有 pass；A3a 装不上 + 模板干净 → 默�
 本机没有 corepack，那一句报 command not found 不影响判据（runner 上有）。
 
 待拍板两条，没自行动手：`ALLOW_SYNTAX_ONLY` 的放行治理（W14）与模板 lockfile / 精确钉版（W15）。
+
+### 本仓自己踩到的一次假红：JSON 解析步开始替 node_modules 查包
+
+第 5 条（工单 W8）把 `pnpm install` 带进工作区以后，`JSON artifacts parse` 那一步的
+`glob.glob('**/*.json', recursive=True)` 就开始把第三方包的 JSONc（带注释）当本仓产物解析，
+CI 实测退 1：`Expecting property name enclosed in double quotes: line 2 column 3`（run `44112500299`）。
+这不是模板坏了，是本步的覆盖面写宽了。
+
+- 改法：排除 vendored 目录，`.github/workflows/sync-check.yml` 与 `platform/overrides/` 那份一起改，逐字节一致
+- 排除式先做分隔符归一化再筛。第一版直接判 `'/node_modules/' not in '/'+p`：Linux runner 上对，
+  Windows 上 glob 给的是反斜杠，同一条判据在两边结论相反。判据不跟操作系统谈判
+- 验收（用 yml 里那一行原样命令，在 `forge-scratch/jsontest` 夹具上跑）：
+  本仓产物里放坏 JSON → 退 1（仍然阻断）；只留 `node_modules/tslib/package.json` 这种带注释的第三方件 → 退 0

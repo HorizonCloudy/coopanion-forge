@@ -118,4 +118,9 @@ jobs:
             exit 1
           fi
       - name: JSON artifacts parse
-        run: python -c "import json,glob;fs=glob.glob('**/*.json',recursive=True)+glob.glob('.claude-plugin/*.json');[json.load(open(p,encoding='utf-8-sig')) for p in fs]"
+        # 排除 vendored 目录：模板类型检查步会 pnpm install，node_modules 落在工作区里，
+        # 递归 glob 于是开始替第三方包查 JSON（2026-11-17 CI 实测被顶红一次：
+        # Expecting property name enclosed in double quotes: line 2 column 3）。
+        # 本步的对象是本仓产物，不是依赖树的产物。排除式按分隔符归一化，
+        # 不然 Windows 上 glob 出来是反斜杠，同一句判据在两边结论相反。
+        run: python -c "import json,glob;SKIP=('.git/','dist/','build/');ok=lambda p:(lambda q:'/node_modules/' not in '/'+q and not q.startswith(SKIP))(p.replace(chr(92),'/'));fs=[p for p in glob.glob('**/*.json',recursive=True)+glob.glob('.claude-plugin/*.json') if ok(p)];[json.load(open(p,encoding='utf-8-sig')) for p in fs]"
