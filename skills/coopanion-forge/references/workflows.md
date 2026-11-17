@@ -13,7 +13,7 @@
 | 3. **契约审议（门禁）** | **contract** | 准奏 / 封驳（对照 profile 能力面逐条核）；准奏落盘 `contract-approval.json` |
 | 4. 派发 | lead | 按成员拆分，无依赖的并行 |
 | 5. 实现 | tdd 先写最小测试 → dev 转绿（ architect / simplifier 并行补位） | 完整代码 + manifest |
-| 6. 运行时验证 | sandbox（+ reliability 发布就绪清单） | 隔离环境真实加载记录；先过 `dry_load.py`，输出里要能看出是 `real-import` 还是 `ast-fallback` |
+| 6. 运行时验证 | sandbox（+ reliability 发布就绪清单） | 隔离环境真实加载记录；先过本平台的装载检查（N.E.K.O：`dry_load.py`；Cortico：`pnpm describe:extension` + `pnpm check:extension` 加包内测试），输出里要能看出是真装载还是降级检查 |
 | 7. 验收汇编 | lead | 三段回奏（见下） |
 
 **不可跳步**：1a 的检索结论没出来，不进第 2 步（起草方案）；没有 contract 准奏，不许写码。
