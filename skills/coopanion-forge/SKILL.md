@@ -145,6 +145,11 @@ TDD、极简工程、安全门禁和运行时验证把交付物钉死在"真的�
 - `scripts/profile_drift.py`（仓库根）：profile 锚点漂移探针。逐行核锚，默认只报告，不改文件。
   它是 KERNEL-BASELINE.txt 点名的 rewrite 件。文件缺失时，改用 profile-coopanion.md
   文末 ⓪ 节的 P1–P9 手工探针。
+  写锚点守两条（探针只看「路径 + 号 + 同一行的反引号符号」，不守就写出假红）：
+  一行只服务一个上游文件的锚；那一行至少要带一个属于该文件的符号名（如 `EXTENSION_API_VERSIONS`、
+  `readAll`、`MANIFEST_VERSION`）。区间要写全两头：`packages/.../packs.ts:39、40、41、42` 这种
+  逐号列举，或 `:14-36` 这种冒号区间——两头两个号探针都收，只写一头会漏核。
+  `templates/` 下的锚探针不路由，那一路只认 `tools/check_templates.py --check` 的字节哈希。
 
 ## 6. 运行形态与路径约定
 
