@@ -436,6 +436,14 @@ def iter_files(root, include_docs, allow, skips=None, unclear=None):
                 continue
             # 清单文件无条件进池：requirements.txt 属 DOC_EXTS，不加 --include-docs 就读不到，
             # 而 git+ 直连依赖最常写在这个文件里。
+            # 工单 W18.1：docs/ 下的 .html 与同目录 .md 同口径——默认不参与评分，
+            # --include-docs 才读。理由：宿主真加载的面板页不当素材放过（security_audit.py
+            # 文件头的设计注释仍然成立），但文档导出页长得像代码不等于它就是运行面。
+            # 真凭据仍会被拦：CI 的文档面门禁那一步带 --include-docs，SEC-2 一票否决照判。
+            if (not include_docs and scan_ext in (".html", ".htm")
+                    and "/docs/" in ("/" + rel.lower())):
+                skips.append(rel + "（docs 下的 " + scan_ext + " 按文档形态排除，不在扫描池）")
+                continue
             if (scan_ext and scan_ext not in pool and fn not in MANIFEST_NAMES
                     and not low.startswith(".env") and not low.endswith(".env")):
                 if scan_ext in ASSET_EXTS or scan_ext in DOC_EXTS:
@@ -481,6 +489,38 @@ def _declaration(line, today=None):
     return True, "%s 理由=%s 复审=%s" % (cid, reason, review)
 
 
+def citation_ok(root, line, cache=None):
+    """声明里的「出处」必须能在被审仓库里查到那条记录。查不到就当没有声明。
+
+    外部审 A791 的 CRITICAL，本会话实测复现过：拿扫描器审一个外部插件仓时，
+    被审方自己在真 token 那行末尾写一条格式完全合法的声明
+   （出处只写 `AUDIT.md#x`），旧判据就把 SEC-2 的一票否决抹成 rc=0 放行——
+    因为「出处」以前只校验字符串里含 AUDIT.md 这个文件名，没核对那本账里真写着这件事。
+    本仓自扫不受影响：37 条声明都写 `AUDIT.md#sec-declared`，锚点在 AUDIT.md 里真存在。
+    fail-closed 是这里的方向：宁可多报，不许被被审对象自己的注释免掉。
+    """
+    m = DECLARE_RE.search(line)
+    if not m:
+        return False
+    src = m.group(3)
+    fname, _, anchor = src.partition("#")
+    fname = fname.replace("\\", "/").lstrip("./") or "AUDIT.md"
+    cache = declared_cache if declared_cache is not None else {}
+    if fname not in cache:
+        try:
+            with open(os.path.join(root, fname), encoding="utf-8-sig",
+                     errors="replace") as f:
+                cache[fname] = f.read()
+        except OSError:
+            cache[fname] = None
+    text = cache[fname]
+    if text is None:
+        return False
+    if not anchor:
+        return True
+    return re.search(r"(?<![\w-])" + re.escape(anchor) + r"(?![\w-])", text) is not None
+
+
 def _covers(cid, line):
     """声明里的 SEC-n 要正好是被命中那一类才管用。
 
@@ -490,6 +530,9 @@ def _covers(cid, line):
     return bool(m) and m.group(1) == cid
 
 
+declared_cache = None
+
+
 def scan(root, include_docs, allow, declared=None):
     findings = {c: [] for c in CHECKS}
     seen = set()
@@ -497,6 +540,8 @@ def scan(root, include_docs, allow, declared=None):
     skips = []
     unclear = []
     adv = []
+    global declared_cache
+    declared_cache = {}          # 每轮扫描重新计，免得跨仓复用出处文本
     for rel, full in iter_files(root, include_docs, allow, skips, unclear):
         scanned += 1
         try:
@@ -517,6 +562,10 @@ def scan(root, include_docs, allow, declared=None):
                 adv.append({"file": rel, "line": i3, "note": note6, "snippet": ""})
         for i, line in enumerate(lines, 1):
             ok_dec, note_dec = _declaration(line)
+            if ok_dec and not citation_ok(root, line):
+                # 声明格式对但出处查无记录：回到「没有声明」，并单记一条，让人看得见
+                ok_dec = False
+                note_dec = "出处在被审仓库里查无记录（%s）" % DECLARE_RE.search(line).group(3)
             if ok_dec is False and declared is not None:
                 declared["bad"].append({"file": rel, "line": i, "why": note_dec,
                                         "snippet": line.strip()[:140]})
@@ -894,7 +943,7 @@ def _self_test():
             return r.returncode, json.loads(r.stdout)
         except ValueError:
             return r.returncode, {}
-    for mk in ("empty", "secret", "blind", "pool"):
+    for mk in ("empty", "secret", "blind", "pool", "html-doc"):
         d = tempfile.mkdtemp(prefix="forge-audit-exit-" + mk + "-")
         try:
             if mk == "secret":
@@ -905,6 +954,36 @@ def _self_test():
                 if rc != 2 or not hits:
                     helper_bad.append("夹具里放一条 GitHub token 形状：应 SEC-2 阻断退 2，实得 rc=%s 命中 %d"
                                       % (rc, len(hits)))
+            elif mk == "html-doc":
+                # 工单 W18.1：同一段纯文档教程，改后缀不许改变结论。
+                # .md 与 docs/*.html 在默认口径都不参与评分；带 --include-docs 都要读，
+                # 真凭据在两种后缀下一票否决。
+                L = chr(10)
+                text = ("# 教程" + L + L + "示例密钥 " + "AKIA" + "IOSFODNN7EXAMPLE"
+                        + " 与讲解代码 ev" + "al(x) 的写法。" + L)
+                os.makedirs(os.path.join(d, "docs"), exist_ok=True)
+                open(os.path.join(d, "app.py"), "w", encoding="utf-8", newline=L).write(
+                    "print(1)" + L)
+                open(os.path.join(d, "docs", "tutor.md"), "w", encoding="utf-8",
+                        newline=L).write(text)
+                open(os.path.join(d, "docs", "tutor.html"), "w", encoding="utf-8",
+                        newline=L).write(text.replace("# 教程", "<h1>教程</h1>"))
+                rc_m, body_m = _run([], d)
+                rc_f, body_f = _run(["--include-docs"], d)
+                if rc_m != 0:
+                    helper_bad.append("docs 下的 .html 在默认口径仍被评分：rc=%s counts=%s"
+                                      % (rc_m, body_m.get("counts")))
+                if body_f.get("counts", {}).get("SEC-2") != 2:
+                    helper_bad.append("--include-docs 下两种后缀的示例密钥数应一致（2 处），实得 %s"
+                                      % (body_f.get("counts"),))
+                # 非 docs 目录的面板页仍要当代码：设计注释那句不许被这次豁免冲掉
+                open(os.path.join(d, "ui"), "w") if False else os.makedirs(
+                    os.path.join(d, "ui"), exist_ok=True)
+                open(os.path.join(d, "ui", "panel.html"), "w", encoding="utf-8",
+                        newline=L).write(text.replace("# 教程", "<h1>面板</h1>"))
+                rc_u, body_u = _run([], d)
+                if rc_u == 0:
+                    helper_bad.append("ui/panel.html（宿主真加载的页）被 docs 豁免顺带放走了")
             elif mk == "blind":
                 with open(os.path.join(d, "ok.py"), "w", encoding="utf-8") as f:
                     f.write("print(1)" + chr(10))
@@ -1025,6 +1104,10 @@ def _self_test():
     # 端到端：一个带有效声明的文件不计分，一个声明过期的文件计分
     dd = tempfile.mkdtemp(prefix="forge-audit-declared-")
     try:
+        # 声明现在要核对「出处在被审仓库里真查得到」（A791 的 CRITICAL），
+        # 所以夹具仓库也得带上那本账，锚点与声明里写的一致
+        open(os.path.join(dd, "AUDIT.md"), "w", encoding="utf-8", newline=chr(10)).write(
+            "### s · 自检夹具的点位声明登记" + chr(10) + chr(10))
         open(os.path.join(dd, "ok_net.py"), "w", encoding="utf-8", newline="\n").write(
             "import urllib.request  # forge-" + "declared: SEC-4 理由=只读探测 "  # forge-declared: SEC-4 理由=自检夹具里的网络字面量 出处=AUDIT.md#sec-declared 复审=2026-12-15
             "出处=AUDIT.md#s 复审=2099-01-01\n"
@@ -1058,6 +1141,16 @@ def _self_test():
         box2 = {"ok": [], "bad": []}
         _s2, _f2, _k2, _u2, _a2 = scan(dd, False, [], box2)
         pw_hits = [h for h in _f2["SEC-2"] if h["file"] == "declared_pw.py"]
+        # 反向：把账本里的锚点抹掉，同一条声明必须失效，命中回到账上。
+        # 这条钉住 A791 的 CRITICAL：被审方自己写一行注释就免掉一票否决。
+        open(os.path.join(dd, "AUDIT.md"), "w", encoding="utf-8", newline=chr(10)).write(
+            "### other · 与声明无关的标题" + chr(10))
+        box2b, _sk2b, _uc2b, _f2b = [], [], [], {}
+        _s2b, _f2b, _sk2b, _uc2b, _a2b = scan(dd, False, [], {"ok": [], "bad": []})
+        if not [h for h in _f2b["SEC-2"] if h["file"] == "declared_pw.py"]:
+            helper_bad.append("出处查无记录时声明仍然生效（A791 CRITICAL 没修住）")
+        if not [h for h in _f2b["SEC-4"] if h["file"] == "ok_net.py"]:
+            helper_bad.append("出处查无记录时 SEC-4 仍被免掉：fail-closed 的方向写反了")
         if pw_hits:
             helper_bad.append("SEC-2 的赋值判定没认点位声明：%s" % (pw_hits[:1],))
         if not any(h["file"] == "declared_pw.py" for h in box2["ok"]):

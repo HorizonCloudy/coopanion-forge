@@ -18,7 +18,7 @@
 
 **不可跳步**：1a 的检索结论没出来，不进第 2 步（起草方案）；没有 contract 准奏，不许写码。
 
-写码前先过机器门禁（准奏记录须含 `verify_commands`：每条验收命令都得解析得到、引用的文件真在，否则对所有目标一致拒绝）：`python ${FORGE_HOME}/scripts/check_contract_approval.py --approval contract-approval.json <要写的文件…>`；脚本 REFUSE 即不许动笔（含 scope 外文件）。**这是流程辅助，不是强制**：脚本只校验记录，验不了签发人身份，也不会自动触发，靠各角色自觉调用；宿主级强制需另配 PreToolUse hook。派工规模先按 `references/task-size-routing.md` 分拣：小改动到 dev + tdd，要写代码时先跑 1a 快速档，契约与安全门禁不豁免。接 PreToolUse hook 或 CI 时改用 `--staged`（已暂存）或 `--changed`（工作区改动加未跟踪新文件），不必自己拼路径列表。
+写码前先过机器门禁（准奏记录须含 `verify_commands`：每条验收命令都得解析得到、引用的文件真在，否则对所有目标一致拒绝；缺该字段的旧记录只打 WARN、不追溯打回，重新送审时补上）：`python ${FORGE_HOME}/scripts/check_contract_approval.py --approval contract-approval.json <要写的文件…>`；脚本 REFUSE 即不许动笔（含 scope 外文件）。**这是流程辅助，不是强制**：脚本只校验记录，验不了签发人身份，也不会自动触发，靠各角色自觉调用；宿主级强制需另配 PreToolUse hook。派工规模先按 `references/task-size-routing.md` 分拣：小改动到 dev + tdd，要写代码时先跑 1a 快速档，契约与安全门禁不豁免。接 PreToolUse hook 或 CI 时改用 `--staged`（已暂存）或 `--changed`（工作区改动加未跟踪新文件），不必自己拼路径列表。
 
 ### 1a 先搜后建（rbb）到底要交什么
 
@@ -142,6 +142,7 @@ contract 封驳 → planner/architect **只改被驳部分** → 重新送审 �
 - [ ] 测试通过（正常路径 + ≥1 边界 + ≥1 错误输入）
 - [ ] 安全门禁过（`python ${FORGE_HOME}/scripts/security_audit.py <repo>` 四项评分：SEC-2 有发现阻断；总分 ≥90 放行；规则见 `references/security-checklist.md`）
 - [ ] **实际在隔离运行时加载过一次**（或明确标注"未验证"及原因），不是"文件写完就算"
+- [ ] **交付前贴 §6 闸门快照**：`SKILL.md` §6 三条各一行实测结论（贴快照、每项写实、命中即返工）；只写「未命中」不算写实
 
 ## 三段回奏（最终交付格式）
 

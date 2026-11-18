@@ -1,7 +1,7 @@
 coopanion-forge 内核基线
 upstream repo=https://github.com/HorizonCloudy/plugin-forge
-ref sha=c9f1c15
-full=c9f1c15094b220a9b47685e24f359568811a3b97
+ref sha=e0b42d9
+full=e0b42d9f00319c5db8a9ba757f13eddb38082465
 synced by tools/sync_kernel.py --apply
 平台改写清单 platform/deltas.json；整件覆盖 platform/overrides/；移植件对到哪个上游 sha 记在 platform/port-ack.json，上游原文落在仓库外的 -kernel-incoming/
 

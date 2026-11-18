@@ -666,3 +666,23 @@ CI 新增「文档面密钥门禁」一步（override 真源与部署件逐字�
 本机门禁全绿：名册 `--self-test` 与 `--check`、扫描器自检 132 例、门禁自检 PASS、
 探针自检 39 例、`sync_kernel --self-test` 17 项、`gen_deltas --check`、
 `check_templates --check` 47 文件、按 CI 旗标的裸扫与两个严格档全部 100/100 退 0。
+
+## 2026-11-18 · 内核再同步 e0b42d9：声明豁免的出处核对进来
+
+内核这一轮带进来一条 CRITICAL 修复与两处判据收紧：
+
+- 点位声明现在要核对「出处在被审仓库里真查得到」。以前审外部仓时，被审方在真凭据那行
+  末尾自写一条格式合法的注释就能抹掉 SEC-2 的一票否决。改法与反例细节记在内核
+  AUDIT 的 A791 条目，本仓不重复
+- 名册门禁的字节面（`read` 保行尾、`write` 保 BOM）与豁免精确化也随同步进来，
+  本仓那份豁免清单里的 `_GATE-PROFILE.md` 已从 endswith 换成精确相对路径
+- 本仓扫描器自检 132 → 137 例；`--allow` 四项之外裸扫仍 100/100，
+  两个严格档与 `--strict-declared` 全退 0；两处点位声明仍然有效，
+  因为 `sec-declared` 这个锚点在本仓 AUDIT.md 里真存在——这条正好是新判据的正向用例
+
+移植件 `scripts/profile_drift.py` 的 ack 跟到 `e0b42d9`（`git diff --stat c9f1c15 e0b42d9 -- scripts/profile_drift.py`
+实测为空，探针件在这两个 ref 之间没变，所以这次 ack 不需要手搬）。
+
+全部门禁重跑：名册两项、门禁自检、探针 39 例、`sync_kernel --self-test` 17 项、
+`gen_deltas --check`、`check_templates --check` 47 文件、`install_hosts --self-test` 8 项、
+扫描含三个严格档，全部退 0。

@@ -7,7 +7,12 @@ grant no rights beyond it. LICENSE holds the MIT text plus a two-line pointer
 back to this file; the pointer adds no condition. Keeping the grant text in LICENSE
 is what lets automated license scanners recognise it.
 
-Provenance for every entry is recorded with its check date in AUDIT.md. Where an
+Provenance for each entry is recorded with its check date in the audit record for that
+family: AUDIT.md for this toolkit's own entries, the file-header snapshot note in
+skills/coopanion-forge/references/neko/mattpocock-skills.md for that third-party skill kit,
+and skills/coopanion-forge/references/neko/neko-court-source-notes.md for the NEKO court
+material. The N.E.K.O project itself is Apache-2.0 (verified against upstream metadata).
+Where an
 entry says the provenance is not established, treat it as unsettled, not as free
 to reuse.
 
