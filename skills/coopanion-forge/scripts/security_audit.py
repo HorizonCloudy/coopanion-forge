@@ -517,7 +517,10 @@ def citation_ok(root, line, cache=None):
     if text is None:
         return False
     if not anchor:
-        return True
+        # 「出处=AUDIT.md」不带锚点，等于说「账本里某处写过」。这不接受：
+        # 被审方只要放一本非空 AUDIT.md 就能免掉命中（A791 CRITICAL 的残留 R1）。
+        # 实测本仓 51 处、姊妹仓 32 处声明全都带 #锚点，收紧零回归。
+        return False
     return re.search(r"(?<![\w-])" + re.escape(anchor) + r"(?![\w-])", text) is not None
 
 
@@ -1151,6 +1154,15 @@ def _self_test():
             helper_bad.append("出处查无记录时声明仍然生效（A791 CRITICAL 没修住）")
         if not [h for h in _f2b["SEC-4"] if h["file"] == "ok_net.py"]:
             helper_bad.append("出处查无记录时 SEC-4 仍被免掉：fail-closed 的方向写反了")
+        # R1：`出处=AUDIT.md` 不带锚点不算数。否则放一本非空 AUDIT.md 就能自封豁免。
+        open(os.path.join(dd, "AUDIT.md"), "w", encoding="utf-8", newline=chr(10)).write(
+            "### 任意标题" + chr(10))
+        open(os.path.join(dd, "bare_cite.py"), "w", encoding="utf-8", newline=chr(10)).write(
+            "MY_API_PASSWORD = \"Sup3rS3cretValue\"  # forge-" + "declared: SEC-2 "
+            "理由=无锚点声明 出处=AUDIT.md 复审=2099-01-01" + chr(10))
+        _s2c, _f2c, _sk2c, _uc2c, _a2c = scan(dd, False, [], {"ok": [], "bad": []})
+        if not [h for h in _f2c["SEC-2"] if h["file"] == "bare_cite.py"]:
+            helper_bad.append("不带锚点的出处仍然豁免了 SEC-2（A791 R1 没修住）")
         if pw_hits:
             helper_bad.append("SEC-2 的赋值判定没认点位声明：%s" % (pw_hits[:1],))
         if not any(h["file"] == "declared_pw.py" for h in box2["ok"]):

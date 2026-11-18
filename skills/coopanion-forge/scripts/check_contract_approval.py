@@ -302,7 +302,11 @@ def command_problem(cmd, root):
         return "命令是空的"
     exe = parts[0]
     last = exe.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
-    path_like = ("/" in exe) or ("\\" in exe) or ("." in last)
+    # 旧判据用 `"." in last` 认路径，于是把版本化的解释器名全当工作区文件：
+    # `python3.11 -m pytest`、`pip3.12 install -r requirements-dev.txt`、`node.exe build.js`
+    # 都报「命令指向的文件不在工作区」（2026-11-18 实测三条全红）。
+    # 只有带分隔符或以 . / .. 开头的才算路径，其余交给 which 找。
+    path_like = ("/" in exe) or ("\\" in exe) or exe.startswith(("./", "../", ".\\"))
     if path_like:
         p = os.path.realpath(os.path.join(root, exe))
         if not os.path.isfile(p):
@@ -312,6 +316,8 @@ def command_problem(cmd, root):
         return "验收命令不许套 shell（%s）：把要跑的脚本直接写成一条命令" % exe
     elif shutil.which(exe) is None:
         return "这台机器上找不到 %s，命令跑不起来：%s" % (exe, text[:80])
+    # 走到这里说明 exe 是 PATH 上的可执行名。它带版本号（python3.11）也算数，
+    # 但找不到就该拒——上一版因为误判成路径，反而给出了误导的拒绝理由。
     for a in parts[1:]:
         if a.startswith("-") or "://" in a:
             continue
@@ -805,6 +811,17 @@ def _self_test():
         ('python -c "print(1', "问题", "引号没闭合"),
         ("   ", "问题", "空命令"),
     ]
+    # 版本化解释器名不能被当成工作区文件（2026-11-18 实测三条全红）。
+    # 判据写成「不许出现『不在工作区』这类理由」，因为它在不同机器上
+    # 可能 found 也可能 not found，唯一不许变的是拒绝的理由不能指错方向。
+    versioned = ["python3.11 -m pytest", "pip3.12 install -r requirements-dev.txt",
+                 "node.exe " + real_script]
+    for cmd in versioned:
+        got = command_problem(cmd, mdir) or ""
+        if "不在工作区" in got:
+            ok = False
+            print("SELF-TEST FAIL(验收命令): 版本化的程序名被当成工作区文件：%r → %s"
+                  % (cmd, got))
     for cmd, want, note in cp_cases:
         got = command_problem(cmd, mdir)
         bad = got is not None
